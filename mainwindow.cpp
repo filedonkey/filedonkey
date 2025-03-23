@@ -23,6 +23,17 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    restoreAction = new QAction(tr("&Restore"), this);
+    connect(restoreAction, &QAction::triggered, this, &QWidget::showNormal);
+
+    quitAction = new QAction(tr("&Quit"), this);
+    connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
+
+    createTrayIcon();
+    trayIcon->setIcon(QIcon(":/assets/donkey-dark-icon.ico"));
+    trayIcon->setToolTip("FileDonkey");
+    trayIcon->show();
+
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
     if (!server->listen())
     {
@@ -144,4 +155,17 @@ void MainWindow::onConnection()
         QJsonArray dirList = doc["dirList"].toArray();
         qDebug() << "[Server] Recieved: " << dirList.toVariantList();
     }
+}
+
+void MainWindow::createTrayIcon()
+{
+    trayIconMenu = new QMenu(this);
+    // trayIconMenu->addAction(minimizeAction);
+    // trayIconMenu->addAction(maximizeAction);
+    trayIconMenu->addAction(restoreAction);
+    trayIconMenu->addSeparator();
+    trayIconMenu->addAction(quitAction);
+
+    trayIcon = new QSystemTrayIcon(this);
+    trayIcon->setContextMenu(trayIconMenu);
 }

@@ -6,6 +6,9 @@
 #include <QTcpServer>
 #include <QUdpSocket>
 #include <QTcpSocket>
+#include <QSystemTrayIcon>
+#include <QMenu>
+#include <QAction>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -38,10 +41,17 @@ private:
     void broadcast();
     void establishConnection(const Connection&);
     void sendInitialInfo(const Connection&);
+    void createTrayIcon();
 
-    Ui::MainWindow *ui = nullptr;
+    Ui::MainWindow  *ui = nullptr;
+    QAction         *restoreAction;
+    QAction         *quitAction;
+    QSystemTrayIcon *trayIcon;
+    QMenu           *trayIconMenu;
+
     QTcpServer     *server = nullptr;
     QUdpSocket     *broadcaster = nullptr;
+
     QMap<QString, Connection> connections;
 };
 #endif // MAINWINDOW_H

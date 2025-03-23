@@ -23,7 +23,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    connect(server, SIGNAL(pendingConnectionAvailable()), this, SLOT(onConnection()));
+    connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
     if (!server->listen())
     {
         qDebug() << "[Server] Unable to start: " << server->errorString();

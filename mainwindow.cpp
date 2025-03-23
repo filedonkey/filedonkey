@@ -7,6 +7,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkDatagram>
+#include <QHostAddress>
 #include <QSysInfo>
 
 #define MACHINE_NAME    "Leg3nd's Desktop"
@@ -87,6 +88,8 @@ void MainWindow::onBroadcasting()
         qDebug() << "[IncomingBroadcasting] machine id: " << machine["id"].toString();
         qDebug() << "[IncomingBroadcasting] machine name: " << machine["name"].toString();
         qDebug() << "[IncomingBroadcasting] machine port: " << machine["port"].toString();
+        qDebug() << "[IncomingBroadcasting] sender address: " << senderAddress.toString();
+        qDebug() << "[IncomingBroadcasting] sender port: " << netDG.senderPort();
     }
 }
 

@@ -13,7 +13,6 @@
 
 #define MACHINE_NAME    "Leg3nd's Desktop"
 
-#define TCP_PORT    5500
 #define UDP_PORT    45454
 
 MainWindow::MainWindow(QWidget *parent)
@@ -25,7 +24,14 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     connect(server, SIGNAL(pendingConnectionAvailable()), this, SLOT(onConnection()));
-    server->listen(QHostAddress::LocalHost, TCP_PORT);
+    if (!server->listen())
+    {
+        qDebug() << "[Server] Unable to start: " << server->errorString();
+    }
+    else
+    {
+        qDebug() << "[Server] Started on port: " << server->serverPort();
+    }
 
     broadcast();
 
@@ -55,7 +61,7 @@ void MainWindow::broadcast()
 
     machine["id"]   = QSysInfo::machineUniqueId().constData();
     machine["name"] = MACHINE_NAME;
-    machine["port"] = TCP_PORT;
+    machine["port"] = server->serverPort();
 
     root["machine"] = machine;
 
@@ -98,12 +104,17 @@ void MainWindow::establishConnection(const Connection& conn)
 {
     Connection newConn = std::move(conn);
     newConn.socket = new QTcpSocket(this);
-    newConn.socket->connectToHost(newConn.machineAddress, newConn.machinePort);
+    qDebug() << "[establishConnection] try to connect";
+    newConn.socket->connectToHost(QHostAddress(newConn.machineAddress), newConn.machinePort);
     if (newConn.socket->waitForConnected())
     {
         connections.insert(newConn.machineId, newConn);
         qDebug() << "[establishConnection] socket connected";
         sendInitialInfo(newConn);
+    }
+    else
+    {
+        qDebug() << "[establishConnection] NOT connected: " << newConn.socket->errorString();
     }
 }
 

@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonValue>
 #include <QNetworkDatagram>
 #include <QHostAddress>
 #include <QSysInfo>
@@ -20,7 +21,6 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
     , server(new QTcpServer(this))
     , broadcaster(new QUdpSocket(this))
-    , socket(new QTcpSocket(this))
 {
     ui->setupUi(this);
 
@@ -31,29 +31,20 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(broadcaster, SIGNAL(readyRead()), this, SLOT(onBroadcasting()));
     broadcaster->bind(45454, QUdpSocket::ShareAddress);
-
-
-    // qDebug() << "[Client] Befor socket connect";
-    // socket->connectToHost(QHostAddress::LocalHost, TCP_PORT);
-    // qDebug() << "[Client] After socket connect";
-    // if (socket->waitForConnected())
-    // {
-    //     qDebug() << "[Client] Connected";
-    //     QDir dir("D:\\Pictures");
-    //     QStringList entries = dir.entryList();
-    //     qDebug() << "[Client] Entries: " << entries.size();
-    //     QJsonObject o;
-    //     o["dirList"] = QJsonArray::fromStringList(entries);
-    //     QByteArray d = QJsonDocument(o).toJson(QJsonDocument::Compact);
-    //     socket->write(d);
-    // }
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
     delete server;
-    delete socket;
+    delete broadcaster;
+
+    for (auto& conn : connections)
+    {
+        conn.socket->close();
+        delete conn.socket;
+    }
+    connections.clear();
 }
 
 void MainWindow::broadcast()
@@ -62,7 +53,7 @@ void MainWindow::broadcast()
     QJsonObject root;
     QJsonObject machine;
 
-    machine["id"] = QSysInfo::machineUniqueId().constData();
+    machine["id"]   = QSysInfo::machineUniqueId().constData();
     machine["name"] = MACHINE_NAME;
     machine["port"] = TCP_PORT;
 
@@ -85,12 +76,46 @@ void MainWindow::onBroadcasting()
         QJsonDocument doc = QJsonDocument::fromJson(datagram);
         QJsonObject machine = doc["machine"].toObject();
 
-        qDebug() << "[IncomingBroadcasting] machine id: " << machine["id"].toString();
-        qDebug() << "[IncomingBroadcasting] machine name: " << machine["name"].toString();
-        qDebug() << "[IncomingBroadcasting] machine port: " << machine["port"].toString();
-        qDebug() << "[IncomingBroadcasting] sender address: " << senderAddress.toString();
+        Connection newConn = {
+            .machineId = machine["id"].toString(),
+            .machineName = machine["name"].toString(),
+            .machineAddress = senderAddress.toString(),
+            .machinePort = machine["port"].toInteger(),
+            .socket = nullptr,
+        };
+
+        qDebug() << "[IncomingBroadcasting] machine id: " << newConn.machineId;
+        qDebug() << "[IncomingBroadcasting] machine name: " << newConn.machineName;
+        qDebug() << "[IncomingBroadcasting] machine port: " << newConn.machinePort;
+        qDebug() << "[IncomingBroadcasting] sender address: " << newConn.machineAddress;
         qDebug() << "[IncomingBroadcasting] sender port: " << netDG.senderPort();
+
+        establishConnection(newConn);
     }
+}
+
+void MainWindow::establishConnection(const Connection& conn)
+{
+    Connection newConn = std::move(conn);
+    newConn.socket = new QTcpSocket(this);
+    newConn.socket->connectToHost(newConn.machineAddress, newConn.machinePort);
+    if (newConn.socket->waitForConnected())
+    {
+        connections.insert(newConn.machineId, newConn);
+        qDebug() << "[establishConnection] socket connected";
+        sendInitialInfo(newConn);
+    }
+}
+
+void MainWindow::sendInitialInfo(const Connection& conn)
+{
+    QDir dir("D:\\Pictures");
+    QStringList entries = dir.entryList();
+    qDebug() << "[Client] Entries: " << entries.size();
+    QJsonObject root;
+    root["dirList"] = QJsonArray::fromStringList(entries);
+    QByteArray data = QJsonDocument(root).toJson(QJsonDocument::Compact);
+    conn.socket->write(data);
 }
 
 void MainWindow::onConnection()

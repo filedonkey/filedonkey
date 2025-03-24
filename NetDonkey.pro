@@ -10,10 +10,14 @@ CONFIG += c++17
 
 SOURCES += \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    virtdisk_linux.cpp \
+    virtdisk_macos.cpp \
+    virtdisk_win32.cpp
 
 HEADERS += \
-    mainwindow.h
+    mainwindow.h \
+    virtdisk.h
 
 FORMS += \
     mainwindow.ui

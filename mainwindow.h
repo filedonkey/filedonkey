@@ -1,6 +1,8 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "virtdisk.h"
+
 #include <QMainWindow>
 #include <QMap>
 #include <QTcpServer>
@@ -53,5 +55,7 @@ private:
     QUdpSocket     *broadcaster = nullptr;
 
     QMap<QString, Connection> connections;
+
+    VirtDisk *virtDisk = nullptr;
 };
 #endif // MAINWINDOW_H

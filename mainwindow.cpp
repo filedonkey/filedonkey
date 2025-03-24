@@ -20,6 +20,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
     , server(new QTcpServer(this))
     , broadcaster(new QUdpSocket(this))
+    , virtDisk(new VirtDisk())
 {
     ui->setupUi(this);
 
@@ -48,6 +49,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(broadcaster, SIGNAL(readyRead()), this, SLOT(onBroadcasting()));
     broadcaster->bind(45454, QUdpSocket::ShareAddress);
+
+    virtDisk->mount("M:\\");
 }
 
 MainWindow::~MainWindow()
@@ -55,6 +58,7 @@ MainWindow::~MainWindow()
     delete ui;
     delete server;
     delete broadcaster;
+    delete virtDisk;
 
     for (auto& conn : connections)
     {

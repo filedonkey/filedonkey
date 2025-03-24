@@ -1,4 +1,4 @@
-QT       += core gui network widgets
+QT       += core gui network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -27,7 +27,11 @@ TRANSLATIONS += \
 CONFIG += lrelease
 CONFIG += embed_translations
 
-win32:RC_ICONS += assets/donkey-dark-icon.ico
+win32 {
+    RC_ICONS += assets/donkey-dark-icon.ico
+    INCLUDEPATH += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/include"
+    LIBS += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/lib/dokan2.lib"
+}
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

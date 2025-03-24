@@ -136,8 +136,7 @@ static BOOL AddSeSecurityNamePrivilege() {
 
 #define MirrorCheckFlag(val, flag) if (val & flag) { qDebug() << "[MirrorCheckFlag] flag: " << #flag; }
 
-static NTSTATUS DOKAN_CALLBACK
-MirrorCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
+static NTSTATUS DOKAN_CALLBACK MirrorCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
                  ACCESS_MASK DesiredAccess, ULONG FileAttributes,
                  ULONG ShareAccess, ULONG CreateDisposition,
                  ULONG CreateOptions, PDOKAN_FILE_INFO DokanFileInfo) {
@@ -634,8 +633,7 @@ static NTSTATUS DOKAN_CALLBACK MirrorWriteFile(LPCWSTR FileName, LPCVOID Buffer,
     return STATUS_SUCCESS;
 }
 
-static NTSTATUS DOKAN_CALLBACK
-MirrorFlushFileBuffers(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK MirrorFlushFileBuffers(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
     WCHAR filePath[DOKAN_MAX_PATH];
     HANDLE handle = (HANDLE)DokanFileInfo->Context;
 
@@ -722,8 +720,7 @@ static NTSTATUS DOKAN_CALLBACK MirrorGetFileInformation(
     return STATUS_SUCCESS;
 }
 
-static NTSTATUS DOKAN_CALLBACK
-MirrorFindFiles(LPCWSTR FileName,
+static NTSTATUS DOKAN_CALLBACK MirrorFindFiles(LPCWSTR FileName,
                 PFillFindData FillFindData, // function pointer
                 PDOKAN_FILE_INFO DokanFileInfo)
 {
@@ -778,8 +775,7 @@ MirrorFindFiles(LPCWSTR FileName,
     return STATUS_SUCCESS;
 }
 
-static NTSTATUS DOKAN_CALLBACK
-MirrorDeleteFile(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK MirrorDeleteFile(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
     WCHAR filePath[DOKAN_MAX_PATH];
     HANDLE handle = (HANDLE)DokanFileInfo->Context;
 
@@ -803,8 +799,7 @@ MirrorDeleteFile(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
     return STATUS_SUCCESS;
 }
 
-static NTSTATUS DOKAN_CALLBACK
-MirrorDeleteDirectory(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
+static NTSTATUS DOKAN_CALLBACK MirrorDeleteDirectory(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
     WCHAR filePath[DOKAN_MAX_PATH];
     // HANDLE	handle = (HANDLE)DokanFileInfo->Context;
     HANDLE hFind;
@@ -859,8 +854,7 @@ MirrorDeleteDirectory(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
     return STATUS_SUCCESS;
 }
 
-static NTSTATUS DOKAN_CALLBACK
-MirrorMoveFile(LPCWSTR FileName, // existing file name
+static NTSTATUS DOKAN_CALLBACK MirrorMoveFile(LPCWSTR FileName, // existing file name
                LPCWSTR NewFileName, BOOL ReplaceIfExisting,
                PDOKAN_FILE_INFO DokanFileInfo) {
     WCHAR filePath[DOKAN_MAX_PATH];
@@ -1062,8 +1056,7 @@ static NTSTATUS DOKAN_CALLBACK MirrorSetFileAttributes(
     return STATUS_SUCCESS;
 }
 
-static NTSTATUS DOKAN_CALLBACK
-MirrorSetFileTime(LPCWSTR FileName, CONST FILETIME *CreationTime,
+static NTSTATUS DOKAN_CALLBACK MirrorSetFileTime(LPCWSTR FileName, CONST FILETIME *CreationTime,
                   CONST FILETIME *LastAccessTime, CONST FILETIME *LastWriteTime,
                   PDOKAN_FILE_INFO DokanFileInfo) {
     WCHAR filePath[DOKAN_MAX_PATH];
@@ -1090,8 +1083,7 @@ MirrorSetFileTime(LPCWSTR FileName, CONST FILETIME *CreationTime,
     return STATUS_SUCCESS;
 }
 
-static NTSTATUS DOKAN_CALLBACK
-MirrorUnlockFile(LPCWSTR FileName, LONGLONG ByteOffset, LONGLONG Length,
+static NTSTATUS DOKAN_CALLBACK MirrorUnlockFile(LPCWSTR FileName, LONGLONG ByteOffset, LONGLONG Length,
                  PDOKAN_FILE_INFO DokanFileInfo) {
     WCHAR filePath[DOKAN_MAX_PATH];
     HANDLE handle;
@@ -1332,8 +1324,7 @@ static NTSTATUS DOKAN_CALLBACK MirrorGetVolumeInformation(
     return STATUS_SUCCESS;
 }
 
-NTSTATUS DOKAN_CALLBACK
-MirrorFindStreams(LPCWSTR FileName, PFillFindStreamData FillFindStreamData,
+NTSTATUS DOKAN_CALLBACK MirrorFindStreams(LPCWSTR FileName, PFillFindStreamData FillFindStreamData,
                   PVOID FindStreamContext,
                   PDOKAN_FILE_INFO DokanFileInfo) {
     UNREFERENCED_PARAMETER(DokanFileInfo);

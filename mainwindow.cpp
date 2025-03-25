@@ -48,8 +48,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(broadcaster, SIGNAL(readyRead()), this, SLOT(onBroadcasting()));
     broadcaster->bind(45454, QUdpSocket::ShareAddress);
-
-    virtDisk->mount("M:\\");
 }
 
 MainWindow::~MainWindow()

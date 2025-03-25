@@ -16,6 +16,7 @@ SOURCES += \
     virtdisk_win32.cpp
 
 HEADERS += \
+    connection.h \
     mainwindow.h \
     virtdisk.h
 

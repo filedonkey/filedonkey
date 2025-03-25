@@ -13,18 +13,18 @@ BOOL g_HasSeSecurityPrivilege;
 BOOL g_ImpersonateCallerUser;
 
 static WCHAR gRootDirectory[128] = L"D:";
-static WCHAR gVolumeName[MAX_PATH + 1] = L"DOKAN";
+static WCHAR gVolumeName[MAX_PATH + 1] = L"Android Phone";
 static std::thread thread;
 
 #define DOKAN_MAX_PATH 32768
 
-VirtDisk::VirtDisk()
+VirtDisk::VirtDisk(const Connection& conn) : conn(conn)
 {
 }
 
 VirtDisk::~VirtDisk()
 {
-    DokanRemoveMountPoint(L"M:\\");
+    DokanRemoveMountPoint(this->mountPoint.toStdWString().c_str());
     if (thread.joinable())
     {
         thread.join();
@@ -1222,41 +1222,49 @@ static NTSTATUS DOKAN_CALLBACK MirrorSetFileSecurity(
     return STATUS_SUCCESS;
 }
 
+static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
+    PULONGLONG FreeBytesAvailable, PULONGLONG TotalNumberOfBytes,
+    PULONGLONG TotalNumberOfFreeBytes, PDOKAN_FILE_INFO DokanFileInfo) {
+    // UNREFERENCED_PARAMETER(DokanFileInfo);
+    Connection *conn = (Connection*)DokanFileInfo->DokanOptions->GlobalContext;
+
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] machineId: " << conn->machineId;
+
+    *FreeBytesAvailable = (ULONGLONG)(18450636288);
+    *TotalNumberOfBytes = (ULONGLONG)(122747575603);
+    *TotalNumberOfFreeBytes = (ULONGLONG)(18450636288);
+
+    return STATUS_SUCCESS;
+}
+
 // static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
 //     PULONGLONG FreeBytesAvailable, PULONGLONG TotalNumberOfBytes,
 //     PULONGLONG TotalNumberOfFreeBytes, PDOKAN_FILE_INFO DokanFileInfo) {
 //     UNREFERENCED_PARAMETER(DokanFileInfo);
+//     WCHAR DriveLetter[3] = {'C', ':', 0};
+//     PWCHAR RootPathName;
 
-//     *FreeBytesAvailable = (ULONGLONG)(512 * 1024 * 1024);
-//     *TotalNumberOfBytes = 9223372036854775807;
-//     *TotalNumberOfFreeBytes = 9223372036854775807;
+//     if (gRootDirectory[0] == L'\\') { // UNC as Root
+//         RootPathName = gRootDirectory;
+//     } else {
+//         DriveLetter[0] = gRootDirectory[0];
+//         RootPathName = DriveLetter;
+//     }
+
+//     if (!GetDiskFreeSpaceExW(RootPathName, (PULARGE_INTEGER)FreeBytesAvailable,
+//                              (PULARGE_INTEGER)TotalNumberOfBytes,
+//                              (PULARGE_INTEGER)TotalNumberOfFreeBytes)) {
+//         DWORD error = GetLastError();
+//         wprintf(L"GetDiskFreeSpaceEx failed for path %ws", RootPathName);
+//         return DokanNtStatusFromWin32(error);
+//     }
+
+//     qDebug() << "[MirrorDokanGetDiskFreeSpace] FreeBytesAvailable: " << *FreeBytesAvailable;
+//     qDebug() << "[MirrorDokanGetDiskFreeSpace] TotalNumberOfBytes: " << *TotalNumberOfBytes;
+//     qDebug() << "[MirrorDokanGetDiskFreeSpace] TotalNumberOfFreeBytes: " << *TotalNumberOfFreeBytes;
 
 //     return STATUS_SUCCESS;
 // }
-
-static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
-    PULONGLONG FreeBytesAvailable, PULONGLONG TotalNumberOfBytes,
-    PULONGLONG TotalNumberOfFreeBytes, PDOKAN_FILE_INFO DokanFileInfo) {
-    UNREFERENCED_PARAMETER(DokanFileInfo);
-    WCHAR DriveLetter[3] = {'C', ':', 0};
-    PWCHAR RootPathName;
-
-    if (gRootDirectory[0] == L'\\') { // UNC as Root
-        RootPathName = gRootDirectory;
-    } else {
-        DriveLetter[0] = gRootDirectory[0];
-        RootPathName = DriveLetter;
-    }
-
-    if (!GetDiskFreeSpaceExW(RootPathName, (PULARGE_INTEGER)FreeBytesAvailable,
-                             (PULARGE_INTEGER)TotalNumberOfBytes,
-                             (PULARGE_INTEGER)TotalNumberOfFreeBytes)) {
-        DWORD error = GetLastError();
-        wprintf(L"GetDiskFreeSpaceEx failed for path %ws", RootPathName);
-        return DokanNtStatusFromWin32(error);
-    }
-    return STATUS_SUCCESS;
-}
 
 static NTSTATUS DOKAN_CALLBACK MirrorGetVolumeInformation(
     LPWSTR VolumeNameBuffer, DWORD VolumeNameSize, LPDWORD VolumeSerialNumber,
@@ -1433,6 +1441,8 @@ static void Start(DOKAN_OPTIONS options, DOKAN_OPERATIONS operations)
 
 void VirtDisk::mount(const QString &mountPoint)
 {
+    this->mountPoint = mountPoint;
+
     DOKAN_OPERATIONS operations;
     DOKAN_OPTIONS options;
 
@@ -1440,9 +1450,10 @@ void VirtDisk::mount(const QString &mountPoint)
     ZeroMemory(&operations, sizeof(DOKAN_OPERATIONS));
 
     options.Version = DOKAN_VERSION;
-    options.MountPoint = L"M:\\"; //mountPoint.toStdWString().c_str();
+    options.MountPoint = this->mountPoint.toStdWString().c_str();
     options.Options |= DOKAN_OPTION_ALT_STREAM;
     options.Options |= DOKAN_OPTION_REMOVABLE;
+    options.GlobalContext = (ULONG64)&conn;
 
     operations.ZwCreateFile = MirrorCreateFile;
     operations.Cleanup = MirrorCleanup;

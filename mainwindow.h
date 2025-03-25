@@ -1,6 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "connection.h"
 #include "virtdisk.h"
 
 #include <QMainWindow>
@@ -17,15 +18,6 @@ namespace Ui {
 class MainWindow;
 }
 QT_END_NAMESPACE
-
-struct Connection
-{
-    QString machineId;
-    QString machineName;
-    QString machineAddress;
-    qint64 machinePort;
-    QTcpSocket *socket = nullptr;
-};
 
 class MainWindow : public QMainWindow
 {

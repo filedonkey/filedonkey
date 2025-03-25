@@ -20,7 +20,6 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
     , server(new QTcpServer(this))
     , broadcaster(new QUdpSocket(this))
-    , virtDisk(new VirtDisk())
 {
     ui->setupUi(this);
 
@@ -105,6 +104,8 @@ void MainWindow::onBroadcasting()
             .socket = nullptr,
         };
 
+        if (connections.contains(newConn.machineId)) return;
+
         qDebug() << "[IncomingBroadcasting] machine id: " << newConn.machineId;
         qDebug() << "[IncomingBroadcasting] machine name: " << newConn.machineName;
         qDebug() << "[IncomingBroadcasting] machine port: " << newConn.machinePort;
@@ -135,13 +136,16 @@ void MainWindow::establishConnection(const Connection& conn)
 
 void MainWindow::sendInitialInfo(const Connection& conn)
 {
-    QDir dir("D:\\Pictures");
-    QStringList entries = dir.entryList();
-    qDebug() << "[Client] Entries: " << entries.size();
-    QJsonObject root;
-    root["dirList"] = QJsonArray::fromStringList(entries);
-    QByteArray data = QJsonDocument(root).toJson(QJsonDocument::Compact);
-    conn.socket->write(data);
+    virtDisk = new VirtDisk(conn);
+    virtDisk->mount("M:\\");
+
+    // QDir dir("D:\\Pictures");
+    // QStringList entries = dir.entryList();
+    // qDebug() << "[Client] Entries: " << entries.size();
+    // QJsonObject root;
+    // root["dirList"] = QJsonArray::fromStringList(entries);
+    // QByteArray data = QJsonDocument(root).toJson(QJsonDocument::Compact);
+    // conn.socket->write(data);
 }
 
 void MainWindow::onConnection()

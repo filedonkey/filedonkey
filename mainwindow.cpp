@@ -189,6 +189,7 @@ void MainWindow::onSocketReadyRead()
     qDebug() << "[Server] incoming totalNumberOfFreeBytes: " << storage.bytesFree();
 
     QJsonObject response;
+    response["messageType"] = "response";
     response["operationName"] = operationName;
     response["freeBytesAvailable"] = storage.bytesAvailable();
     response["totalNumberOfBytes"] = storage.bytesTotal();

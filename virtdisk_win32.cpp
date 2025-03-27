@@ -9,6 +9,7 @@
 #include <dokan/dokan.h>
 #include <dokan/fileinfo.h>
 #include <thread>
+#include <sys/timeb.h>
 
 BOOL g_DebugMode;
 BOOL g_CaseSensitive;
@@ -16,7 +17,7 @@ BOOL g_HasSeSecurityPrivilege;
 BOOL g_ImpersonateCallerUser;
 
 static WCHAR gRootDirectory[128] = L"D:";
-static WCHAR gVolumeName[MAX_PATH + 1] = L"Android Phone";
+static WCHAR gVolumeName[MAX_PATH + 1] = L"MacBook Pro";
 static std::thread thread;
 
 #define DOKAN_MAX_PATH 32768
@@ -1231,7 +1232,12 @@ static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
     PULONGLONG TotalNumberOfFreeBytes,
     PDOKAN_FILE_INFO DokanFileInfo)
 {
-    const QString OPERATION_NAME = "GetDiskFreeSpace";
+    // clock_t start = clock();
+    timeb tstart;
+    timeb tend;
+    ftime(&tstart);
+
+    const QString OPERATION_NAME = "getDiskFreeSpace";
     Connection *conn = (Connection*)DokanFileInfo->DokanOptions->GlobalContext;
 
     if (!conn)
@@ -1251,6 +1257,7 @@ static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
     qDebug() << "[MirrorDokanGetDiskFreeSpace] machineId: " << conn->machineId;
 
     QJsonObject request;
+    request["messageType"] = "request";
     request["operationName"] = OPERATION_NAME;
     QByteArray data = QJsonDocument(request).toJson(QJsonDocument::Compact);
     socket->write(data);
@@ -1263,15 +1270,29 @@ static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
 
     QByteArray buff = socket->readAll();
     QJsonDocument response = QJsonDocument::fromJson(buff);
+    QString messageType = response["messageType"].toString();
     QString operationName = response["operationName"].toString();
 
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] response messageType: " << messageType;
     qDebug() << "[MirrorDokanGetDiskFreeSpace] response operationName: " << operationName;
 
+    if (messageType != "response")
+    {
+        qDebug() << "[MirrorDokanGetDiskFreeSpace] response message type is invalid";
+        return STATUS_DEVICE_OFF_LINE; // TODO: return correct status.
+    }
     if (operationName != OPERATION_NAME)
     {
         qDebug() << "[MirrorDokanGetDiskFreeSpace] response operation is invalid";
         return STATUS_DEVICE_OFF_LINE; // TODO: return correct status.
     }
+
+    // clock_t end = clock();
+    // double diff = static_cast<double>((end - start)) / static_cast<double>((CLOCKS_PER_SEC)) * 1000;
+    ftime(&tend);
+    double diff = (tend.time * 1000 + tend.millitm) - (tstart.time * 1000 + tstart.millitm);
+
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] operation took:" << diff << "ms";
 
     qDebug() << "[MirrorDokanGetDiskFreeSpace] response freeBytesAvailable: " << response["freeBytesAvailable"].toInteger();
     qDebug() << "[MirrorDokanGetDiskFreeSpace] response totalNumberOfBytes: " << response["totalNumberOfBytes"].toInteger();
@@ -1286,7 +1307,13 @@ static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
 
 // static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
 //     PULONGLONG FreeBytesAvailable, PULONGLONG TotalNumberOfBytes,
-//     PULONGLONG TotalNumberOfFreeBytes, PDOKAN_FILE_INFO DokanFileInfo) {
+//     PULONGLONG TotalNumberOfFreeBytes, PDOKAN_FILE_INFO DokanFileInfo)
+// {
+//     // clock_t start = clock();
+//     timeb tstart;
+//     timeb tend;
+//     ftime(&tstart);
+
 //     UNREFERENCED_PARAMETER(DokanFileInfo);
 //     WCHAR DriveLetter[3] = {'C', ':', 0};
 //     PWCHAR RootPathName;
@@ -1305,6 +1332,13 @@ static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
 //         wprintf(L"GetDiskFreeSpaceEx failed for path %ws", RootPathName);
 //         return DokanNtStatusFromWin32(error);
 //     }
+
+//     // clock_t end = clock();
+//     // double diff = static_cast<double>((end - start)) / static_cast<double>((CLOCKS_PER_SEC)) * 1000;
+//     ftime(&tend);
+//     double diff = (tend.time * 1000 + tend.millitm) - (tstart.time * 1000 + tstart.millitm);
+
+//     qDebug() << "[MirrorDokanGetDiskFreeSpace] operation took:" << diff << "ms";
 
 //     qDebug() << "[MirrorDokanGetDiskFreeSpace] FreeBytesAvailable: " << *FreeBytesAvailable;
 //     qDebug() << "[MirrorDokanGetDiskFreeSpace] TotalNumberOfBytes: " << *TotalNumberOfBytes;

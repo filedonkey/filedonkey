@@ -10,6 +10,7 @@
 #include <QNetworkDatagram>
 #include <QHostAddress>
 #include <QSysInfo>
+#include <QStorageInfo>
 
 #define MACHINE_NAME    "Leg3nd's Desktop"
 
@@ -157,9 +158,25 @@ void MainWindow::onConnection()
         qDebug() << "[Server] Wait for ready read" << newConnection->waitForReadyRead(3000);
 
         QByteArray buff = newConnection->readAll();
-        QJsonDocument doc = QJsonDocument::fromJson(buff);
-        QJsonArray dirList = doc["dirList"].toArray();
-        qDebug() << "[Server] Recieved: " << dirList.toVariantList();
+        QJsonDocument request = QJsonDocument::fromJson(buff);
+        QString operationName = request["operationName"].toString();
+
+        qDebug() << "[Server] incoming operationName: " << operationName;
+
+        QStorageInfo storage = QStorageInfo::root();
+        storage.bytesTotal();
+
+        QJsonObject response;
+        response["operationName"] = operationName;
+        response["freeBytesAvailable"] = storage.bytesAvailable();
+        response["totalNumberOfBytes"] = storage.bytesTotal();
+        response["totalNumberOfFreeBytes"] = storage.bytesFree();
+
+        QByteArray data = QJsonDocument(request).toJson(QJsonDocument::Compact);
+        newConnection->write(data);
+
+        // QJsonArray dirList = doc["dirList"].toArray();
+        // qDebug() << "[Server] Recieved: " << dirList.toVariantList();
     }
 }
 

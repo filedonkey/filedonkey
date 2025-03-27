@@ -3,6 +3,9 @@
 #include "virtdisk.h"
 
 #include <QDebug>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QByteArray>
 #include <dokan/dokan.h>
 #include <dokan/fileinfo.h>
 #include <thread>
@@ -24,7 +27,7 @@ VirtDisk::VirtDisk(const Connection& conn) : conn(conn)
 
 VirtDisk::~VirtDisk()
 {
-    DokanRemoveMountPoint(this->mountPoint.toStdWString().c_str());
+    DokanRemoveMountPoint(L"M:\\"); //this->mountPoint.toStdWString().c_str());
     if (thread.joinable())
     {
         thread.join();
@@ -1223,16 +1226,50 @@ static NTSTATUS DOKAN_CALLBACK MirrorSetFileSecurity(
 }
 
 static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
-    PULONGLONG FreeBytesAvailable, PULONGLONG TotalNumberOfBytes,
-    PULONGLONG TotalNumberOfFreeBytes, PDOKAN_FILE_INFO DokanFileInfo) {
-    // UNREFERENCED_PARAMETER(DokanFileInfo);
+    PULONGLONG FreeBytesAvailable,
+    PULONGLONG TotalNumberOfBytes,
+    PULONGLONG TotalNumberOfFreeBytes,
+    PDOKAN_FILE_INFO DokanFileInfo)
+{
+    const QString OPERATION_NAME = "GetDiskFreeSpace";
     Connection *conn = (Connection*)DokanFileInfo->DokanOptions->GlobalContext;
+
+    if (!conn)
+    {
+        qDebug() << "[MirrorDokanGetDiskFreeSpace] global context is empty";
+        return STATUS_DEVICE_OFF_LINE;
+    }
+
+    QTcpSocket *socket = conn->socket;
+
+    if (!socket)
+    {
+        qDebug() << "[MirrorDokanGetDiskFreeSpace] connection is invalid";
+        return STATUS_DEVICE_OFF_LINE;
+    }
 
     qDebug() << "[MirrorDokanGetDiskFreeSpace] machineId: " << conn->machineId;
 
-    *FreeBytesAvailable = (ULONGLONG)(18450636288);
-    *TotalNumberOfBytes = (ULONGLONG)(122747575603);
-    *TotalNumberOfFreeBytes = (ULONGLONG)(18450636288);
+    QJsonObject request;
+    request["operationName"] = OPERATION_NAME;
+    QByteArray data = QJsonDocument(request).toJson(QJsonDocument::Compact);
+    socket->write(data);
+
+    socket->waitForReadyRead();
+
+    QByteArray buff = socket->readAll();
+    QJsonDocument response = QJsonDocument::fromJson(buff);
+    QString operationName = response["operationName"].toString();
+
+    if (operationName != OPERATION_NAME)
+    {
+        qDebug() << "[MirrorDokanGetDiskFreeSpace] response operation is invalid";
+        return STATUS_DEVICE_OFF_LINE; // TODO: return correct status.
+    }
+
+    *FreeBytesAvailable = response["freeBytesAvailable"].toInteger();         //(ULONGLONG)(18450636288);
+    *TotalNumberOfBytes = response["totalNumberOfBytes"].toInteger();         //(ULONGLONG)(122747575603);
+    *TotalNumberOfFreeBytes = response["totalNumberOfFreeBytes"].toInteger(); //(ULONGLONG)(18450636288);
 
     return STATUS_SUCCESS;
 }
@@ -1450,7 +1487,7 @@ void VirtDisk::mount(const QString &mountPoint)
     ZeroMemory(&operations, sizeof(DOKAN_OPERATIONS));
 
     options.Version = DOKAN_VERSION;
-    options.MountPoint = this->mountPoint.toStdWString().c_str();
+    options.MountPoint = L"M:\\"; //this->mountPoint.toStdWString().c_str();
     options.Options |= DOKAN_OPTION_ALT_STREAM;
     options.Options |= DOKAN_OPTION_REMOVABLE;
     options.GlobalContext = (ULONG64)&conn;

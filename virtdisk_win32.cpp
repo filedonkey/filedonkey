@@ -1255,17 +1255,27 @@ static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
     QByteArray data = QJsonDocument(request).toJson(QJsonDocument::Compact);
     socket->write(data);
 
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] After write";
+
     socket->waitForReadyRead();
+
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] Before readAll";
 
     QByteArray buff = socket->readAll();
     QJsonDocument response = QJsonDocument::fromJson(buff);
     QString operationName = response["operationName"].toString();
+
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] response operationName: " << operationName;
 
     if (operationName != OPERATION_NAME)
     {
         qDebug() << "[MirrorDokanGetDiskFreeSpace] response operation is invalid";
         return STATUS_DEVICE_OFF_LINE; // TODO: return correct status.
     }
+
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] response freeBytesAvailable: " << response["freeBytesAvailable"].toInteger();
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] response totalNumberOfBytes: " << response["totalNumberOfBytes"].toInteger();
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] response totalNumberOfFreeBytes: " << response["totalNumberOfFreeBytes"].toInteger();
 
     *FreeBytesAvailable = response["freeBytesAvailable"].toInteger();         //(ULONGLONG)(18450636288);
     *TotalNumberOfBytes = response["totalNumberOfBytes"].toInteger();         //(ULONGLONG)(122747575603);
@@ -1441,6 +1451,15 @@ static NTSTATUS DOKAN_CALLBACK MirrorUnmounted(PDOKAN_FILE_INFO DokanFileInfo) {
 
 static void Start(DOKAN_OPTIONS options, DOKAN_OPERATIONS operations)
 {
+    Connection *newConn = (Connection*)options.GlobalContext;
+
+    newConn->socket = new QTcpSocket();
+    qDebug() << "[establishConnection] try to connect";
+    newConn->socket->connectToHost(QHostAddress(newConn->machineAddress), newConn->machinePort);
+    if (newConn->socket->waitForConnected())
+    {
+        qDebug() << "[establishConnection] socket connected";
+
     DokanInit();
     int status = DokanMain(&options, &operations);
     DokanShutdown();
@@ -1473,6 +1492,12 @@ static void Start(DOKAN_OPTIONS options, DOKAN_OPERATIONS operations)
     default:
         fprintf(stderr, "Unknown error: %d\n", status);
         break;
+    }
+
+    }
+    else
+    {
+        qDebug() << "[establishConnection] NOT connected: " << newConn->socket->errorString();
     }
 }
 

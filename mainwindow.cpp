@@ -111,7 +111,12 @@ void MainWindow::onBroadcasting()
         qDebug() << "[IncomingBroadcasting] sender address: " << newConn.machineAddress;
         qDebug() << "[IncomingBroadcasting] sender port: " << netDG.senderPort();
 
-        establishConnection(newConn);
+        connections.insert(newConn.machineId, newConn);
+
+        virtDisk = new VirtDisk(newConn);
+        virtDisk->mount("M:\\");
+
+        //establishConnection(newConn);
     }
 }
 

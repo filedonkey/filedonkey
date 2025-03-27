@@ -30,6 +30,7 @@ public:
 public slots:
     void onBroadcasting();
     void onConnection();
+    void onSocketReadyRead();
 
 private:
     void broadcast();

@@ -159,30 +159,43 @@ void MainWindow::onConnection()
     {
         qDebug() << "[Server] Befor next pending connection";
         QTcpSocket *newConnection = server->nextPendingConnection();
-        qDebug() << "[Server] Befor wait for ready read";
-        qDebug() << "[Server] Wait for ready read" << newConnection->waitForReadyRead(3000);
-
-        QByteArray buff = newConnection->readAll();
-        QJsonDocument request = QJsonDocument::fromJson(buff);
-        QString operationName = request["operationName"].toString();
-
-        qDebug() << "[Server] incoming operationName: " << operationName;
-
-        QStorageInfo storage = QStorageInfo::root();
-        storage.bytesTotal();
-
-        QJsonObject response;
-        response["operationName"] = operationName;
-        response["freeBytesAvailable"] = storage.bytesAvailable();
-        response["totalNumberOfBytes"] = storage.bytesTotal();
-        response["totalNumberOfFreeBytes"] = storage.bytesFree();
-
-        QByteArray data = QJsonDocument(request).toJson(QJsonDocument::Compact);
-        newConnection->write(data);
-
+        connect(newConnection, SIGNAL(readyRead()), this, SLOT(onSocketReadyRead()));
+        //qDebug() << "[Server] Befor wait for ready read";
+        //qDebug() << "[Server] Wait for ready read" << newConnection->waitForReadyRead(3000);
+        // QByteArray buff = newConnection->readAll();
+        // QJsonDocument doc = QJsonDocument::fromJson(buff);
         // QJsonArray dirList = doc["dirList"].toArray();
         // qDebug() << "[Server] Recieved: " << dirList.toVariantList();
     }
+}
+
+void MainWindow::onSocketReadyRead()
+{
+    QTcpSocket *newConnection = (QTcpSocket*)QObject::sender();
+
+    QByteArray buff = newConnection->readAll();
+    QJsonDocument request = QJsonDocument::fromJson(buff);
+    QString operationName = request["operationName"].toString();
+
+    qDebug() << "[Server] operationName: " << operationName;
+
+    qDebug() << "[Server] incoming operationName: " << operationName;
+
+    QStorageInfo storage = QStorageInfo::root();
+    storage.bytesTotal();
+
+    qDebug() << "[Server] incoming freeBytesAvailable: " << storage.bytesAvailable();
+    qDebug() << "[Server] incoming totalNumberOfBytes: " << storage.bytesTotal();
+    qDebug() << "[Server] incoming totalNumberOfFreeBytes: " << storage.bytesFree();
+
+    QJsonObject response;
+    response["operationName"] = operationName;
+    response["freeBytesAvailable"] = storage.bytesAvailable();
+    response["totalNumberOfBytes"] = storage.bytesTotal();
+    response["totalNumberOfFreeBytes"] = storage.bytesFree();
+
+    QByteArray data = QJsonDocument(response).toJson(QJsonDocument::Compact);
+    newConnection->write(data);
 }
 
 void MainWindow::createTrayIcon()

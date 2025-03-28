@@ -34,6 +34,12 @@ win32 {
     LIBS += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/lib/dokan2.lib"
 }
 
+macx {
+    INCLUDEPATH += "/usr/local/include/fuse"
+    LIBS += "/usr/local/lib/libfuse.dylib"
+    QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
+}
+
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin

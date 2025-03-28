@@ -1027,7 +1027,9 @@ static const struct fuse_opt loopback_opts[] = {
 
 void VirtDisk::mount(const QString &mountPoint)
 {
-    struct fuse_args args;// = FUSE_ARGS_INIT(argc, argv);
+    int argc = 4;
+    char *argv[] = {"FileDonkey", "/Users/igorgoremykin/fuse/", "-o", "volname=Windows  PC"};
+    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
     loopback.blocksize = 4096;
     loopback.case_insensitive = 0;
@@ -1037,6 +1039,8 @@ void VirtDisk::mount(const QString &mountPoint)
 
     umask(0);
     int res = fuse_main(args.argc, args.argv, &loopback_oper, NULL);
+
+    qDebug() << "fuse_main result: " << res;
 
     fuse_opt_free_args(&args);
 }

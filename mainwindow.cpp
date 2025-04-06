@@ -31,9 +31,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
 
     createTrayIcon();
-    trayIcon->setIcon(QIcon(":/assets/donkey-dark-icon.ico"));
-    trayIcon->setToolTip("FileDonkey");
-    trayIcon->show();
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
     if (!server->listen())
@@ -60,6 +57,7 @@ MainWindow::~MainWindow()
 
     for (auto& conn : connections)
     {
+        if (!conn.socket) continue;
         conn.socket->close();
         delete conn.socket;
     }
@@ -96,20 +94,20 @@ void MainWindow::onBroadcasting()
         QJsonObject machine = doc["machine"].toObject();
 
         Connection newConn = {
-            .machineId = machine["id"].toString(),
-            .machineName = machine["name"].toString(),
+            .machineId      = machine["id"].toString(),
+            .machineName    = machine["name"].toString(),
             .machineAddress = senderAddress.toString(),
-            .machinePort = machine["port"].toInteger(),
-            .socket = nullptr,
+            .machinePort    = machine["port"].toInteger(),
+            .socket         = nullptr,
         };
 
         if (connections.contains(newConn.machineId)) return;
 
-        qDebug() << "[IncomingBroadcasting] machine id: " << newConn.machineId;
-        qDebug() << "[IncomingBroadcasting] machine name: " << newConn.machineName;
-        qDebug() << "[IncomingBroadcasting] machine port: " << newConn.machinePort;
+        qDebug() << "[IncomingBroadcasting] machine id: "     << newConn.machineId;
+        qDebug() << "[IncomingBroadcasting] machine name: "   << newConn.machineName;
+        qDebug() << "[IncomingBroadcasting] machine port: "   << newConn.machinePort;
         qDebug() << "[IncomingBroadcasting] sender address: " << newConn.machineAddress;
-        qDebug() << "[IncomingBroadcasting] sender port: " << netDG.senderPort();
+        qDebug() << "[IncomingBroadcasting] sender port: "    << netDG.senderPort();
 
         connections.insert(newConn.machineId, newConn);
 
@@ -209,5 +207,8 @@ void MainWindow::createTrayIcon()
     trayIconMenu->addAction(quitAction);
 
     trayIcon = new QSystemTrayIcon(this);
+    trayIcon->setIcon(QIcon(":/assets/donkey-dark-icon.ico"));
+    trayIcon->setToolTip("FileDonkey");
     trayIcon->setContextMenu(trayIconMenu);
+    trayIcon->show();
 }

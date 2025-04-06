@@ -1486,13 +1486,18 @@ static NTSTATUS DOKAN_CALLBACK MirrorUnmounted(PDOKAN_FILE_INFO DokanFileInfo) {
 static void Start(DOKAN_OPTIONS options, DOKAN_OPERATIONS operations)
 {
     Connection *newConn = (Connection*)options.GlobalContext;
-
     newConn->socket = new QTcpSocket();
     qDebug() << "[establishConnection] try to connect";
     newConn->socket->connectToHost(QHostAddress(newConn->machineAddress), newConn->machinePort);
-    if (newConn->socket->waitForConnected())
+    if (!newConn->socket->waitForConnected())
     {
-        qDebug() << "[establishConnection] socket connected";
+        qDebug() 
+            << "[establishConnection] socket connection error: " 
+            << newConn->socket->errorString();
+        return;
+    }
+
+    qDebug() << "[establishConnection] socket connected";
 
     DokanInit();
     int status = DokanMain(&options, &operations);
@@ -1526,12 +1531,6 @@ static void Start(DOKAN_OPTIONS options, DOKAN_OPERATIONS operations)
     default:
         fprintf(stderr, "Unknown error: %d\n", status);
         break;
-    }
-
-    }
-    else
-    {
-        qDebug() << "[establishConnection] NOT connected: " << newConn->socket->errorString();
     }
 }
 

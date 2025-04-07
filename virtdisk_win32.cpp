@@ -1,4 +1,6 @@
-#ifdef __WIN32
+#define __FUSE__
+
+#if defined(__WIN32) && !defined(__FUSE__)
 
 #include "virtdisk.h"
 

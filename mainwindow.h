@@ -31,6 +31,7 @@ public slots:
     void onBroadcasting();
     void onConnection();
     void onSocketReadyRead();
+    void onUpgradeToPro();
 
 private:
     void broadcast();
@@ -41,6 +42,7 @@ private:
     Ui::MainWindow  *ui = nullptr;
     QAction         *restoreAction;
     QAction         *quitAction;
+    QAction         *upgradeToProAction;
     QSystemTrayIcon *trayIcon;
     QMenu           *trayIconMenu;
 

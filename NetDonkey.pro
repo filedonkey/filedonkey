@@ -13,7 +13,8 @@ SOURCES += \
     mainwindow.cpp \
     virtdisk_linux.cpp \
     virtdisk_macos.cpp \
-    virtdisk_win32.cpp
+    virtdisk_win32.cpp \
+    virtdisk_fuse.cpp
 
 HEADERS += \
     connection.h \
@@ -25,13 +26,15 @@ FORMS += \
 
 TRANSLATIONS += \
     NetDonkey_en_US.ts
+
 CONFIG += lrelease
 CONFIG += embed_translations
 
 win32 {
     RC_ICONS += assets/donkey-dark-icon.ico
     INCLUDEPATH += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/include"
-    LIBS += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/lib/dokan2.lib"
+    LIBS += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/lib/dokanfuse2.lib"
+    QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
 }
 
 macx {

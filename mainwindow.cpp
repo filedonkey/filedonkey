@@ -11,6 +11,7 @@
 #include <QHostAddress>
 #include <QSysInfo>
 #include <QStorageInfo>
+#include <QDesktopServices>
 
 #define MACHINE_NAME    "Leg3nd's Desktop"
 
@@ -29,6 +30,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     quitAction = new QAction(tr("&Quit"), this);
     connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
+
+    upgradeToProAction = new QAction(tr("&Upgrade to Pro"), this);
+    connect(upgradeToProAction, &QAction::triggered, this, &MainWindow::onUpgradeToPro);
 
     createTrayIcon();
 
@@ -197,12 +201,19 @@ void MainWindow::onSocketReadyRead()
     newConnection->write(data);
 }
 
+void MainWindow::onUpgradeToPro()
+{
+    QString link = "https://filedonkey.app";
+    QDesktopServices::openUrl(QUrl(link));
+}
+
 void MainWindow::createTrayIcon()
 {
     trayIconMenu = new QMenu(this);
     // trayIconMenu->addAction(minimizeAction);
     // trayIconMenu->addAction(maximizeAction);
     trayIconMenu->addAction(restoreAction);
+    trayIconMenu->addAction(upgradeToProAction);
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(quitAction);
 

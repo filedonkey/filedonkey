@@ -294,10 +294,19 @@ static int xmp_statfs(const char *path, struct statvfs *stbuf)
     // if (res == -1)
     //     return -errno;
 
-    stbuf->f_blocks = 122747575603;
-    stbuf->f_bavail = 18450636288;
-    stbuf->f_bfree = 18450636288;
-    stbuf->f_bsize = 4096;
+    qDebug() << "[xmp_statfs] path: " << path;
+
+    stbuf->f_bavail = 12006580;
+    stbuf->f_bfree = 12006580;
+    stbuf->f_blocks = 61202533;
+    stbuf->f_bsize = 1048576;
+    stbuf->f_ffree = 480263200;
+    stbuf->f_files = 480765579;
+    stbuf->f_favail = 480263200;
+    stbuf->f_flag = 1;
+    stbuf->f_frsize = 4096;
+    stbuf->f_fsid = 16777226;
+    stbuf->f_namemax = 255;
 
     return 0;
 }

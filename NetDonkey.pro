@@ -39,7 +39,7 @@ win32 {
 
 macx {
     INCLUDEPATH += "/usr/local/include/fuse"
-    LIBS += "/usr/local/lib/libfuse.dylib"
+    LIBS += "/usr/local/lib/libfuse-t.dylib"
     QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
 }
 

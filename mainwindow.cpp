@@ -233,7 +233,7 @@ void MainWindow::createTrayIcon()
     trayIconMenu->addAction(quitAction);
 
     trayIcon = new QSystemTrayIcon(this);
-    trayIcon->setIcon(QIcon(":/assets/donkey-dark-icon.ico"));
+    trayIcon->setIcon(QIcon(":/assets/filedonkey_tray_icon_light.ico"));
     trayIcon->setToolTip("FileDonkey");
     trayIcon->setContextMenu(trayIconMenu);
     trayIcon->show();

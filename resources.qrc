@@ -1,5 +1,7 @@
 <RCC>
     <qresource prefix="/">
-        <file>assets/donkey-dark-icon.ico</file>
+        <file>assets/filedonkey_app_icon.ico</file>
+        <file>assets/filedonkey_tray_icon_light.ico</file>
+        <file>assets/filedonkey_tray_icon_dark.ico</file>
     </qresource>
 </RCC>

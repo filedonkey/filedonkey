@@ -33,7 +33,8 @@ CONFIG += lrelease
 CONFIG += embed_translations
 
 win32 {
-    RC_ICONS += assets/donkey-dark-icon.ico
+    # magick icon.png -define icon:auto-resize=16,32,48,64,96,128,256 -compress zip icon.ico
+    RC_ICONS += assets/filedonkey_app_icon.ico
     INCLUDEPATH += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/include"
     LIBS += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/lib/dokanfuse2.lib"
     QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64

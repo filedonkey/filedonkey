@@ -3,6 +3,7 @@
 #if defined(__WIN32) && defined(__FUSE__)
 
 #include "virtdisk.h"
+#include <thread>
 
 #define FUSE_USE_VERSION 30
 
@@ -30,7 +31,12 @@
 #include <direct.h>
 
 #define mkdir(path, mode)    _mkdir(path)
-#define lstat                _stat64
+
+static std::thread thread;
+static struct fuse *f;
+static struct fuse_chan *ch;
+static struct fuse_session *se;
+static char *mountpoint = "D:\\";
 
 VirtDisk::VirtDisk(const Connection& conn) : conn(conn)
 {
@@ -38,10 +44,16 @@ VirtDisk::VirtDisk(const Connection& conn) : conn(conn)
 
 VirtDisk::~VirtDisk()
 {
+    qDebug() << "~VirtDisk";
+    fuse_exit(f);
+    fuse_remove_signal_handlers(se);
+    fuse_unmount(mountpoint, ch);
 }
 
 static int xmp_getattr(const char *path, struct FUSE_STAT /*stat*/ *stbuf)
 {
+    qDebug() << "[xmp_getattr] path: " << path;
+
     // int res;
 
     // res = lstat(path, stbuf);
@@ -53,6 +65,8 @@ static int xmp_getattr(const char *path, struct FUSE_STAT /*stat*/ *stbuf)
 
 static int xmp_access(const char *path, int mask)
 {
+    qDebug() << "[xmp_access] path: " << path;
+
     int res;
 
     res = access(path, mask);
@@ -64,6 +78,8 @@ static int xmp_access(const char *path, int mask)
 
 static int xmp_readlink(const char *path, char *buf, size_t size)
 {
+    qDebug() << "[xmp_readlink] path: " << path;
+
     // int res;
 
     // res = readlink(path, buf, size - 1);
@@ -78,6 +94,8 @@ static int xmp_readlink(const char *path, char *buf, size_t size)
 static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                        off_t offset, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_readdir] path: " << path;
+
     DIR *dp;
     struct dirent *de;
 
@@ -103,6 +121,8 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)
 {
+    qDebug() << "[xmp_mknod] path: " << path;
+
     int res;
 
     /* On Linux this could just be 'mknod(path, mode, rdev)' but this
@@ -123,6 +143,8 @@ static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)
 
 static int xmp_mkdir(const char *path, mode_t mode)
 {
+    qDebug() << "[xmp_mkdir] path: " << path;
+
     int res;
 
     res = mkdir(path, mode);
@@ -134,6 +156,8 @@ static int xmp_mkdir(const char *path, mode_t mode)
 
 static int xmp_unlink(const char *path)
 {
+    qDebug() << "[xmp_unlink] path: " << path;
+
     int res;
 
     res = unlink(path);
@@ -145,6 +169,8 @@ static int xmp_unlink(const char *path)
 
 static int xmp_rmdir(const char *path)
 {
+    qDebug() << "[xmp_rmdir] path: " << path;
+
     int res;
 
     res = rmdir(path);
@@ -156,6 +182,8 @@ static int xmp_rmdir(const char *path)
 
 static int xmp_symlink(const char *from, const char *to)
 {
+    qDebug() << "[xmp_symlink] from: " << from;
+
     int res;
 
     // res = symlink(from, to);
@@ -167,6 +195,8 @@ static int xmp_symlink(const char *from, const char *to)
 
 static int xmp_rename(const char *from, const char *to)
 {
+    qDebug() << "[xmp_rename] from: " << from;
+
     int res;
 
     res = rename(from, to);
@@ -178,6 +208,8 @@ static int xmp_rename(const char *from, const char *to)
 
 static int xmp_link(const char *from, const char *to)
 {
+    qDebug() << "[xmp_link] path: " << from;
+
     int res;
 
     // res = link(from, to);
@@ -189,6 +221,8 @@ static int xmp_link(const char *from, const char *to)
 
 static int xmp_chmod(const char *path, mode_t mode)
 {
+    qDebug() << "[xmp_chmod] path: " << path;
+
     int res;
 
     res = chmod(path, mode);
@@ -200,6 +234,8 @@ static int xmp_chmod(const char *path, mode_t mode)
 
 static int xmp_chown(const char *path, uid_t uid, gid_t gid)
 {
+    qDebug() << "[xmp_chown] path: " << path;
+
     int res;
 
     // res = lchown(path, uid, gid);
@@ -211,6 +247,8 @@ static int xmp_chown(const char *path, uid_t uid, gid_t gid)
 
 static int xmp_truncate(const char *path, off_t size)
 {
+    qDebug() << "[xmp_truncate] path: " << path;
+
     int res;
 
     res = truncate(path, size);
@@ -236,6 +274,8 @@ static int xmp_utimens(const char *path, const struct timespec ts[2])
 
 static int xmp_open(const char *path, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_open] path: " << path;
+
     int res;
 
     res = open(path, fi->flags);
@@ -249,6 +289,8 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_read] path: " << path;
+
     // int fd;
     // int res;
 
@@ -269,6 +311,8 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 static int xmp_write(const char *path, const char *buf, size_t size,
                      off_t offset, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_write] path: " << path;
+
     // int fd;
     // int res;
 
@@ -313,6 +357,8 @@ static int xmp_statfs(const char *path, struct statvfs *stbuf)
 
 static int xmp_release(const char *path, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_release] path: " << path;
+
     /* Just a stub.	 This method is optional and can safely be left
        unimplemented */
 
@@ -324,6 +370,8 @@ static int xmp_release(const char *path, struct fuse_file_info *fi)
 static int xmp_fsync(const char *path, int isdatasync,
                      struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_fsync] path: " << path;
+
     /* Just a stub.	 This method is optional and can safely be left
        unimplemented */
 
@@ -393,6 +441,47 @@ static int xmp_removexattr(const char *path, const char *name)
 }
 #endif /* HAVE_SETXATTR */
 
+/*
+ * List of fuse operations that are the same for macFUSE and Dokan FUSE
+ *
+    getattr
+    readlink
+    getdir
+    mknod
+    mkdir
+    unlink
+    rmdir
+    symlink
+    rename
+    link
+    chmod
+    chown
+    truncate
+  ? utime
+    open
+    read
+    write
+    statfs
+  - flush
+    release
+    fsync
+  ? setxattr
+  ? getxattr
+  ? listxattr
+  ? removexattr
+  - opendir
+    readdir
+  - releasedir
+  - fsyncdir
+    access
+  - create
+  - ftruncate
+  - fgetattr
+  - lock
+  - utimens
+  - bmap
+ */
+
 static struct fuse_operations xmp_oper = {
     .getattr	= xmp_getattr,
     .readlink	= xmp_readlink,
@@ -428,11 +517,50 @@ static struct fuse_operations xmp_oper = {
     .access		= xmp_access,
 };
 
-void VirtDisk::mount(const QString &mountPoint)
+static void Start(const Connection &conn)
 {
     int argc = 4;
     char *argv[] = {"FileDonkey", "M:", "-o", "volname=MacBook Pro"};
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+    int err = -1;
+
+    if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
+        (ch = fuse_mount(mountpoint, &args)) != NULL) {
+
+        f = fuse_new(ch, &args, &xmp_oper,
+                     sizeof(xmp_oper), (void *)&conn);
+
+
+        se = fuse_get_session(f);
+        fuse_set_signal_handlers(se);
+
+
+        qDebug() << "before fuse_loop call";
+        fuse_loop(f);
+        qDebug() << "after fuse_loop call";
+
+
+        //            if (se != NULL) {
+        //                if (fuse_set_signal_handlers(se) != -1) {
+        //                    fuse_session_add_chan(se, ch);
+        //                    err = fuse_session_loop(se);
+        //                    fuse_remove_signal_handlers(se);
+        //                    fuse_session_remove_chan(ch);
+        //                }
+        //                fuse_session_destroy(se);
+        //            }
+        fuse_exit(f);
+        fuse_unmount(mountpoint, ch);
+    }
+
+    fuse_opt_free_args(&args);
+}
+
+void VirtDisk::mount(const QString &mountPoint)
+{
+    // int argc = 4;
+    // char *argv[] = {"FileDonkey", "M:", "-o", "volname=MacBook Pro"};
+    // struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
     // loopback.blocksize = 4096;
     // loopback.case_insensitive = 0;
@@ -440,12 +568,14 @@ void VirtDisk::mount(const QString &mountPoint)
     //     exit(1);
     // }
 
-    umask(0);
-    int res = fuse_main(args.argc, args.argv, &xmp_oper, NULL);
+    // umask(0);
+    // int res = fuse_main(args.argc, args.argv, &xmp_oper, NULL);
 
-    qDebug() << "fuse_main result: " << res;
+    // qDebug() << "fuse_main result: " << res;
 
-    fuse_opt_free_args(&args);
+    // fuse_opt_free_args(&args);
+
+    thread = std::thread(Start, conn);
 }
 
 // int main(int argc, char *argv[])

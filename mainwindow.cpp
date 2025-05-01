@@ -36,6 +36,21 @@ MainWindow::MainWindow(QWidget *parent)
 
     createTrayIcon();
 
+    //------------------------------------------------------------------------------------
+    // For local testing
+    //------------------------------------------------------------------------------------
+    Connection conn = {
+        .machineId      = "test_machine_id",
+        .machineName    = "test_machine_name",
+        .machineAddress = "test_machine_address",
+        .machinePort    = 0,
+        .socket         = nullptr,
+    };
+    virtDisk = new VirtDisk(conn);
+    virtDisk->mount("M:\\");
+    return;
+    //------------------------------------------------------------------------------------
+
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
     if (!server->listen())
     {

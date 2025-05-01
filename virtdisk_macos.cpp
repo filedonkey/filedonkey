@@ -87,9 +87,49 @@ static int xmp_getattr(const char *path, struct stat *stbuf)
 {
     int res;
 
+    qDebug() << "Before:";
+        qDebug() << "st_atimespec" << stbuf->st_atimespec.tv_sec << stbuf->st_atimespec.tv_nsec;
+        qDebug() << "st_birthtimespec" << stbuf->st_birthtimespec.tv_sec << stbuf->st_birthtimespec.tv_nsec;
+        qDebug() << "st_blksize" << stbuf->st_blksize;
+        qDebug() << "st_blocks" << stbuf->st_blocks;
+        qDebug() << "st_ctimespec" << stbuf->st_ctimespec.tv_sec << stbuf->st_ctimespec.tv_nsec;
+        qDebug() << "st_dev" << stbuf->st_dev;
+        qDebug() << "st_flags" << stbuf->st_flags;
+        qDebug() << "st_gen" << stbuf->st_gen;
+        qDebug() << "st_gid" << stbuf->st_gid;
+        qDebug() << "st_ino" << stbuf->st_ino;
+        qDebug() << "st_lspare" << stbuf->st_lspare;
+        qDebug() << "st_mode" << stbuf->st_mode;
+        qDebug() << "st_mtimespec" << stbuf->st_mtimespec.tv_sec << stbuf->st_mtimespec.tv_nsec;
+        qDebug() << "st_nlink" << stbuf->st_nlink;
+        qDebug() << "st_qspare" << stbuf->st_qspare;
+        qDebug() << "st_rdev" << stbuf->st_rdev;
+        qDebug() << "st_size" << stbuf->st_size;
+        qDebug() << "st_uid" << stbuf->st_uid;
+
     res = lstat(path, stbuf);
     if (res == -1)
         return -errno;
+
+    qDebug() << "After:";
+        qDebug() << "st_atimespec" << stbuf->st_atimespec.tv_sec << stbuf->st_atimespec.tv_nsec;
+        qDebug() << "st_birthtimespec" << stbuf->st_birthtimespec.tv_sec << stbuf->st_birthtimespec.tv_nsec;
+        qDebug() << "st_blksize" << stbuf->st_blksize;
+        qDebug() << "st_blocks" << stbuf->st_blocks;
+        qDebug() << "st_ctimespec" << stbuf->st_ctimespec.tv_sec << stbuf->st_ctimespec.tv_nsec;
+        qDebug() << "st_dev" << stbuf->st_dev;
+        qDebug() << "st_flags" << stbuf->st_flags;
+        qDebug() << "st_gen" << stbuf->st_gen;
+        qDebug() << "st_gid" << stbuf->st_gid;
+        qDebug() << "st_ino" << stbuf->st_ino;
+        qDebug() << "st_lspare" << stbuf->st_lspare;
+        qDebug() << "st_mode" << stbuf->st_mode;
+        qDebug() << "st_mtimespec" << stbuf->st_mtimespec.tv_sec << stbuf->st_mtimespec.tv_nsec;
+        qDebug() << "st_nlink" << stbuf->st_nlink;
+        qDebug() << "st_qspare" << stbuf->st_qspare;
+        qDebug() << "st_rdev" << stbuf->st_rdev;
+        qDebug() << "st_size" << stbuf->st_size;
+        qDebug() << "st_uid" << stbuf->st_uid;
 
     return 0;
 }

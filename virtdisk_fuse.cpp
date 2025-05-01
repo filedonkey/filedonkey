@@ -11,6 +11,11 @@
 #include <config.h>
 #endif
 
+#if defined(__WIN32)
+#include "statvfs_win32.cpp"
+#include "lstat_win32.cpp"
+#endif
+
 #ifdef linux
 /* For pread()/pwrite()/utimensat() */
 #define _XOPEN_SOURCE 700
@@ -54,11 +59,27 @@ static int xmp_getattr(const char *path, struct FUSE_STAT /*stat*/ *stbuf)
 {
     qDebug() << "[xmp_getattr] path: " << path;
 
-    // int res;
+    int res;
 
-    // res = lstat(path, stbuf);
-    // if (res == -1)
-    //     return -errno;
+    res = lstat(path, stbuf);
+    if (res == -1)
+        return -errno;
+
+    qDebug() << "\tst_atimespec" << stbuf->st_atim.tv_sec << stbuf->st_atim.tv_nsec;
+    qDebug() << "\tst_birthtimespec" << stbuf->st_birthtim.tv_sec << stbuf->st_birthtim.tv_nsec;
+    qDebug() << "\tst_blksize" << stbuf->st_blksize;
+    qDebug() << "\tst_blocks" << stbuf->st_blocks;
+    qDebug() << "\tst_ctimespec" << stbuf->st_ctim.tv_sec << stbuf->st_ctim.tv_nsec;
+    qDebug() << "\tst_dev" << stbuf->st_dev;
+    qDebug() << "\tst_gid" << stbuf->st_gid;
+    qDebug() << "\tst_ino" << stbuf->st_ino;
+    qDebug() << "\tst_mode" << stbuf->st_mode;
+    qDebug() << "\tst_mtimespec" << stbuf->st_mtim.tv_sec << stbuf->st_mtim.tv_nsec;
+    qDebug() << "\tst_nlink" << stbuf->st_nlink;
+    qDebug() << "\tst_rdev" << stbuf->st_rdev;
+    qDebug() << "\tst_size" << stbuf->st_size;
+    qDebug() << "\tst_uid" << stbuf->st_uid;
+    qDebug() << "\t";
 
     return 0;
 }
@@ -106,14 +127,55 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     if (dp == NULL)
         return -errno;
 
-    // while ((de = readdir(dp)) != NULL) {
-    //     struct stat st;
-    //     memset(&st, 0, sizeof(st));
-    //     st.st_ino = de->d_ino;
-    //     st.st_mode = de->d_type << 12;
-    //     if (filler(buf, de->d_name, &st, 0))
-    //         break;
-    // }
+    while ((de = readdir(dp)) != NULL) {
+        //--------------------------------------------------------------------------------
+        // Windows addition
+        //--------------------------------------------------------------------------------
+        size_t dientPathLen = strlen(dp->dd_name) + strlen(de->d_name);
+        char *direntPath = (char *)alloca(dientPathLen);
+        memset(direntPath, 0, dientPathLen);
+        memcpy(direntPath, dp->dd_name, strlen(dp->dd_name));
+        memcpy(direntPath + (strlen(dp->dd_name) - 1), de->d_name, strlen(de->d_name));
+
+
+        int wchars_needed = MultiByteToWideChar(CP_UTF8, 0, direntPath, -1, NULL, 0);
+        if (wchars_needed <= 0) {
+            return -1;
+        }
+
+        wchar_t* wpath = new wchar_t[wchars_needed];
+        if (MultiByteToWideChar(CP_UTF8, 0, direntPath, -1, wpath, wchars_needed) <= 0) {
+            delete[] wpath;
+            return -1;
+        }
+
+        WIN32_FILE_ATTRIBUTE_DATA fileData;
+        BOOL success = GetFileAttributesExW(wpath, GetFileExInfoStandard, &fileData);
+        mode_t st_mode = 0;
+        if (success)
+        {
+            bool isSymLink = (fileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+            if (isSymLink) {
+                st_mode |= WIN_S_IFLNK;
+            } else if (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                st_mode |= WIN_S_IFDIR;
+            } else {
+                st_mode |= WIN_S_IFREG;
+            }
+        }
+        //--------------------------------------------------------------------------------
+
+        qDebug() << "\tdd_name" << dp->dd_name << strlen(dp->dd_name);
+        qDebug() << "\td_name" << de->d_name << strlen(de->d_name);
+        qDebug() << "\tdirentPath" << direntPath << strlen(direntPath);
+
+        struct FUSE_STAT st;
+        memset(&st, 0, sizeof(st));
+        st.st_ino = de->d_ino;
+        st.st_mode = st_mode; // de->d_type << 12;
+        if (filler(buf, de->d_name, &st, 0))
+            break;
+    }
 
     closedir(dp);
     return 0;
@@ -332,25 +394,26 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 
 static int xmp_statfs(const char *path, struct statvfs *stbuf)
 {
-    // int res;
-
-    // res = statvfs(path, stbuf);
-    // if (res == -1)
-    //     return -errno;
-
     qDebug() << "[xmp_statfs] path: " << path;
 
-    stbuf->f_bavail = 12006580;
-    stbuf->f_bfree = 12006580;
-    stbuf->f_blocks = 61202533;
-    stbuf->f_bsize = 1048576;
-    stbuf->f_ffree = 480263200;
-    stbuf->f_files = 480765579;
-    stbuf->f_favail = 480263200;
-    stbuf->f_flag = 1;
-    stbuf->f_frsize = 4096;
-    stbuf->f_fsid = 16777226;
-    stbuf->f_namemax = 255;
+    int res;
+
+    res = statvfs(path, stbuf);
+    if (res == -1)
+        return -errno;
+
+    qDebug() << "\tf_bavail" << stbuf->f_bavail;
+    qDebug() << "\tf_bfree" << stbuf->f_bfree;
+    qDebug() << "\tf_blocks" << stbuf->f_blocks;
+    qDebug() << "\tf_bsize" << stbuf->f_bsize;
+    qDebug() << "\tf_ffree" << stbuf->f_ffree;
+    qDebug() << "\tf_files" << stbuf->f_files;
+    qDebug() << "\tf_favail" << stbuf->f_favail;
+    qDebug() << "\tf_flag" << stbuf->f_flag;
+    qDebug() << "\tf_frsize" << stbuf->f_frsize;
+    qDebug() << "\tf_fsid" << stbuf->f_fsid;
+    qDebug() << "\tf_namemax" << stbuf->f_namemax;
+    qDebug() << "\n";
 
     return 0;
 }

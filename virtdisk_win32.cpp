@@ -1,5 +1,5 @@
 #define __FUSE__
-#define QT_NO_DEBUG_OUTPUT
+// #define QT_NO_DEBUG_OUTPUT
 
 #if defined(__WIN32) && !defined(__FUSE__)
 
@@ -315,59 +315,42 @@ static NTSTATUS DOKAN_CALLBACK MirrorGetFileInformation(
     return STATUS_SUCCESS;
 }
 
+static char *wchar_to_utf8(const wchar_t *src) {
+    if (src == nullptr)
+        return nullptr;
+
+    int ln = WideCharToMultiByte(CP_UTF8, 0, src, -1, nullptr, 0, nullptr, nullptr);
+    auto res = static_cast<char *>(malloc(sizeof(char) * ln));
+    WideCharToMultiByte(CP_UTF8, 0, src, -1, res, ln, nullptr, nullptr);
+    return res;
+}
+
 static NTSTATUS DOKAN_CALLBACK MirrorFindFiles(LPCWSTR FileName,
                 PFillFindData FillFindData, // function pointer
                 PDOKAN_FILE_INFO DokanFileInfo)
 {
-    qDebug() << "[MirrorFindFiles] FileName: " << FileName;
-    WCHAR filePath[DOKAN_MAX_PATH];
-    size_t fileLen;
-    HANDLE hFind;
-    WIN32_FIND_DATAW findData;
-    DWORD error;
-    int count = 0;
+    qDebug() << "[MirrorFindFiles] FileName: " << wchar_to_utf8(FileName);
 
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
+    FindFilesResult *result = FileSystem::FD_FindFiles(FileName);
 
-    wprintf(L"FindFiles : %s\n", filePath);
-
-    fileLen = wcslen(filePath);
-    if (filePath[fileLen - 1] != L'\\') {
-        filePath[fileLen++] = L'\\';
-    }
-    if (fileLen + 1 >= DOKAN_MAX_PATH)
-        return STATUS_BUFFER_OVERFLOW;
-    filePath[fileLen] = L'*';
-    filePath[fileLen + 1] = L'\0';
-
-    hFind = FindFirstFile(filePath, &findData);
-
-    if (hFind == INVALID_HANDLE_VALUE) {
-        error = GetLastError();
-        wprintf(L"\tinvalid file handle. Error is %u\n\n", error);
-        return DokanNtStatusFromWin32(error);
+    if (result->ntStatus != STATUS_SUCCESS)
+    {
+        qDebug() << "[MirrorFindFiles] error result->ntStatus" << result->ntStatus;
+        return result->ntStatus;
     }
 
-    // Root folder does not have . and .. folder - we remove them
-    BOOLEAN rootFolder = (wcscmp(FileName, L"\\") == 0);
-    do {
-        if (!rootFolder || (wcscmp(findData.cFileName, L".") != 0 &&
-                            wcscmp(findData.cFileName, L"..") != 0))
-            FillFindData(&findData, DokanFileInfo);
-        count++;
-    } while (FindNextFile(hFind, &findData) != 0);
+    qDebug() << "[MirrorFindFiles] result->ntStatus OK";
+    qDebug() << "[MirrorFindFiles] result->count" << result->count;
+    qDebug() << "[MirrorFindFiles] result->dataSize" << result->dataSize << "bytes";
 
-    error = GetLastError();
-    FindClose(hFind);
-
-    if (error != ERROR_NO_MORE_FILES) {
-        wprintf(L"\tFindNextFile error. Error is %u\n\n", error);
-        return DokanNtStatusFromWin32(error);
+    for (unsigned int i = 0; i < result->count; ++i)
+    {
+        auto findData = (WIN32_FIND_DATAW *)result->findData + i;
+        qDebug() << "[MirrorFindFiles] findData.cFileName: " << wchar_to_utf8(findData->cFileName);
+        FillFindData(findData, DokanFileInfo);
     }
 
-    wprintf(L"\tFindFiles return %d entries in %s\n\n", count, filePath);
-
-    return STATUS_SUCCESS;
+    return result->ntStatus;
 }
 
 static NTSTATUS DOKAN_CALLBACK MirrorDeleteFile(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {

@@ -17,6 +17,14 @@ typedef const WCHAR *LPCWSTR,*PCWSTR;
 
 typedef void *HANDLE;
 
+struct FindFilesResult
+{
+    long ntStatus;
+    void *findData;
+    unsigned int dataSize;
+    unsigned int count;
+};
+
 class FileSystem
 {
 public:
@@ -54,6 +62,8 @@ public:
     static long FD_FindStreams(LPCWSTR FileName,
                                HANDLE FillFindStreamDataU,
                                HANDLE FindStreamContext);
+
+    static FindFilesResult *FD_FindFiles(LPCWSTR FileName);
 };
 
 #endif // FILESYSTEM_H

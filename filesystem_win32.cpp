@@ -637,4 +637,87 @@ long FileSystem::FD_FindStreams(LPCWSTR FileName,
     return STATUS_SUCCESS;
 }
 
+static char *wchar_to_utf8(const wchar_t *src) {
+    if (src == nullptr)
+        return nullptr;
+
+    int ln = WideCharToMultiByte(CP_UTF8, 0, src, -1, nullptr, 0, nullptr, nullptr);
+    auto res = static_cast<char *>(malloc(sizeof(char) * ln));
+    WideCharToMultiByte(CP_UTF8, 0, src, -1, res, ln, nullptr, nullptr);
+    return res;
+}
+
+FindFilesResult *FileSystem::FD_FindFiles(LPCWSTR FileName)
+{
+    FindFilesResult *result = (FindFilesResult *)malloc(sizeof(FindFilesResult));
+    memset(result, 0, sizeof(FindFilesResult));
+
+    std::vector<WIN32_FIND_DATAW> findDataList;
+
+    WCHAR filePath[DOKAN_MAX_PATH];
+    size_t fileLen;
+    WIN32_FIND_DATAW findData;
+    HANDLE hFind;
+    DWORD error;
+
+    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
+
+    wprintf(L"FindFiles : %s\n", filePath);
+
+    fileLen = wcslen(filePath);
+    if (filePath[fileLen - 1] != L'\\')
+    {
+        filePath[fileLen++] = L'\\';
+    }
+    if (fileLen + 1 >= DOKAN_MAX_PATH)
+    {
+        result->ntStatus = STATUS_BUFFER_OVERFLOW;
+        return result;
+    }
+    filePath[fileLen] = L'*';
+    filePath[fileLen + 1] = L'\0';
+
+    hFind = FindFirstFile(filePath, &findData);
+
+    if (hFind == INVALID_HANDLE_VALUE)
+    {
+        error = GetLastError();
+        wprintf(L"\tinvalid file handle. Error is %u\n\n", error);
+        result->ntStatus = DokanNtStatusFromWin32(error);
+        return result;
+    }
+
+    qDebug() << "[FD_FindFiles] findData.cFileName: " << wchar_to_utf8(findData.cFileName);
+
+    BOOLEAN rootFolder = (wcscmp(FileName, L"\\") == 0);
+    do {
+        if (!rootFolder || (wcscmp(findData.cFileName, L".") != 0 &&
+                            wcscmp(findData.cFileName, L"..") != 0))
+        {
+            qDebug() << "[FD_FindFiles] findData.cFileName: " << wchar_to_utf8(findData.cFileName);
+            findDataList.push_back(findData);
+        }
+    } while (FindNextFile(hFind, &findData) != 0);
+
+    error = GetLastError();
+    FindClose(hFind);
+
+    if (error != ERROR_NO_MORE_FILES) {
+        wprintf(L"\tFindNextFile error. Error is %u\n\n", error);
+        result->ntStatus = DokanNtStatusFromWin32(error);
+        return result;
+    }
+
+    result->ntStatus = STATUS_SUCCESS;
+    result->findData = (void*)&findDataList.front();
+    result->count = findDataList.size();
+    result->dataSize = sizeof(WIN32_FIND_DATAW) * result->count;
+
+    wprintf(L"\tFindFiles return %d entries in %s\n\n", result->count, filePath);
+
+    qDebug() << "[FD_FindFiles] return";
+
+    return result;
+}
+
 #endif

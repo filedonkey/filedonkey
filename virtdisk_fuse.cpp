@@ -17,6 +17,8 @@
 #include "pread_win32.cpp"
 #endif
 
+#include "fusefilesystem.h"
+
 #ifdef linux
 /* For pread()/pwrite()/utimensat() */
 #define _XOPEN_SOURCE 700
@@ -118,68 +120,30 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 {
     qDebug() << "[xmp_readdir] path: " << path;
 
-    DIR *dp;
-    struct dirent *de;
-
     (void) offset;
-    (void) fi;
 
-    dp = opendir(path);
-    if (dp == NULL)
-        return -errno;
+    ReaddirResult *result = FUSEFileSystem::FD_readdir(path, fi);
 
-    while ((de = readdir(dp)) != NULL) {
-        //--------------------------------------------------------------------------------
-        // Windows addition
-        //--------------------------------------------------------------------------------
-        size_t dientPathLen = strlen(dp->dd_name) + strlen(de->d_name);
-        char *direntPath = (char *)alloca(dientPathLen);
-        memset(direntPath, 0, dientPathLen);
-        memcpy(direntPath, dp->dd_name, strlen(dp->dd_name));
-        memcpy(direntPath + (strlen(dp->dd_name) - 1), de->d_name, strlen(de->d_name));
-
-
-        int wchars_needed = MultiByteToWideChar(CP_UTF8, 0, direntPath, -1, NULL, 0);
-        if (wchars_needed <= 0) {
-            return -1;
-        }
-
-        wchar_t* wpath = new wchar_t[wchars_needed];
-        if (MultiByteToWideChar(CP_UTF8, 0, direntPath, -1, wpath, wchars_needed) <= 0) {
-            delete[] wpath;
-            return -1;
-        }
-
-        WIN32_FILE_ATTRIBUTE_DATA fileData;
-        BOOL success = GetFileAttributesExW(wpath, GetFileExInfoStandard, &fileData);
-        mode_t st_mode = 0;
-        if (success)
-        {
-            bool isSymLink = (fileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
-            if (isSymLink) {
-                st_mode |= WIN_S_IFLNK;
-            } else if (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-                st_mode |= WIN_S_IFDIR;
-            } else {
-                st_mode |= WIN_S_IFREG;
-            }
-        }
-        //--------------------------------------------------------------------------------
-
-        qDebug() << "\tdd_name" << dp->dd_name << strlen(dp->dd_name);
-        qDebug() << "\td_name" << de->d_name << strlen(de->d_name);
-        qDebug() << "\tdirentPath" << direntPath << strlen(direntPath);
-
-        struct FUSE_STAT st;
-        memset(&st, 0, sizeof(st));
-        st.st_ino = de->d_ino;
-        st.st_mode = st_mode; // de->d_type << 12;
-        if (filler(buf, de->d_name, &st, 0))
-            break;
+    if (result->status != 0)
+    {
+        qDebug() << "[xmp_readdir] error result->status" << result->status;
+        return result->status;
     }
 
-    closedir(dp);
-    return 0;
+    struct FindData
+    {
+        char name[1024];
+        struct FUSE_STAT stat;
+    };
+
+    for (unsigned int i = 0; i < result->count; ++i)
+    {
+        auto findData = (FindData *)result->findData + i;
+        qDebug() << "[xmp_readdir] findData.name: " << findData->name;
+        filler(buf, findData->name, &findData->stat, 0);
+    }
+
+    return result->status;
 }
 
 static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)

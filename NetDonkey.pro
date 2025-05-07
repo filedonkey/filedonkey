@@ -10,6 +10,7 @@ CONFIG += c++17
 
 SOURCES += \
     filesystem_win32.cpp \
+    fusefilesystem_win32.cpp \
     lstat_win32.cpp \
     main.cpp \
     mainwindow.cpp \
@@ -23,6 +24,7 @@ SOURCES += \
 HEADERS += \
     connection.h \
     filesystem.h \
+    fusefilesystem.h \
     mainwindow.h \
     virtdisk.h
 

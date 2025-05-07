@@ -14,6 +14,7 @@
 #if defined(__WIN32)
 #include "statvfs_win32.cpp"
 #include "lstat_win32.cpp"
+#include "pread_win32.cpp"
 #endif
 
 #ifdef linux
@@ -353,21 +354,20 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 {
     qDebug() << "[xmp_read] path: " << path;
 
-    // int fd;
-    // int res;
+    int fd;
+    int res;
 
-    // (void) fi;
-    // fd = open(path, O_RDONLY);
-    // if (fd == -1)
-    //     return -errno;
+    (void) fi;
+    fd = open(path, O_RDONLY);
+    if (fd == -1)
+        return -errno;
 
-    // res = pread(fd, buf, size, offset);
-    // if (res == -1)
-    //     res = -errno;
+    res = pread(fd, buf, size, offset);
+    if (res == -1)
+        res = -errno;
 
-    // close(fd);
-    // return res;
-    return 0;
+    close(fd);
+    return res;
 }
 
 static int xmp_write(const char *path, const char *buf, size_t size,
@@ -579,6 +579,14 @@ static struct fuse_operations xmp_oper = {
 #endif
     .access		= xmp_access,
 };
+
+// What was used during navigation:
+// + xmp_getattr
+// + xmp_open
+// + xmp_release // This method is optional and can safely be left unimplemented
+// + xmp_read
+// + xmp_readdir
+// + xmp_statfs
 
 static void Start(const Connection &conn)
 {

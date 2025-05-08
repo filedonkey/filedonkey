@@ -12,6 +12,7 @@
 #include "fusebackend.h"
 
 #include <QDebug>
+#include <QHostAddress>
 #include <thread>
 
 #define FUSE_USE_VERSION 26

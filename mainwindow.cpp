@@ -2,7 +2,7 @@
 #include "ui_mainwindow.h"
 
 #include "fusebackend.h"
-#include <fuse/fuse_win.h>
+// #include <fuse/fuse_win.h>
 
 #include "assert.h"
 #include "string.h"

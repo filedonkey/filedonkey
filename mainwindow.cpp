@@ -4,6 +4,9 @@
 #include "fusebackend.h"
 #include <fuse/fuse_win.h>
 
+#include "assert.h"
+#include "string.h"
+
 #include <QStringList>
 #include <QDir>
 #include <QJsonArray>
@@ -42,67 +45,64 @@ MainWindow::MainWindow(QWidget *parent)
     //------------------------------------------------------------------------------------
     // For local testing
     //------------------------------------------------------------------------------------
-    DatagramHeader header;
-    InitDatagram(header, "request", "fuse", "readdir");
+    // DatagramHeader header;
+    // InitDatagram(header, "request", "fuse", "readdir");
 
-    QByteArray datagram((char *)&header, sizeof(DatagramHeader));
+    // QByteArray datagram((char *)&header, sizeof(DatagramHeader));
 
-    ReaddirResult *result = FUSEBackend::FD_readdir("/");
+    // ReaddirResult *result = FUSEBackend::FD_readdir("/");
 
-    struct FindData
-    {
-        char name[1024];
-        struct FUSE_STAT stat;
-    };
+    // struct FindData
+    // {
+    //     char name[1024];
+    //     struct FUSE_STAT stat;
+    // };
 
-    FindData *findData = (FindData *)result->findData;
-    qDebug() << "[ReaddirResult] findData.name" << findData->name << strlen(findData->name);
+    // FindData *findData = (FindData *)result->findData;
+    // qDebug() << "[ReaddirResult] findData.name" << findData->name << strlen(findData->name);
 
-    datagram.append((char *)result, sizeof(ReaddirResult));
-    datagram.append((char *)result->findData, result->dataSize);
+    // datagram.append((char *)result, sizeof(ReaddirResult));
+    // datagram.append((char *)result->findData, result->dataSize);
 
-    for (unsigned int i = 0; i < (result->dataSize / sizeof(FindData)); ++i)
-    {
-        FindData *findData = (FindData *)result->findData + i;
-        qDebug() << "[ReaddirResult]" << i << "findData.name" << findData->name;
-    }
+    // for (unsigned int i = 0; i < (result->dataSize / sizeof(FindData)); ++i)
+    // {
+    //     FindData *findData = (FindData *)result->findData + i;
+    //     qDebug() << "[ReaddirResult]" << i << "findData.name" << findData->name;
+    // }
 
-    qDebug() << "[ReaddirResult] sizeof:" << sizeof(ReaddirResult);
-    qDebug() << "[ReaddirResult] status:" << result->status;
-    qDebug() << "[ReaddirResult] size:" << result->dataSize;
-    qDebug() << "[ReaddirResult] count:" << result->count;
+    // qDebug() << "[ReaddirResult] sizeof:" << sizeof(ReaddirResult);
+    // qDebug() << "[ReaddirResult] status:" << result->status;
+    // qDebug() << "[ReaddirResult] size:" << result->dataSize;
+    // qDebug() << "[ReaddirResult] count:" << result->count;
 
-    FreeResult(result);
+    // FreeResult(result);
 
-    qDebug() << "[DatagramHeader] sizeof:" << sizeof(header);
-    qDebug() << "[Datagram] size:" << datagram.size();
+    // qDebug() << "[DatagramHeader] sizeof:" << sizeof(header);
+    // qDebug() << "[Datagram] size:" << datagram.size();
 
-    qDebug() << "[DatagramHeader] messageType:" << header.messageType;
-    qDebug() << "[DatagramHeader] protocolVersion:" << header.protocolVersion;
-    qDebug() << "[DatagramHeader] virtDiskType:" << header.virtDiskType;
-    qDebug() << "[DatagramHeader] operationName:" << header.operationName;
+    // qDebug() << "[DatagramHeader] messageType:" << header.messageType;
+    // qDebug() << "[DatagramHeader] protocolVersion:" << header.protocolVersion;
+    // qDebug() << "[DatagramHeader] virtDiskType:" << header.virtDiskType;
+    // qDebug() << "[DatagramHeader] operationName:" << header.operationName;
 
-    DatagramHeader *header2;
-    ReadDatagramHeader(&header2, datagram.data());
-    qDebug() << "[DatagramHeader 2] messageType:" << header2->messageType;
-    qDebug() << "[DatagramHeader 2] protocolVersion:" << header2->protocolVersion;
-    qDebug() << "[DatagramHeader 2] virtDiskType:" << header2->virtDiskType;
-    qDebug() << "[DatagramHeader 2] operationName:" << header2->operationName;
+    // DatagramHeader *header2;
+    // ReadDatagramHeader(&header2, datagram.data());
+    // qDebug() << "[DatagramHeader 2] messageType:" << header2->messageType;
+    // qDebug() << "[DatagramHeader 2] protocolVersion:" << header2->protocolVersion;
+    // qDebug() << "[DatagramHeader 2] virtDiskType:" << header2->virtDiskType;
+    // qDebug() << "[DatagramHeader 2] operationName:" << header2->operationName;
 
-    ReaddirResult *result2;
-    ReadResult(&result2, datagram.sliced(sizeof(DatagramHeader)).data());
-    qDebug() << "[ReaddirResult 2] status:" << result2->status;
-    qDebug() << "[ReaddirResult 2] size:" << result2->dataSize;
-    qDebug() << "[ReaddirResult 2] count:" << result2->count;
+    // ReaddirResult *result2;
+    // ReadResult(&result2, datagram.sliced(sizeof(DatagramHeader)).data());
+    // qDebug() << "[ReaddirResult 2] status:" << result2->status;
+    // qDebug() << "[ReaddirResult 2] size:" << result2->dataSize;
+    // qDebug() << "[ReaddirResult 2] count:" << result2->count;
 
-    // FindData *findData = (FindData *)result2.findData;
-    // qDebug() << "[ReaddirResult 2] findData.name" << findData->name;
-
-    for (unsigned int i = 0; i < (result2->dataSize / sizeof(FindData)); ++i)
-    {
-        FindData *findData = (FindData *)result2->findData + i;
-        qDebug() << "[ReaddirResult 2]" << i << "findData.name" << findData->name;
-    }
+    // for (unsigned int i = 0; i < (result2->dataSize / sizeof(FindData)); ++i)
+    // {
+    //     FindData *findData = (FindData *)result2->findData + i;
+    //     qDebug() << "[ReaddirResult 2]" << i << "findData.name" << findData->name;
+    // }
 
     // Connection conn = {
     //     .machineId      = "test_machine_id",
@@ -113,7 +113,8 @@ MainWindow::MainWindow(QWidget *parent)
     // };
     // virtDisk = new VirtDisk(conn);
     // virtDisk->mount("M:\\");
-    return;
+
+    // return;
     //------------------------------------------------------------------------------------
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
@@ -255,30 +256,50 @@ void MainWindow::onSocketReadyRead()
 {
     QTcpSocket *newConnection = (QTcpSocket*)QObject::sender();
 
-    QByteArray buff = newConnection->readAll();
-    QJsonDocument request = QJsonDocument::fromJson(buff);
-    QString operationName = request["operationName"].toString();
+    QByteArray incoming = newConnection->readAll();
+    DatagramHeader *header;
+    ReadDatagramHeader(&header, incoming.data());
 
-    qDebug() << "[Server] operationName: " << operationName;
+    assert(strcmp(header->messageType, "request") == 0);
+    assert(header->protocolVersion == 1);
 
-    qDebug() << "[Server] incoming operationName: " << operationName;
+    QByteArray response;
 
-    QStorageInfo storage = QStorageInfo::root();
-    storage.bytesTotal();
+    if (strcmp(header->virtDiskType, "fuse") == 0)
+    {
+        if (strcmp(header->operationName, "readdir") == 0)
+        {
+            const char *path = incoming.sliced(sizeof(DatagramHeader)).data();
+            ReaddirResult *result = FUSEBackend::FD_readdir(path);
 
-    qDebug() << "[Server] incoming freeBytesAvailable: " << storage.bytesAvailable();
-    qDebug() << "[Server] incoming totalNumberOfBytes: " << storage.bytesTotal();
-    qDebug() << "[Server] incoming totalNumberOfFreeBytes: " << storage.bytesFree();
+            DatagramHeader header;
+            InitDatagram(header, "response", "fuse", "readdir");
 
-    QJsonObject response;
-    response["messageType"] = "response";
-    response["operationName"] = operationName;
-    response["freeBytesAvailable"] = storage.bytesAvailable();
-    response["totalNumberOfBytes"] = storage.bytesTotal();
-    response["totalNumberOfFreeBytes"] = storage.bytesFree();
+            response.append((char *)&header, sizeof(DatagramHeader));
+            response.append((char *)result, sizeof(ReaddirResult));
+            response.append((char *)result->findData, result->dataSize);
 
-    QByteArray data = QJsonDocument(response).toJson(QJsonDocument::Compact);
-    newConnection->write(data);
+            FreeResult(result);
+        }
+        else
+        {
+            qDebug() << "[onSocketReadyRead] Error: invalid operation name:" << header->operationName;
+            return;
+        }
+    }
+    else
+    {
+        qDebug() << "[onSocketReadyRead] Error: invalid virt disk type:" << header->virtDiskType;
+        return;
+    }
+
+    // QStorageInfo storage = QStorageInfo::root();
+    // storage.bytesTotal();
+    // qDebug() << "[Server] incoming freeBytesAvailable: " << storage.bytesAvailable();
+    // qDebug() << "[Server] incoming totalNumberOfBytes: " << storage.bytesTotal();
+    // qDebug() << "[Server] incoming totalNumberOfFreeBytes: " << storage.bytesFree();
+
+    newConnection->write(response);
 }
 
 void MainWindow::onUpgradeToPro()

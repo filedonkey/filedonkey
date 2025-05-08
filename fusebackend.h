@@ -12,7 +12,7 @@ struct ReaddirResult
     void *findData;
 };
 
-static void ReadReaddirResult(ReaddirResult **result, const char *data)
+static void ReadResult(ReaddirResult **result, const char *data)
 {
     // ReaddirResult *result = (ReaddirResult *)malloc(sizeof(ReaddirResult));
     // memcpy(result, data, sizeof(ReaddirResult));
@@ -23,7 +23,7 @@ static void ReadReaddirResult(ReaddirResult **result, const char *data)
     (*result)->findData = (void *)(data + sizeof(ReaddirResult));
 }
 
-static void FreeReaddirResult(ReaddirResult *result)
+static void FreeResult(ReaddirResult *result)
 {
     free(result->findData);
     free(result);

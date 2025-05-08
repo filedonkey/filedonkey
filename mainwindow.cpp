@@ -72,7 +72,7 @@ MainWindow::MainWindow(QWidget *parent)
     qDebug() << "[ReaddirResult] size:" << result->dataSize;
     qDebug() << "[ReaddirResult] count:" << result->count;
 
-    FreeReaddirResult(result);
+    FreeResult(result);
 
     qDebug() << "[DatagramHeader] sizeof:" << sizeof(header);
     qDebug() << "[Datagram] size:" << datagram.size();
@@ -90,7 +90,7 @@ MainWindow::MainWindow(QWidget *parent)
     qDebug() << "[DatagramHeader 2] operationName:" << header2->operationName;
 
     ReaddirResult *result2;
-    ReadReaddirResult(&result2, datagram.sliced(sizeof(DatagramHeader)).data());
+    ReadResult(&result2, datagram.sliced(sizeof(DatagramHeader)).data());
     qDebug() << "[ReaddirResult 2] status:" << result2->status;
     qDebug() << "[ReaddirResult 2] size:" << result2->dataSize;
     qDebug() << "[ReaddirResult 2] count:" << result2->count;

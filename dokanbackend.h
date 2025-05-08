@@ -1,6 +1,8 @@
 #ifndef DOKANBACKEND_H
 #define DOKANBACKEND_H
 
+#include <stdlib.h>
+
 #define __int64 long long
 typedef unsigned __int64 ULONGLONG;
 typedef ULONGLONG *PULONGLONG;
@@ -24,6 +26,12 @@ struct FindFilesResult
     unsigned int dataSize;
     unsigned int count;
 };
+
+static void FreeResult(FindFilesResult *result)
+{
+    free(result->findData);
+    free(result);
+}
 
 class DokanBackend
 {

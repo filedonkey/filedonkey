@@ -709,9 +709,10 @@ FindFilesResult *DokanBackend::FD_FindFiles(LPCWSTR FileName)
     }
 
     result->ntStatus = STATUS_SUCCESS;
-    result->findData = (void*)&findDataList.front();
     result->count = findDataList.size();
     result->dataSize = sizeof(WIN32_FIND_DATAW) * result->count;
+    result->findData = malloc(result->dataSize);
+    memcpy(result->findData, findDataList.data(), result->dataSize);
 
     wprintf(L"\tFindFiles return %d entries in %s\n\n", result->count, filePath);
 

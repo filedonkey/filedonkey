@@ -12,11 +12,21 @@ struct ReaddirResult
     void *findData;
 };
 
-static void ReadReaddirResult(ReaddirResult &result, const char *data)
+static void ReadReaddirResult(ReaddirResult **result, const char *data)
 {
-    memcpy(&result, data, sizeof(ReaddirResult));
-    result.findData = (void *)malloc(result.dataSize);
-    memcpy(result.findData, data + sizeof(ReaddirResult), result.dataSize);
+    // ReaddirResult *result = (ReaddirResult *)malloc(sizeof(ReaddirResult));
+    // memcpy(result, data, sizeof(ReaddirResult));
+    // result->findData = (void *)malloc(result->dataSize);
+    // memcpy(result->findData, data + sizeof(ReaddirResult), result->dataSize);
+    // return result;
+    *result = (ReaddirResult *)data;
+    (*result)->findData = (void *)(data + sizeof(ReaddirResult));
+}
+
+static void FreeReaddirResult(ReaddirResult *result)
+{
+    free(result->findData);
+    free(result);
 }
 
 class FUSEBackend

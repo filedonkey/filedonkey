@@ -1,6 +1,9 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include "fusebackend.h"
+#include <fuse/fuse_win.h>
+
 #include <QStringList>
 #include <QDir>
 #include <QJsonArray>
@@ -39,16 +42,78 @@ MainWindow::MainWindow(QWidget *parent)
     //------------------------------------------------------------------------------------
     // For local testing
     //------------------------------------------------------------------------------------
-    Connection conn = {
-        .machineId      = "test_machine_id",
-        .machineName    = "test_machine_name",
-        .machineAddress = "test_machine_address",
-        .machinePort    = 0,
-        .socket         = nullptr,
+    DatagramHeader header;
+    InitDatagram(header, "request", "fuse", "readdir");
+
+    QByteArray datagram((char *)&header, sizeof(DatagramHeader));
+
+    ReaddirResult *result = FUSEBackend::FD_readdir("/");
+
+    struct FindData
+    {
+        char name[1024];
+        struct FUSE_STAT stat;
     };
-    virtDisk = new VirtDisk(conn);
-    virtDisk->mount("M:\\");
-    return;
+
+    FindData *findData = (FindData *)result->findData;
+    qDebug() << "[ReaddirResult] findData.name" << findData->name << strlen(findData->name);
+
+    datagram.append((char *)result, sizeof(ReaddirResult));
+    datagram.append((char *)result->findData, result->dataSize);
+
+    for (unsigned int i = 0; i < (result->dataSize / sizeof(FindData)); ++i)
+    {
+        FindData *findData = (FindData *)result->findData + i;
+        qDebug() << "[ReaddirResult]" << i << "findData.name" << findData->name;
+    }
+
+    qDebug() << "[ReaddirResult] sizeof:" << sizeof(ReaddirResult);
+    qDebug() << "[ReaddirResult] status:" << result->status;
+    qDebug() << "[ReaddirResult] size:" << result->dataSize;
+    qDebug() << "[ReaddirResult] count:" << result->count;
+
+    FreeReaddirResult(result);
+
+    qDebug() << "[DatagramHeader] sizeof:" << sizeof(header);
+    qDebug() << "[Datagram] size:" << datagram.size();
+
+    qDebug() << "[DatagramHeader] messageType:" << header.messageType;
+    qDebug() << "[DatagramHeader] protocolVersion:" << header.protocolVersion;
+    qDebug() << "[DatagramHeader] virtDiskType:" << header.virtDiskType;
+    qDebug() << "[DatagramHeader] operationName:" << header.operationName;
+
+    DatagramHeader header2;
+    ReadDatagramHeader(header2, datagram.data());
+    qDebug() << "[DatagramHeader 2] messageType:" << header2.messageType;
+    qDebug() << "[DatagramHeader 2] protocolVersion:" << header2.protocolVersion;
+    qDebug() << "[DatagramHeader 2] virtDiskType:" << header2.virtDiskType;
+    qDebug() << "[DatagramHeader 2] operationName:" << header2.operationName;
+
+    ReaddirResult *result2;
+    ReadReaddirResult(&result2, datagram.sliced(sizeof(DatagramHeader)).data());
+    qDebug() << "[ReaddirResult 2] status:" << result2->status;
+    qDebug() << "[ReaddirResult 2] size:" << result2->dataSize;
+    qDebug() << "[ReaddirResult 2] count:" << result2->count;
+
+    // FindData *findData = (FindData *)result2.findData;
+    // qDebug() << "[ReaddirResult 2] findData.name" << findData->name;
+
+    for (unsigned int i = 0; i < (result2->dataSize / sizeof(FindData)); ++i)
+    {
+        FindData *findData = (FindData *)result2->findData + i;
+        qDebug() << "[ReaddirResult 2]" << i << "findData.name" << findData->name;
+    }
+
+    // Connection conn = {
+    //     .machineId      = "test_machine_id",
+    //     .machineName    = "test_machine_name",
+    //     .machineAddress = "test_machine_address",
+    //     .machinePort    = 0,
+    //     .socket         = nullptr,
+    // };
+    // virtDisk = new VirtDisk(conn);
+    // virtDisk->mount("M:\\");
+    // return;
     //------------------------------------------------------------------------------------
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));

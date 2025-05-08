@@ -270,6 +270,7 @@ void MainWindow::onSocketReadyRead()
         if (strcmp(header->operationName, "readdir") == 0)
         {
             const char *path = incoming.sliced(sizeof(DatagramHeader)).data();
+            qDebug() << "[onSocketReadyRead] fuse readdir path:" << path;
             ReaddirResult *result = FUSEBackend::FD_readdir(path);
 
             DatagramHeader header;

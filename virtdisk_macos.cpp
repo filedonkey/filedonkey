@@ -9,6 +9,7 @@
 // https://github.com/dokan-dev/dokany/wiki/FUSE
 
 #include "virtdisk.h"
+#include "fusebackend.h"
 
 #include <QDebug>
 #include <thread>
@@ -184,6 +185,55 @@ static inline struct xmp_dirp *get_dirp(struct fuse_file_info *fi)
 static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                off_t offset, struct fuse_file_info *fi)
 {
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    Connection *conn = (Connection*)context->private_data;
+
+    if (conn)
+    {
+        QTcpSocket *socket = conn->socket;
+
+        if (socket)
+        {
+            qDebug() << "[xmp_readdir] machineId: " << conn->machineId;
+
+            DatagramHeader header;
+            InitDatagram(header, "request", "fuse", "readdir");
+            QByteArray request((char *)&header, sizeof(DatagramHeader));
+            request.append((char *)path, strlen(path));
+
+            socket->write(request);
+
+            qDebug() << "[xmp_readdir] after write";
+
+            socket->waitForReadyRead();
+
+            qDebug() << "[xmp_readdir] before readAll";
+
+            QByteArray incoming = socket->readAll();
+            qDebug() << "[xmp_readdir] incoming size:" << incoming.size();
+
+            DatagramHeader *inHeader;
+            ReadDatagramHeader(&inHeader, incoming.data());
+
+            qDebug() << "[xmp_readdir] incoming message type:" << inHeader->messageType;
+            qDebug() << "[xmp_readdir] incoming protocol version:" << inHeader->protocolVersion;
+            qDebug() << "[xmp_readdir] incoming virt disk type:" << inHeader->virtDiskType;
+            qDebug() << "[xmp_readdir] incoming operation name:" << inHeader->operationName;
+        }
+        else
+        {
+            qDebug() << "[xmp_readdir] connection is invalid";
+        }
+    }
+    else
+    {
+        qDebug() << "[xmp_readdir] private data is empty";
+    }
+    //------------------------------------------------------------------------------------
+
     struct xmp_dirp *d = get_dirp(fi);
 
     (void) path;
@@ -1048,8 +1098,21 @@ static struct fuse_operations xmp_oper = {
 #endif
 };
 
-static void Start(const Connection &conn)
+static void Start(Connection &conn)
 {
+    conn.socket = new QTcpSocket();
+    qDebug() << "[Start] try to connect";
+    conn.socket->connectToHost(QHostAddress(conn.machineAddress), conn.machinePort);
+    if (!conn.socket->waitForConnected())
+    {
+        qDebug()
+            << "[Start] socket connection error: "
+            << conn.socket->errorString();
+        return;
+    }
+
+    qDebug() << "[Start] socket connected";
+
     int argc = 4;
     char *argv[] = {"FileDonkey", "/Users/Guest/Public/fuse/", "-o", "volname=Windows  PC"};
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
@@ -1086,7 +1149,7 @@ static void Start(const Connection &conn)
 void VirtDisk::mount(const QString &mountPoint)
 {
     int argc = 4;
-    char *argv[] = {"FileDonkey", "/Users/Guest/Public/fuse/", "-o", "volname=Windows  PC"};
+    char *argv[] = {"FileDonkey", "/Users/Guest/Public/fuse/", "-o", "volname=Windows PC"};
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
 //    loopback.blocksize = 4096;

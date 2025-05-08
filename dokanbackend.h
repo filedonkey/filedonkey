@@ -1,5 +1,5 @@
-#ifndef FILESYSTEM_H
-#define FILESYSTEM_H
+#ifndef DOKANBACKEND_H
+#define DOKANBACKEND_H
 
 #define __int64 long long
 typedef unsigned __int64 ULONGLONG;
@@ -25,7 +25,7 @@ struct FindFilesResult
     unsigned int count;
 };
 
-class FileSystem
+class DokanBackend
 {
 public:
     static long FD_GetDiskFreeSpace(PULONGLONG FreeBytesAvailable,
@@ -66,4 +66,4 @@ public:
     static FindFilesResult *FD_FindFiles(LPCWSTR FileName);
 };
 
-#endif // FILESYSTEM_H
+#endif // DOKANBACKEND_H

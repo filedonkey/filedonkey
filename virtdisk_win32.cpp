@@ -4,7 +4,7 @@
 #if defined(__WIN32) && !defined(__FUSE__)
 
 #include "virtdisk.h"
-#include "filesystem.h"
+#include "dokanbackend.h"
 
 #include <QDebug>
 #include <QJsonObject>
@@ -109,7 +109,7 @@ static NTSTATUS DOKAN_CALLBACK MirrorCreateFile(LPCWSTR FileName, PDOKAN_IO_SECU
                  ULONG ShareAccess, ULONG CreateDisposition,
                  ULONG CreateOptions, PDOKAN_FILE_INFO DokanFileInfo)
 {
-    NTSTATUS result = FileSystem::FD_CreateFile(FileName, (HANDLE)SecurityContext, DesiredAccess, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, (HANDLE)DokanFileInfo);
+    NTSTATUS result = DokanBackend::FD_CreateFile(FileName, (HANDLE)SecurityContext, DesiredAccess, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, (HANDLE)DokanFileInfo);
 
     if (result != STATUS_SUCCESS) {
         return DokanNtStatusFromWin32(result);
@@ -125,13 +125,13 @@ static void DOKAN_CALLBACK MirrorCloseFile(LPCWSTR FileName,
                                            PDOKAN_FILE_INFO DokanFileInfo)
 {
 
-    FileSystem::FD_CloseFile(FileName, (HANDLE)DokanFileInfo);
+    DokanBackend::FD_CloseFile(FileName, (HANDLE)DokanFileInfo);
 }
 
 static void DOKAN_CALLBACK MirrorCleanup(LPCWSTR FileName,
                                          PDOKAN_FILE_INFO DokanFileInfo)
 {
-    FileSystem::FD_Cleanup(FileName, (HANDLE)DokanFileInfo);
+    DokanBackend::FD_Cleanup(FileName, (HANDLE)DokanFileInfo);
 }
 
 static NTSTATUS DOKAN_CALLBACK MirrorReadFile(LPCWSTR FileName, LPVOID Buffer,
@@ -306,7 +306,7 @@ static NTSTATUS DOKAN_CALLBACK MirrorGetFileInformation(
     LPCWSTR FileName, LPBY_HANDLE_FILE_INFORMATION HandleFileInformation,
     PDOKAN_FILE_INFO DokanFileInfo) {
 
-    NTSTATUS result = FileSystem::FD_GetFileInformation(FileName, (HANDLE)HandleFileInformation, (HANDLE)DokanFileInfo->Context);
+    NTSTATUS result = DokanBackend::FD_GetFileInformation(FileName, (HANDLE)HandleFileInformation, (HANDLE)DokanFileInfo->Context);
 
     if (result != STATUS_SUCCESS) {
         return DokanNtStatusFromWin32(result);
@@ -331,7 +331,7 @@ static NTSTATUS DOKAN_CALLBACK MirrorFindFiles(LPCWSTR FileName,
 {
     qDebug() << "[MirrorFindFiles] FileName: " << wchar_to_utf8(FileName);
 
-    FindFilesResult *result = FileSystem::FD_FindFiles(FileName);
+    FindFilesResult *result = DokanBackend::FD_FindFiles(FileName);
 
     if (result->ntStatus != STATUS_SUCCESS)
     {
@@ -800,100 +800,65 @@ static NTSTATUS DOKAN_CALLBACK MirrorSetFileSecurity(
     return STATUS_SUCCESS;
 }
 
-// static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
-//     PULONGLONG FreeBytesAvailable,
-//     PULONGLONG TotalNumberOfBytes,
-//     PULONGLONG TotalNumberOfFreeBytes,
-//     PDOKAN_FILE_INFO DokanFileInfo)
-// {
-//     // clock_t start = clock();
-//     timeb tstart;
-//     timeb tend;
-//     ftime(&tstart);
-
-//     const QString OPERATION_NAME = "getDiskFreeSpace";
-//     Connection *conn = (Connection*)DokanFileInfo->DokanOptions->GlobalContext;
-
-//     if (!conn)
-//     {
-//         qDebug() << "[MirrorDokanGetDiskFreeSpace] global context is empty";
-//         return STATUS_DEVICE_OFF_LINE;
-//     }
-
-//     QTcpSocket *socket = conn->socket;
-
-//     if (!socket)
-//     {
-//         qDebug() << "[MirrorDokanGetDiskFreeSpace] connection is invalid";
-//         return STATUS_DEVICE_OFF_LINE;
-//     }
-
-//     qDebug() << "[MirrorDokanGetDiskFreeSpace] machineId: " << conn->machineId;
-
-//     QJsonObject request;
-//     request["messageType"] = "request";
-//     request["operationName"] = OPERATION_NAME;
-//     QByteArray data = QJsonDocument(request).toJson(QJsonDocument::Compact);
-//     socket->write(data);
-
-//     qDebug() << "[MirrorDokanGetDiskFreeSpace] After write";
-
-//     socket->waitForReadyRead();
-
-//     qDebug() << "[MirrorDokanGetDiskFreeSpace] Before readAll";
-
-//     QByteArray buff = socket->readAll();
-//     QJsonDocument response = QJsonDocument::fromJson(buff);
-//     QString messageType = response["messageType"].toString();
-//     QString operationName = response["operationName"].toString();
-
-//     qDebug() << "[MirrorDokanGetDiskFreeSpace] response messageType: " << messageType;
-//     qDebug() << "[MirrorDokanGetDiskFreeSpace] response operationName: " << operationName;
-
-//     if (messageType != "response")
-//     {
-//         qDebug() << "[MirrorDokanGetDiskFreeSpace] response message type is invalid";
-//         return STATUS_DEVICE_OFF_LINE; // TODO: return correct status.
-//     }
-//     if (operationName != OPERATION_NAME)
-//     {
-//         qDebug() << "[MirrorDokanGetDiskFreeSpace] response operation is invalid";
-//         return STATUS_DEVICE_OFF_LINE; // TODO: return correct status.
-//     }
-
-//     // clock_t end = clock();
-//     // double diff = static_cast<double>((end - start)) / static_cast<double>((CLOCKS_PER_SEC)) * 1000;
-//     ftime(&tend);
-//     double diff = (tend.time * 1000 + tend.millitm) - (tstart.time * 1000 + tstart.millitm);
-
-//     qDebug() << "[MirrorDokanGetDiskFreeSpace] operation took:" << diff << "ms";
-
-//     qDebug() << "[MirrorDokanGetDiskFreeSpace] response freeBytesAvailable: " << response["freeBytesAvailable"].toInteger();
-//     qDebug() << "[MirrorDokanGetDiskFreeSpace] response totalNumberOfBytes: " << response["totalNumberOfBytes"].toInteger();
-//     qDebug() << "[MirrorDokanGetDiskFreeSpace] response totalNumberOfFreeBytes: " << response["totalNumberOfFreeBytes"].toInteger();
-
-//     *FreeBytesAvailable = response["freeBytesAvailable"].toInteger();         //(ULONGLONG)(18450636288);
-//     *TotalNumberOfBytes = response["totalNumberOfBytes"].toInteger();         //(ULONGLONG)(122747575603);
-//     *TotalNumberOfFreeBytes = response["totalNumberOfFreeBytes"].toInteger(); //(ULONGLONG)(18450636288);
-
-//     return STATUS_SUCCESS;
-// }
-
 static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
-    PULONGLONG FreeBytesAvailable, PULONGLONG TotalNumberOfBytes,
-    PULONGLONG TotalNumberOfFreeBytes, PDOKAN_FILE_INFO DokanFileInfo)
+    PULONGLONG FreeBytesAvailable,
+    PULONGLONG TotalNumberOfBytes,
+    PULONGLONG TotalNumberOfFreeBytes,
+    PDOKAN_FILE_INFO DokanFileInfo)
 {
     // clock_t start = clock();
     timeb tstart;
     timeb tend;
     ftime(&tstart);
 
-    UNREFERENCED_PARAMETER(DokanFileInfo);
+    const QString OPERATION_NAME = "getDiskFreeSpace";
+    Connection *conn = (Connection*)DokanFileInfo->DokanOptions->GlobalContext;
 
-    NTSTATUS result = FileSystem::FD_GetDiskFreeSpace(FreeBytesAvailable, TotalNumberOfBytes, TotalNumberOfFreeBytes);
+    if (!conn)
+    {
+        qDebug() << "[MirrorDokanGetDiskFreeSpace] global context is empty";
+        return STATUS_DEVICE_OFF_LINE;
+    }
 
-    if (result != STATUS_SUCCESS) {
-        return DokanNtStatusFromWin32(result);
+    QTcpSocket *socket = conn->socket;
+
+    if (!socket)
+    {
+        qDebug() << "[MirrorDokanGetDiskFreeSpace] connection is invalid";
+        return STATUS_DEVICE_OFF_LINE;
+    }
+
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] machineId: " << conn->machineId;
+
+    QJsonObject request;
+    request["messageType"] = "request";
+    request["operationName"] = OPERATION_NAME;
+    QByteArray data = QJsonDocument(request).toJson(QJsonDocument::Compact);
+    socket->write(data);
+
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] After write";
+
+    socket->waitForReadyRead();
+
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] Before readAll";
+
+    QByteArray buff = socket->readAll();
+    QJsonDocument response = QJsonDocument::fromJson(buff);
+    QString messageType = response["messageType"].toString();
+    QString operationName = response["operationName"].toString();
+
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] response messageType: " << messageType;
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] response operationName: " << operationName;
+
+    if (messageType != "response")
+    {
+        qDebug() << "[MirrorDokanGetDiskFreeSpace] response message type is invalid";
+        return STATUS_DEVICE_OFF_LINE; // TODO: return correct status.
+    }
+    if (operationName != OPERATION_NAME)
+    {
+        qDebug() << "[MirrorDokanGetDiskFreeSpace] response operation is invalid";
+        return STATUS_DEVICE_OFF_LINE; // TODO: return correct status.
     }
 
     // clock_t end = clock();
@@ -903,12 +868,47 @@ static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
 
     qDebug() << "[MirrorDokanGetDiskFreeSpace] operation took:" << diff << "ms";
 
-    qDebug() << "[MirrorDokanGetDiskFreeSpace] FreeBytesAvailable: " << *FreeBytesAvailable;
-    qDebug() << "[MirrorDokanGetDiskFreeSpace] TotalNumberOfBytes: " << *TotalNumberOfBytes;
-    qDebug() << "[MirrorDokanGetDiskFreeSpace] TotalNumberOfFreeBytes: " << *TotalNumberOfFreeBytes;
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] response freeBytesAvailable: " << response["freeBytesAvailable"].toInteger();
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] response totalNumberOfBytes: " << response["totalNumberOfBytes"].toInteger();
+    qDebug() << "[MirrorDokanGetDiskFreeSpace] response totalNumberOfFreeBytes: " << response["totalNumberOfFreeBytes"].toInteger();
+
+    *FreeBytesAvailable = response["freeBytesAvailable"].toInteger();         //(ULONGLONG)(18450636288);
+    *TotalNumberOfBytes = response["totalNumberOfBytes"].toInteger();         //(ULONGLONG)(122747575603);
+    *TotalNumberOfFreeBytes = response["totalNumberOfFreeBytes"].toInteger(); //(ULONGLONG)(18450636288);
 
     return STATUS_SUCCESS;
 }
+
+// static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
+//     PULONGLONG FreeBytesAvailable, PULONGLONG TotalNumberOfBytes,
+//     PULONGLONG TotalNumberOfFreeBytes, PDOKAN_FILE_INFO DokanFileInfo)
+// {
+//     // clock_t start = clock();
+//     timeb tstart;
+//     timeb tend;
+//     ftime(&tstart);
+
+//     UNREFERENCED_PARAMETER(DokanFileInfo);
+
+//     NTSTATUS result = FileSystem::FD_GetDiskFreeSpace(FreeBytesAvailable, TotalNumberOfBytes, TotalNumberOfFreeBytes);
+
+//     if (result != STATUS_SUCCESS) {
+//         return DokanNtStatusFromWin32(result);
+//     }
+
+//     // clock_t end = clock();
+//     // double diff = static_cast<double>((end - start)) / static_cast<double>((CLOCKS_PER_SEC)) * 1000;
+//     ftime(&tend);
+//     double diff = (tend.time * 1000 + tend.millitm) - (tstart.time * 1000 + tstart.millitm);
+
+//     qDebug() << "[MirrorDokanGetDiskFreeSpace] operation took:" << diff << "ms";
+
+//     qDebug() << "[MirrorDokanGetDiskFreeSpace] FreeBytesAvailable: " << *FreeBytesAvailable;
+//     qDebug() << "[MirrorDokanGetDiskFreeSpace] TotalNumberOfBytes: " << *TotalNumberOfBytes;
+//     qDebug() << "[MirrorDokanGetDiskFreeSpace] TotalNumberOfFreeBytes: " << *TotalNumberOfFreeBytes;
+
+//     return STATUS_SUCCESS;
+// }
 
 static NTSTATUS DOKAN_CALLBACK MirrorGetVolumeInformation(
     LPWSTR VolumeNameBuffer, DWORD VolumeNameSize, LPDWORD VolumeSerialNumber,
@@ -920,7 +920,7 @@ static NTSTATUS DOKAN_CALLBACK MirrorGetVolumeInformation(
 
     qDebug() << "[MirrorGetVolumeInformation] VolumeNameBuffer: " << VolumeNameBuffer;
 
-    NTSTATUS result = FileSystem::FD_GetVolumeInformation(VolumeNameBuffer, VolumeNameSize, VolumeSerialNumber, MaximumComponentLength, FileSystemFlags, FileSystemNameBuffer, FileSystemNameSize);
+    NTSTATUS result = DokanBackend::FD_GetVolumeInformation(VolumeNameBuffer, VolumeNameSize, VolumeSerialNumber, MaximumComponentLength, FileSystemFlags, FileSystemNameBuffer, FileSystemNameSize);
 
     if (result != STATUS_SUCCESS) {
         return DokanNtStatusFromWin32(result);
@@ -937,7 +937,7 @@ NTSTATUS DOKAN_CALLBACK MirrorFindStreams(LPCWSTR FileName, PFillFindStreamData 
 
     qDebug() << "[MirrorFindStreams] FileName: " << FileName;
 
-    return FileSystem::FD_FindStreams(FileName, (HANDLE)FillFindStreamData, FindStreamContext);
+    return DokanBackend::FD_FindStreams(FileName, (HANDLE)FillFindStreamData, FindStreamContext);
 }
 
 static NTSTATUS DOKAN_CALLBACK MirrorMounted(LPCWSTR MountPoint,

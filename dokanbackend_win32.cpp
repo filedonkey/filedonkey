@@ -1,7 +1,7 @@
 #define __FUSE__
 #if defined(__WIN32) && !defined(__FUSE__)
 
-#include "filesystem.h"
+#include "dokanbackend.h"
 
 #include <dokan/dokan.h>
 // #include <dokan/fileinfo.h>
@@ -23,7 +23,7 @@ static void GetFilePath(PWCHAR filePath, ULONG numberOfElements,
     wcsncat_s(filePath, numberOfElements, FileName, wcslen(FileName));
 }
 
-long FileSystem::FD_GetDiskFreeSpace(PULONGLONG FreeBytesAvailable,
+long DokanBackend::FD_GetDiskFreeSpace(PULONGLONG FreeBytesAvailable,
                                      PULONGLONG TotalNumberOfBytes,
                                      PULONGLONG TotalNumberOfFreeBytes)
 {
@@ -49,7 +49,7 @@ long FileSystem::FD_GetDiskFreeSpace(PULONGLONG FreeBytesAvailable,
     return 0;
 }
 
-long FileSystem::FD_GetVolumeInformation(LPWSTR VolumeNameBuffer,
+long DokanBackend::FD_GetVolumeInformation(LPWSTR VolumeNameBuffer,
                                          DWORD VolumeNameSize,
                                          LPDWORD VolumeSerialNumber,
                                          LPDWORD MaximumComponentLength,
@@ -113,7 +113,7 @@ long FileSystem::FD_GetVolumeInformation(LPWSTR VolumeNameBuffer,
     return 0;
 }
 
-long FileSystem::FD_GetFileInformation(LPCWSTR FileName,
+long DokanBackend::FD_GetFileInformation(LPCWSTR FileName,
                                        HANDLE HandleFileInformationU,
                                        HANDLE handle)
 {
@@ -179,7 +179,7 @@ long FileSystem::FD_GetFileInformation(LPCWSTR FileName,
     return 0;
 }
 
-void FileSystem::FD_CloseFile(LPCWSTR FileName,
+void DokanBackend::FD_CloseFile(LPCWSTR FileName,
                               HANDLE FileInfo)
 {
     PDOKAN_FILE_INFO DokanFileInfo = (PDOKAN_FILE_INFO)FileInfo;
@@ -196,7 +196,7 @@ void FileSystem::FD_CloseFile(LPCWSTR FileName,
     }
 }
 
-void FileSystem::FD_Cleanup(LPCWSTR FileName,
+void DokanBackend::FD_Cleanup(LPCWSTR FileName,
                             HANDLE FileInfo)
 {
     PDOKAN_FILE_INFO DokanFileInfo = (PDOKAN_FILE_INFO)FileInfo;
@@ -275,7 +275,7 @@ void PrintUserName(PDOKAN_FILE_INFO DokanFileInfo)
 
 #define MirrorCheckFlag(val, flag) if (val & flag) { qDebug() << "[MirrorCheckFlag] flag: " << #flag; }
 
-long FileSystem::FD_CreateFile(LPCWSTR FileName,
+long DokanBackend::FD_CreateFile(LPCWSTR FileName,
                                HANDLE SecurityContextU,
                                DWORD DesiredAccess,
                                ULONG FileAttributes,
@@ -581,7 +581,7 @@ long FileSystem::FD_CreateFile(LPCWSTR FileName,
     return status;
 }
 
-long FileSystem::FD_FindStreams(LPCWSTR FileName,
+long DokanBackend::FD_FindStreams(LPCWSTR FileName,
                                 HANDLE FillFindStreamDataU,
                                 HANDLE FindStreamContext)
 {
@@ -647,7 +647,7 @@ static char *wchar_to_utf8(const wchar_t *src) {
     return res;
 }
 
-FindFilesResult *FileSystem::FD_FindFiles(LPCWSTR FileName)
+FindFilesResult *DokanBackend::FD_FindFiles(LPCWSTR FileName)
 {
     FindFilesResult *result = (FindFilesResult *)malloc(sizeof(FindFilesResult));
     memset(result, 0, sizeof(FindFilesResult));

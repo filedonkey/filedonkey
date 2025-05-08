@@ -17,7 +17,7 @@
 #include "pread_win32.cpp"
 #endif
 
-#include "fusefilesystem.h"
+#include "fusebackend.h"
 
 #ifdef linux
 /* For pread()/pwrite()/utimensat() */
@@ -122,7 +122,7 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
     (void) offset;
 
-    ReaddirResult *result = FUSEFileSystem::FD_readdir(path, fi);
+    ReaddirResult *result = FUSEBackend::FD_readdir(path);
 
     if (result->status != 0)
     {

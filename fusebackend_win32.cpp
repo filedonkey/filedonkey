@@ -2,7 +2,7 @@
 
 #if defined(__WIN32) && defined(__FUSE__)
 
-#include "fusefilesystem.h"
+#include "fusebackend.h"
 
 #include <QDebug>
 
@@ -17,7 +17,7 @@
 #include <winnls.h>
 #include <vector>
 
-ReaddirResult *FUSEFileSystem::FD_readdir(const char *path, void *fi)
+ReaddirResult *FUSEBackend::FD_readdir(const char *path)
 {
     ReaddirResult *result = (ReaddirResult *)malloc(sizeof(ReaddirResult));
     memset(result, 0, sizeof(ReaddirResult));
@@ -31,8 +31,6 @@ ReaddirResult *FUSEFileSystem::FD_readdir(const char *path, void *fi)
     std::vector<FindData> findDataList;
     DIR *dp;
     struct dirent *de;
-
-    (void) fi;
 
     dp = opendir(path);
     if (dp == NULL)

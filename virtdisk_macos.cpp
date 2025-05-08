@@ -1119,29 +1119,38 @@ static void Start(Connection *conn)
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
     int err = -1;
 
-//     if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
-//             (ch = fuse_mount(mountpoint, &args)) != NULL) {
+    if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
+            (ch = fuse_mount(mountpoint, &args)) != NULL) {
 
-//             f = fuse_new(ch, &args, &xmp_oper,
-//                            sizeof(xmp_oper), (void *)conn);
-//             qDebug() << "before fuse_loop call";
-//             fuse_loop(f);
-//             qDebug() << "after fuse_loop call";
-// //            if (se != NULL) {
-// //                if (fuse_set_signal_handlers(se) != -1) {
-// //                    fuse_session_add_chan(se, ch);
-// //                    err = fuse_session_loop(se);
-// //                    fuse_remove_signal_handlers(se);
-// //                    fuse_session_remove_chan(ch);
-// //                }
-// //                fuse_session_destroy(se);
-// //            }
-//             fuse_exit(f);
-//             fuse_unmount(mountpoint, ch);
-//         }
+            f = fuse_new(ch, &args, &xmp_oper,
+                           sizeof(xmp_oper), (void *)conn);
+            qDebug() << "before fuse_loop call";
+            if (fuse_set_signal_handlers(fuse_get_session(f)) != 0) {
+                fprintf(stderr, "Failed to set up signal handlers\n");
+                perror("fuse_set_signal_handlers");
+                fuse_destroy(f);
+                fuse_unmount(mountpoint, ch);
+                return;
+            }
+            fuse_loop(f);
+            qDebug() << "after fuse_loop call";
+//            if (se != NULL) {
+//                if (fuse_set_signal_handlers(se) != -1) {
+//                    fuse_session_add_chan(se, ch);
+//                    err = fuse_session_loop(se);
+//                    fuse_remove_signal_handlers(se);
+//                    fuse_session_remove_chan(ch);
+//                }
+//                fuse_session_destroy(se);
+//            }
+            // fuse_exit(f);
+            fuse_remove_signal_handlers(fuse_get_session(f));
+            fuse_destroy(f);
+            fuse_unmount(mountpoint, ch);
+        }
 
-    int ret = fuse_main_real(args.argc, args.argv, &xmp_oper,
-                             sizeof(xmp_oper), (void *)conn);
+    // int ret = fuse_main_real(args.argc, args.argv, &xmp_oper,
+    //                          sizeof(xmp_oper), (void *)conn);
 
 //    umask(0);
 //    qDebug() << "before fuse_main call";

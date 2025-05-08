@@ -1,4 +1,4 @@
-#ifdef __APPLE__
+// #ifdef __APPLE__
 
 // Example source:
 // https://github.com/macfuse/demo/blob/master/LoopbackFS-C/loopback/loopback.c
@@ -1099,16 +1099,16 @@ static struct fuse_operations xmp_oper = {
 #endif
 };
 
-static void Start(Connection &conn)
+static void Start(Connection *conn)
 {
-    conn.socket = new QTcpSocket();
+    conn->socket = new QTcpSocket();
     qDebug() << "[Start] try to connect";
-    conn.socket->connectToHost(QHostAddress(conn.machineAddress), conn.machinePort);
-    if (!conn.socket->waitForConnected())
+    conn->socket->connectToHost(QHostAddress(conn->machineAddress), conn->machinePort);
+    if (!conn->socket->waitForConnected())
     {
         qDebug()
             << "[Start] socket connection error: "
-            << conn.socket->errorString();
+            << conn->socket->errorString();
         return;
     }
 
@@ -1119,26 +1119,29 @@ static void Start(Connection &conn)
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
     int err = -1;
 
-    if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
-            (ch = fuse_mount(mountpoint, &args)) != NULL) {
+//     if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
+//             (ch = fuse_mount(mountpoint, &args)) != NULL) {
 
-            f = fuse_new(ch, &args, &xmp_oper,
-                           sizeof(xmp_oper), (void *)&conn);
-            qDebug() << "before fuse_loop call";
-            fuse_loop(f);
-            qDebug() << "after fuse_loop call";
-//            if (se != NULL) {
-//                if (fuse_set_signal_handlers(se) != -1) {
-//                    fuse_session_add_chan(se, ch);
-//                    err = fuse_session_loop(se);
-//                    fuse_remove_signal_handlers(se);
-//                    fuse_session_remove_chan(ch);
-//                }
-//                fuse_session_destroy(se);
-//            }
-            fuse_exit(f);
-            fuse_unmount(mountpoint, ch);
-        }
+//             f = fuse_new(ch, &args, &xmp_oper,
+//                            sizeof(xmp_oper), (void *)conn);
+//             qDebug() << "before fuse_loop call";
+//             fuse_loop(f);
+//             qDebug() << "after fuse_loop call";
+// //            if (se != NULL) {
+// //                if (fuse_set_signal_handlers(se) != -1) {
+// //                    fuse_session_add_chan(se, ch);
+// //                    err = fuse_session_loop(se);
+// //                    fuse_remove_signal_handlers(se);
+// //                    fuse_session_remove_chan(ch);
+// //                }
+// //                fuse_session_destroy(se);
+// //            }
+//             fuse_exit(f);
+//             fuse_unmount(mountpoint, ch);
+//         }
+
+    int ret = fuse_main_real(args.argc, args.argv, &xmp_oper,
+                             sizeof(xmp_oper), (void *)conn);
 
 //    umask(0);
 //    qDebug() << "before fuse_main call";
@@ -1164,7 +1167,7 @@ void VirtDisk::mount(const QString &mountPoint)
 
 //    qDebug() << "fuse_main result: " << res;
 
-    thread = std::thread(Start, conn);
+    thread = std::thread(Start, &conn);
 }
 
 #endif

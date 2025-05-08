@@ -26,9 +26,10 @@ static void InitDatagram(DatagramHeader &header,
     header.protocolVersion = protocolVersion;
 }
 
-static void ReadDatagramHeader(DatagramHeader &header, const char *data)
+static void ReadDatagramHeader(DatagramHeader **header, const char *data)
 {
-    memcpy(&header, data, sizeof(DatagramHeader));
+    // memcpy(&header, data, sizeof(DatagramHeader));
+    *header = (DatagramHeader *)data;
 }
 
 struct Connection

@@ -82,12 +82,12 @@ MainWindow::MainWindow(QWidget *parent)
     qDebug() << "[DatagramHeader] virtDiskType:" << header.virtDiskType;
     qDebug() << "[DatagramHeader] operationName:" << header.operationName;
 
-    DatagramHeader header2;
-    ReadDatagramHeader(header2, datagram.data());
-    qDebug() << "[DatagramHeader 2] messageType:" << header2.messageType;
-    qDebug() << "[DatagramHeader 2] protocolVersion:" << header2.protocolVersion;
-    qDebug() << "[DatagramHeader 2] virtDiskType:" << header2.virtDiskType;
-    qDebug() << "[DatagramHeader 2] operationName:" << header2.operationName;
+    DatagramHeader *header2;
+    ReadDatagramHeader(&header2, datagram.data());
+    qDebug() << "[DatagramHeader 2] messageType:" << header2->messageType;
+    qDebug() << "[DatagramHeader 2] protocolVersion:" << header2->protocolVersion;
+    qDebug() << "[DatagramHeader 2] virtDiskType:" << header2->virtDiskType;
+    qDebug() << "[DatagramHeader 2] operationName:" << header2->operationName;
 
     ReaddirResult *result2;
     ReadReaddirResult(&result2, datagram.sliced(sizeof(DatagramHeader)).data());
@@ -113,7 +113,7 @@ MainWindow::MainWindow(QWidget *parent)
     // };
     // virtDisk = new VirtDisk(conn);
     // virtDisk->mount("M:\\");
-    // return;
+    return;
     //------------------------------------------------------------------------------------
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));

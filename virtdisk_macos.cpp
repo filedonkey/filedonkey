@@ -1,4 +1,4 @@
-// #ifdef __APPLE__
+#ifdef __APPLE__
 
 // Example source:
 // https://github.com/macfuse/demo/blob/master/LoopbackFS-C/loopback/loopback.c

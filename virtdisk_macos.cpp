@@ -11,11 +11,13 @@
 #include "virtdisk.h"
 #include "fusebackend.h"
 
+//#include "fuse_lowlevel.h"
+
 #include <QDebug>
 #include <QHostAddress>
 #include <thread>
 
-#define FUSE_USE_VERSION 26
+#define FUSE_USE_VERSION 31
 
 #define HAVE_SETXATTR	1
 
@@ -190,6 +192,7 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     // Network tests
     //------------------------------------------------------------------------------------
     struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_readdir] context:" << context << context->private_data;
     Connection *conn = (Connection*)context->private_data;
 
     if (conn)
@@ -1122,9 +1125,8 @@ static void Start(Connection *conn)
     if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
             (ch = fuse_mount(mountpoint, &args)) != NULL) {
 
-            f = fuse_new(ch, &args, &xmp_oper,
-                           sizeof(xmp_oper), (void *)conn);
-            qDebug() << "before fuse_loop call";
+            f = fuse_new(ch, &args, &xmp_oper, sizeof(xmp_oper), conn);
+            qDebug() << "before fuse_set_signal_handlers call";
             if (fuse_set_signal_handlers(fuse_get_session(f)) != 0) {
                 fprintf(stderr, "Failed to set up signal handlers\n");
                 perror("fuse_set_signal_handlers");
@@ -1132,8 +1134,11 @@ static void Start(Connection *conn)
                 fuse_unmount(mountpoint, ch);
                 return;
             }
+            qDebug() << "before fuse_loop call";
             fuse_loop(f);
             qDebug() << "after fuse_loop call";
+//            struct fuse_session *se;
+//            se = fuse_get_session(f);
 //            if (se != NULL) {
 //                if (fuse_set_signal_handlers(se) != -1) {
 //                    fuse_session_add_chan(se, ch);
@@ -1143,7 +1148,7 @@ static void Start(Connection *conn)
 //                }
 //                fuse_session_destroy(se);
 //            }
-            // fuse_exit(f);
+//             fuse_exit(f);
             fuse_remove_signal_handlers(fuse_get_session(f));
             fuse_destroy(f);
             fuse_unmount(mountpoint, ch);
@@ -1153,10 +1158,15 @@ static void Start(Connection *conn)
     //                          sizeof(xmp_oper), (void *)conn);
 
 //    umask(0);
+//        loopback.blocksize = 4096;
+//        loopback.case_insensitive = 0;
+//        if (fuse_opt_parse(&args, &loopback, loopback_opts, NULL) == -1) {
+//            exit(1);
+//        }
 //    qDebug() << "before fuse_main call";
-//     int res = fuse_main(argc, argv, &xmp_oper, NULL);
+//     int res = fuse_main(argc, argv, &xmp_oper, conn);
 //     qDebug() << "fuse_main result: " << res;
-     fuse_opt_free_args(&args);
+//     fuse_opt_free_args(&args);
 }
 
 void VirtDisk::mount(const QString &mountPoint)

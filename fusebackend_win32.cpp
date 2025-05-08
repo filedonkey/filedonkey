@@ -41,6 +41,7 @@ ReaddirResult *FUSEBackend::FD_readdir(const char *path)
 
     while ((de = readdir(dp)) != NULL) {
         FindData &findData = findDataList.emplace_back();
+        memset(&findData, 0, sizeof(FindData));
 
         size_t dientPathLen = strlen(dp->dd_name) + strlen(de->d_name);
         char *direntPath = (char *)alloca(dientPathLen);
@@ -92,9 +93,10 @@ ReaddirResult *FUSEBackend::FD_readdir(const char *path)
     closedir(dp);
 
     result->status = 0;
-    result->findData = (void*)&findDataList.front();
     result->count = findDataList.size();
     result->dataSize = sizeof(FindData) * result->count;
+    result->findData = malloc(result->dataSize);
+    memcpy(result->findData, findDataList.data(), result->dataSize);
 
     return result;
 }

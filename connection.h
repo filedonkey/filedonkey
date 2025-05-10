@@ -10,23 +10,20 @@ struct DatagramHeader
     unsigned int protocolVersion;
     char virtDiskType[32];
     char operationName[32];
+
+    DatagramHeader(const char *messageType,
+                   const char *virtDiskType,
+                   const char *operationName,
+                   unsigned int protocolVersion = 1)
+    {
+        memcpy(this->messageType, messageType, strlen(messageType));
+        memcpy(this->virtDiskType, virtDiskType, strlen(virtDiskType));
+        memcpy(this->operationName, operationName, strlen(operationName));
+
+        this->protocolVersion = protocolVersion;
+        this->datagramSize = sizeof(DatagramHeader);
+    }
 };
-
-static void InitDatagram(DatagramHeader &header,
-                         const char *messageType,
-                         const char *virtDiskType,
-                         const char *operationName,
-                         unsigned int protocolVersion = 1)
-{
-    memset(&header, 0, sizeof(DatagramHeader));
-
-    memcpy(header.messageType, messageType, strlen(messageType));
-    memcpy(header.virtDiskType, virtDiskType, strlen(virtDiskType));
-    memcpy(header.operationName, operationName, strlen(operationName));
-
-    header.protocolVersion = protocolVersion;
-    header.datagramSize = sizeof(DatagramHeader);
-}
 
 static void ReadDatagramHeader(DatagramHeader **header, const char *data)
 {

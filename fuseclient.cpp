@@ -31,8 +31,7 @@ QByteArray FUSEClient::Fetch(const char *operationName, const QByteArray &payloa
 
     if (socket)
     {
-        DatagramHeader header;
-        InitDatagram(header, "request", "fuse", operationName);
+        DatagramHeader header("request", "fuse", operationName);
         QByteArray request((char *)&header, sizeof(DatagramHeader));
         request.append(payload);
 

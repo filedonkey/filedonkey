@@ -45,8 +45,7 @@ MainWindow::MainWindow(QWidget *parent)
     //------------------------------------------------------------------------------------
     // For local testing
     //------------------------------------------------------------------------------------
-    // DatagramHeader header;
-    // InitDatagram(header, "request", "fuse", "readdir");
+    // DatagramHeader header("request", "fuse", "readdir");
 
     // QByteArray datagram((char *)&header, sizeof(DatagramHeader));
 
@@ -273,8 +272,7 @@ void MainWindow::onSocketReadyRead()
             qDebug() << "[onSocketReadyRead] fuse readdir path:" << path;
             ReaddirResult *result = FUSEBackend::FD_readdir(path);
 
-            DatagramHeader header;
-            InitDatagram(header, "response", "fuse", "readdir");
+            DatagramHeader header("response", "fuse", "readdir");
             header.datagramSize += sizeof(ReaddirResult) + result->dataSize;
 
             response.append((char *)&header, sizeof(DatagramHeader));

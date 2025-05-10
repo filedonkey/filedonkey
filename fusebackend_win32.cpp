@@ -25,7 +25,8 @@ ReaddirResult *FUSEBackend::FD_readdir(const char *path)
     struct FindData
     {
         char name[1024];
-        struct FUSE_STAT stat;
+        unsigned long long st_ino;
+        unsigned short st_mode;
     };
 
     std::vector<FindData> findDataList;
@@ -64,7 +65,7 @@ ReaddirResult *FUSEBackend::FD_readdir(const char *path)
 
         WIN32_FILE_ATTRIBUTE_DATA fileData;
         BOOL success = GetFileAttributesExW(wpath, GetFileExInfoStandard, &fileData);
-        findData.stat.st_mode = 0;
+        findData.st_mode = 0;
         if (success)
         {
 #define WIN_S_IFLNK  0120000  // symbolic link
@@ -73,11 +74,11 @@ ReaddirResult *FUSEBackend::FD_readdir(const char *path)
 
             bool isSymLink = (fileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
             if (isSymLink) {
-                findData.stat.st_mode |= WIN_S_IFLNK;
+                findData.st_mode |= WIN_S_IFLNK;
             } else if (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-                findData.stat.st_mode |= WIN_S_IFDIR;
+                findData.st_mode |= WIN_S_IFDIR;
             } else {
-                findData.stat.st_mode |= WIN_S_IFREG;
+                findData.st_mode |= WIN_S_IFREG;
             }
         }
 
@@ -85,7 +86,7 @@ ReaddirResult *FUSEBackend::FD_readdir(const char *path)
         qDebug() << "[FD_readdir] d_name" << de->d_name << strlen(de->d_name);
         qDebug() << "[FD_readdir] direntPath" << direntPath << strlen(direntPath);
 
-        findData.stat.st_ino = de->d_ino;
+        findData.st_ino = de->d_ino;
         // findData.stat.st_mode = st_mode; // de->d_type << 12;
         memcpy(findData.name, de->d_name, strlen(de->d_name));
     }

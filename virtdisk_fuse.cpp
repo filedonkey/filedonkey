@@ -133,14 +133,20 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     struct FindData
     {
         char name[1024];
-        struct FUSE_STAT stat;
+        unsigned long long st_ino;
+        unsigned short st_mode;
     };
+
+    struct FUSE_STAT stat;
+    memset(&stat, 0, sizeof(FUSE_STAT));
 
     for (unsigned int i = 0; i < result->count; ++i)
     {
         auto findData = (FindData *)result->findData + i;
         qDebug() << "[xmp_readdir] findData.name: " << findData->name;
-        filler(buf, findData->name, &findData->stat, 0);
+        stat.st_ino = findData->st_ino;
+        stat.st_mode = findData->st_mode;
+        filler(buf, findData->name, &stat, 0);
     }
 
     return result->status;

@@ -12,6 +12,8 @@ public:
     ReaddirResult *FD_readdir(const char *path);
 
 private:
+    QByteArray Fetch(const char *operationName, const QByteArray &payload);
+
     Connection *conn;
 };
 

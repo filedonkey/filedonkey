@@ -2,16 +2,39 @@
 
 ReaddirResult *FUSEClient::FD_readdir(const char *path)
 {
+        qDebug() << "[FUSEClient::FD_readdir] machineId: " << conn->machineId;
+
+        QByteArray payload((char *)path, strlen(path));
+        QByteArray incoming = Fetch("readdir", payload);
+
+        DatagramHeader *header;
+        ReadDatagramHeader(&header, incoming.data());
+
+        qDebug() << "[FUSEClient::FD_readdir] incoming message type:" << header->messageType;
+        qDebug() << "[FUSEClient::FD_readdir] incoming protocol version:" << header->protocolVersion;
+        qDebug() << "[FUSEClient::FD_readdir] incoming virt disk type:" << header->virtDiskType;
+        qDebug() << "[FUSEClient::FD_readdir] incoming operation name:" << header->operationName;
+
+        ReaddirResult *result;
+        ReadResult(&result, incoming.sliced(sizeof(DatagramHeader)).data());
+
+        qDebug() << "[FUSEClient::FD_readdir] incoming result status:" << result->status;
+        qDebug() << "[FUSEClient::FD_readdir] incoming result dataSize:" << result->dataSize;
+        qDebug() << "[FUSEClient::FD_readdir] incoming result count:" << result->count;
+
+        return result;
+}
+
+QByteArray FUSEClient::Fetch(const char *operationName, const QByteArray &payload)
+{
     QTcpSocket *socket = conn->socket;
 
     if (socket)
     {
-        qDebug() << "[FUSEClient::FD_readdir] machineId: " << conn->machineId;
-
         DatagramHeader header;
-        InitDatagram(header, "request", "fuse", "readdir");
+        InitDatagram(header, "request", "fuse", operationName);
         QByteArray request((char *)&header, sizeof(DatagramHeader));
-        request.append((char *)path, strlen(path));
+        request.append(payload);
 
         socket->write(request);
 
@@ -38,25 +61,9 @@ ReaddirResult *FUSEClient::FD_readdir(const char *path)
         assert(incoming.size() == datagramSize);
 
         qDebug() << "[FUSEClient::FD_readdir] count:" << count;
-
         qDebug() << "[FUSEClient::FD_readdir] incoming size:" << incoming.size();
 
-        DatagramHeader *inHeader;
-        ReadDatagramHeader(&inHeader, incoming.data());
-
-        qDebug() << "[FUSEClient::FD_readdir] incoming message type:" << inHeader->messageType;
-        qDebug() << "[FUSEClient::FD_readdir] incoming protocol version:" << inHeader->protocolVersion;
-        qDebug() << "[FUSEClient::FD_readdir] incoming virt disk type:" << inHeader->virtDiskType;
-        qDebug() << "[FUSEClient::FD_readdir] incoming operation name:" << inHeader->operationName;
-
-        ReaddirResult *result;
-        ReadResult(&result, incoming.sliced(sizeof(DatagramHeader)).data());
-
-        qDebug() << "[FUSEClient::FD_readdir] incoming result status:" << result->status;
-        qDebug() << "[FUSEClient::FD_readdir] incoming result dataSize:" << result->dataSize;
-        qDebug() << "[FUSEClient::FD_readdir] incoming result count:" << result->count;
-
-        return result;
+        return incoming;
     }
     else
     {

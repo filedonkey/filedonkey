@@ -8,7 +8,7 @@ ReaddirResult *FUSEClient::FD_readdir(const char *path)
         QByteArray incoming = Fetch("readdir", payload);
 
         DatagramHeader *header;
-        ReadDatagramHeader(&header, incoming.data());
+        DatagramHeader::ReadFrom(&header, incoming.data());
 
         qDebug() << "[FUSEClient::FD_readdir] incoming message type:" << header->messageType;
         qDebug() << "[FUSEClient::FD_readdir] incoming protocol version:" << header->protocolVersion;

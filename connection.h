@@ -23,13 +23,13 @@ struct DatagramHeader
         this->protocolVersion = protocolVersion;
         this->datagramSize = sizeof(DatagramHeader);
     }
-};
 
-static void ReadDatagramHeader(DatagramHeader **header, const char *data)
-{
-    // memcpy(&header, data, sizeof(DatagramHeader));
-    *header = (DatagramHeader *)data;
-}
+    static void ReadFrom(DatagramHeader **header, const char *data)
+    {
+        // memcpy(&header, data, sizeof(DatagramHeader));
+        *header = (DatagramHeader *)data;
+    }
+};
 
 struct Connection
 {

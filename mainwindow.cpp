@@ -85,7 +85,7 @@ MainWindow::MainWindow(QWidget *parent)
     // qDebug() << "[DatagramHeader] operationName:" << header.operationName;
 
     // DatagramHeader *header2;
-    // ReadDatagramHeader(&header2, datagram.data());
+    // DatagramHeader::ReadFrom(&header2, datagram.data());
     // qDebug() << "[DatagramHeader 2] messageType:" << header2->messageType;
     // qDebug() << "[DatagramHeader 2] protocolVersion:" << header2->protocolVersion;
     // qDebug() << "[DatagramHeader 2] virtDiskType:" << header2->virtDiskType;
@@ -257,7 +257,7 @@ void MainWindow::onSocketReadyRead()
 
     QByteArray incoming = newConnection->readAll();
     DatagramHeader *header;
-    ReadDatagramHeader(&header, incoming.data());
+    DatagramHeader::ReadFrom(&header, incoming.data());
 
     assert(strcmp(header->messageType, "request") == 0);
     assert(header->protocolVersion == 1);

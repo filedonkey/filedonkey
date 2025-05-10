@@ -197,7 +197,7 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     qDebug() << "[xmp_readdir] context:" << context << context->private_data;
     FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
-    ReaddirResult *result = client.FD_readdir(path);
+    ReaddirResult *result = client->FD_readdir(path);
 
     // struct stat st;
     // memset(&st, 0, sizeof(st));

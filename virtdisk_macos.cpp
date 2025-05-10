@@ -76,6 +76,8 @@ static struct fuse *f;
 static struct fuse_chan *ch;
 static char *mountpoint = "/Users/igorgoremykin";
 
+static Connection *g_Conn;
+
 
 VirtDisk::VirtDisk(const Connection& conn) : conn(conn)
 {
@@ -193,7 +195,7 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     //------------------------------------------------------------------------------------
     struct fuse_context *context = fuse_get_context();
     qDebug() << "[xmp_readdir] context:" << context << context->private_data;
-    Connection *conn = (Connection*)context->private_data;
+    Connection *conn = g_Conn; // (Connection*)context->private_data;
 
     if (conn)
     {
@@ -214,18 +216,68 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
             socket->waitForReadyRead();
 
+            qDebug() << "[xmp_readdir] socket bytesAvailable:" << socket->bytesAvailable();
             qDebug() << "[xmp_readdir] before readAll";
 
             QByteArray incoming = socket->readAll();
-            qDebug() << "[xmp_readdir] incoming size:" << incoming.size();
 
             DatagramHeader *inHeader;
             ReadDatagramHeader(&inHeader, incoming.data());
+
+            qDebug() << "[xmp_readdir] total size:" << inHeader->datagramSize;
+
+//            incoming.reserve(inHeader->totalSize);
+            int count = 0;
+            while (incoming.size() < inHeader->datagramSize)
+            {
+                socket->waitForReadyRead();
+                incoming.append(socket->readAll());
+                count++;
+            }
+
+            assert(incoming.size() == inHeader->datagramSize);
+
+            qDebug() << "[xmp_readdir] count:" << count;
+
+            qDebug() << "[xmp_readdir] incoming size:" << incoming.size();
 
             qDebug() << "[xmp_readdir] incoming message type:" << inHeader->messageType;
             qDebug() << "[xmp_readdir] incoming protocol version:" << inHeader->protocolVersion;
             qDebug() << "[xmp_readdir] incoming virt disk type:" << inHeader->virtDiskType;
             qDebug() << "[xmp_readdir] incoming operation name:" << inHeader->operationName;
+
+            ReaddirResult *result;
+            ReadResult(&result, incoming.sliced(sizeof(DatagramHeader)).data());
+
+            qDebug() << "[xmp_readdir] incoming result status:" << result->status;
+            qDebug() << "[xmp_readdir] incoming result dataSize:" << result->dataSize;
+            qDebug() << "[xmp_readdir] incoming result count:" << result->count;
+
+            struct FindData
+            {
+                char name[1024];
+                unsigned long long st_ino;
+                unsigned short st_mode;
+            };
+
+//            struct stat st;
+//            memset(&st, 0, sizeof(st));
+
+            qDebug() << "before for";
+            for (int i = 0; i < result->count; ++i)
+            {
+                qDebug() << "for i" << i;
+                FindData *fd = (FindData *)result->findData + i;
+                qDebug() << "[xmp_readdir] incoming findData name:" << fd->name;
+                qDebug() << "[xmp_readdir] incoming findData st_ino:" << fd->st_ino;
+                qDebug() << "[xmp_readdir] incoming findData st_mode:" << fd->st_mode;
+
+//                st.st_ino = fd->st_ino;
+//                st.st_mode = fd->st_mode;
+
+//                filler(buf, fd->name, &st, /*nextoff*/0);
+            }
+            qDebug() << "after for";
         }
         else
         {
@@ -261,6 +313,11 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         st.st_mode = d->entry->d_type << 12;
         nextoff = telldir(d->dp);
         nextoff++;
+
+        qDebug() << "[xmp_readdir] fill name:" << d->entry->d_name;
+        qDebug() << "[xmp_readdir] fill st_ino:" << st.st_ino;
+        qDebug() << "[xmp_readdir] fill st_mode:" << st.st_mode;
+
         if (filler(buf, d->entry->d_name, &st, /*nextoff*/0))
             break;
 
@@ -1116,6 +1173,8 @@ static void Start(Connection *conn)
     }
 
     qDebug() << "[Start] socket connected";
+
+    g_Conn = conn;
 
     int argc = 4;
     char *argv[] = {"FileDonkey", "/Users/Guest/Public/fuse/", "-o", "volname=Windows  PC"};

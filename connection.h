@@ -9,6 +9,7 @@ struct DatagramHeader
     unsigned int protocolVersion;
     char virtDiskType[32];
     char operationName[32];
+    long long datagramSize;
 };
 
 static void InitDatagram(DatagramHeader &header,
@@ -24,6 +25,7 @@ static void InitDatagram(DatagramHeader &header,
     memcpy(header.operationName, operationName, strlen(operationName));
 
     header.protocolVersion = protocolVersion;
+    header.datagramSize = sizeof(DatagramHeader);
 }
 
 static void ReadDatagramHeader(DatagramHeader **header, const char *data)

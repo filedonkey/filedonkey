@@ -275,6 +275,7 @@ void MainWindow::onSocketReadyRead()
 
             DatagramHeader header;
             InitDatagram(header, "response", "fuse", "readdir");
+            header.datagramSize += sizeof(ReaddirResult) + result->dataSize;
 
             response.append((char *)&header, sizeof(DatagramHeader));
             response.append((char *)result, sizeof(ReaddirResult));

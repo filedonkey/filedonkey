@@ -11,6 +11,7 @@ CONFIG += c++17
 SOURCES += \
     dokanbackend_win32.cpp \
     fusebackend_win32.cpp \
+    fuseclient.cpp \
     lstat_win32.cpp \
     main.cpp \
     mainwindow.cpp \
@@ -25,6 +26,7 @@ HEADERS += \
     connection.h \
     dokanbackend.h \
     fusebackend.h \
+    fuseclient.h \
     mainwindow.h \
     virtdisk.h
 

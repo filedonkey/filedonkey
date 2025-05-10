@@ -5,11 +5,11 @@
 
 struct DatagramHeader
 {
+    long long datagramSize;
     char messageType[32];
     unsigned int protocolVersion;
     char virtDiskType[32];
     char operationName[32];
-    long long datagramSize;
 };
 
 static void InitDatagram(DatagramHeader &header,

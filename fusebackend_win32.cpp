@@ -22,13 +22,6 @@ ReaddirResult *FUSEBackend::FD_readdir(const char *path)
     ReaddirResult *result = (ReaddirResult *)malloc(sizeof(ReaddirResult));
     memset(result, 0, sizeof(ReaddirResult));
 
-    struct FindData
-    {
-        char name[1024];
-        unsigned long long st_ino;
-        unsigned short st_mode;
-    };
-
     std::vector<FindData> findDataList;
     DIR *dp;
     struct dirent *de;
@@ -96,7 +89,7 @@ ReaddirResult *FUSEBackend::FD_readdir(const char *path)
     result->status = 0;
     result->count = findDataList.size();
     result->dataSize = sizeof(FindData) * result->count;
-    result->findData = malloc(result->dataSize);
+    result->findData = (FindData *)malloc(result->dataSize);
     memcpy(result->findData, findDataList.data(), result->dataSize);
 
     return result;

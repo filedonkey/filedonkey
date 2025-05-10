@@ -4,12 +4,19 @@
 #include <string.h>
 #include <stdlib.h>
 
+struct FindData
+{
+    char name[1024];
+    unsigned long long st_ino;
+    unsigned short st_mode;
+};
+
 struct ReaddirResult
 {
     int status;
     unsigned int count;
     unsigned int dataSize;
-    void *findData;
+    FindData *findData;
 };
 
 static void ReadResult(ReaddirResult **result, const char *data)
@@ -20,7 +27,7 @@ static void ReadResult(ReaddirResult **result, const char *data)
     // memcpy(result->findData, data + sizeof(ReaddirResult), result->dataSize);
     // return result;
     *result = (ReaddirResult *)data;
-    (*result)->findData = (void *)(data + sizeof(ReaddirResult));
+    (*result)->findData = (FindData *)(data + sizeof(ReaddirResult));
 }
 
 static void FreeResult(ReaddirResult *result)

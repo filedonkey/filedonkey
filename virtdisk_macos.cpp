@@ -9,7 +9,7 @@
 // https://github.com/dokan-dev/dokany/wiki/FUSE
 
 #include "virtdisk.h"
-#include "fusebackend.h"
+#include "fuseclient.h"
 
 //#include "fuse_lowlevel.h"
 
@@ -76,7 +76,7 @@ static struct fuse *f;
 static struct fuse_chan *ch;
 static char *mountpoint = "/Users/igorgoremykin";
 
-static Connection *g_Conn;
+static FUSEClient *g_Client;
 
 
 VirtDisk::VirtDisk(const Connection& conn) : conn(conn)
@@ -195,99 +195,28 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     //------------------------------------------------------------------------------------
     struct fuse_context *context = fuse_get_context();
     qDebug() << "[xmp_readdir] context:" << context << context->private_data;
-    Connection *conn = g_Conn; // (Connection*)context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
-    if (conn)
+    ReaddirResult *result = client.FD_readdir(path);
+
+    // struct stat st;
+    // memset(&st, 0, sizeof(st));
+
+    qDebug() << "before for";
+    for (int i = 0; i < result->count; ++i)
     {
-        QTcpSocket *socket = conn->socket;
+        qDebug() << "for i" << i;
+        FindData *fd = (FindData *)result->findData + i;
+        qDebug() << "[xmp_readdir] incoming findData name:" << fd->name;
+        qDebug() << "[xmp_readdir] incoming findData st_ino:" << fd->st_ino;
+        qDebug() << "[xmp_readdir] incoming findData st_mode:" << fd->st_mode;
 
-        if (socket)
-        {
-            qDebug() << "[xmp_readdir] machineId: " << conn->machineId;
+        // st.st_ino = fd->st_ino;
+        // st.st_mode = fd->st_mode;
 
-            DatagramHeader header;
-            InitDatagram(header, "request", "fuse", "readdir");
-            QByteArray request((char *)&header, sizeof(DatagramHeader));
-            request.append((char *)path, strlen(path));
-
-            socket->write(request);
-
-            qDebug() << "[xmp_readdir] after write";
-
-            socket->waitForReadyRead();
-
-            qDebug() << "[xmp_readdir] socket bytesAvailable:" << socket->bytesAvailable();
-            qDebug() << "[xmp_readdir] before readAll";
-
-            QByteArray incoming = socket->readAll();
-
-            DatagramHeader *inHeader;
-            ReadDatagramHeader(&inHeader, incoming.data());
-
-            qDebug() << "[xmp_readdir] total size:" << inHeader->datagramSize;
-
-//            incoming.reserve(inHeader->totalSize);
-            int count = 0;
-            while (incoming.size() < inHeader->datagramSize)
-            {
-                socket->waitForReadyRead();
-                incoming.append(socket->readAll());
-                count++;
-            }
-
-            assert(incoming.size() == inHeader->datagramSize);
-
-            qDebug() << "[xmp_readdir] count:" << count;
-
-            qDebug() << "[xmp_readdir] incoming size:" << incoming.size();
-
-            qDebug() << "[xmp_readdir] incoming message type:" << inHeader->messageType;
-            qDebug() << "[xmp_readdir] incoming protocol version:" << inHeader->protocolVersion;
-            qDebug() << "[xmp_readdir] incoming virt disk type:" << inHeader->virtDiskType;
-            qDebug() << "[xmp_readdir] incoming operation name:" << inHeader->operationName;
-
-            ReaddirResult *result;
-            ReadResult(&result, incoming.sliced(sizeof(DatagramHeader)).data());
-
-            qDebug() << "[xmp_readdir] incoming result status:" << result->status;
-            qDebug() << "[xmp_readdir] incoming result dataSize:" << result->dataSize;
-            qDebug() << "[xmp_readdir] incoming result count:" << result->count;
-
-            struct FindData
-            {
-                char name[1024];
-                unsigned long long st_ino;
-                unsigned short st_mode;
-            };
-
-//            struct stat st;
-//            memset(&st, 0, sizeof(st));
-
-            qDebug() << "before for";
-            for (int i = 0; i < result->count; ++i)
-            {
-                qDebug() << "for i" << i;
-                FindData *fd = (FindData *)result->findData + i;
-                qDebug() << "[xmp_readdir] incoming findData name:" << fd->name;
-                qDebug() << "[xmp_readdir] incoming findData st_ino:" << fd->st_ino;
-                qDebug() << "[xmp_readdir] incoming findData st_mode:" << fd->st_mode;
-
-//                st.st_ino = fd->st_ino;
-//                st.st_mode = fd->st_mode;
-
-//                filler(buf, fd->name, &st, /*nextoff*/0);
-            }
-            qDebug() << "after for";
-        }
-        else
-        {
-            qDebug() << "[xmp_readdir] connection is invalid";
-        }
+        // filler(buf, fd->name, &st, /*nextoff*/0);
     }
-    else
-    {
-        qDebug() << "[xmp_readdir] private data is empty";
-    }
+    qDebug() << "after for";
     //------------------------------------------------------------------------------------
 
     struct xmp_dirp *d = get_dirp(fi);
@@ -1174,7 +1103,7 @@ static void Start(Connection *conn)
 
     qDebug() << "[Start] socket connected";
 
-    g_Conn = conn;
+    g_Client = new FUSEClient(conn);
 
     int argc = 4;
     char *argv[] = {"FileDonkey", "/Users/Guest/Public/fuse/", "-o", "volname=Windows  PC"};

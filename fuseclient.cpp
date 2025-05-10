@@ -38,16 +38,16 @@ QByteArray FUSEClient::Fetch(const char *operationName, const QByteArray &payloa
 
         socket->write(request);
 
-        qDebug() << "[FUSEClient::FD_readdir] after write";
+        qDebug() << "[FUSEClient::Fetch] after write";
 
         socket->waitForReadyRead();
 
-        qDebug() << "[FUSEClient::FD_readdir] socket bytesAvailable:" << socket->bytesAvailable();
+        qDebug() << "[FUSEClient::Fetch] socket bytesAvailable:" << socket->bytesAvailable();
 
         QByteArray incoming = socket->readAll();
         qsizetype datagramSize = *((qsizetype *)incoming.data());
 
-        qDebug() << "[FUSEClient::FD_readdir] datagram size:" << datagramSize;
+        qDebug() << "[FUSEClient::Fetch] datagram size:" << datagramSize;
 
         incoming.reserve(datagramSize);
         int count = 0;
@@ -60,13 +60,13 @@ QByteArray FUSEClient::Fetch(const char *operationName, const QByteArray &payloa
 
         assert(incoming.size() == datagramSize);
 
-        qDebug() << "[FUSEClient::FD_readdir] count:" << count;
-        qDebug() << "[FUSEClient::FD_readdir] incoming size:" << incoming.size();
+        qDebug() << "[FUSEClient::Fetch] count:" << count;
+        qDebug() << "[FUSEClient::Fetch] incoming size:" << incoming.size();
 
         return incoming;
     }
     else
     {
-        qDebug() << "[FUSEClient::FD_readdir] connection is invalid";
+        qDebug() << "[FUSEClient::Fetch] connection is invalid";
     }
 }

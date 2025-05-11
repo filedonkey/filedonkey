@@ -91,6 +91,8 @@ VirtDisk::~VirtDisk()
 
 static int xmp_getattr(const char *path, struct stat *stbuf)
 {
+    qDebug() << "[xmp_getattr] path: " << path;
+
     int res;
 
     res = lstat(path, stbuf);
@@ -122,6 +124,8 @@ static int xmp_getattr(const char *path, struct stat *stbuf)
 static int xmp_fgetattr(const char *path, struct stat *stbuf,
             struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_fgetattr] path: " << path;
+
     int res;
 
     (void) path;
@@ -135,6 +139,8 @@ static int xmp_fgetattr(const char *path, struct stat *stbuf,
 
 static int xmp_access(const char *path, int mask)
 {
+    qDebug() << "[xmp_access] path: " << path;
+
     int res;
 
     res = access(path, mask);
@@ -146,6 +152,8 @@ static int xmp_access(const char *path, int mask)
 
 static int xmp_readlink(const char *path, char *buf, size_t size)
 {
+    qDebug() << "[xmp_readlink] path: " << path;
+
     int res;
 
     res = readlink(path, buf, size - 1);
@@ -164,6 +172,8 @@ struct xmp_dirp {
 
 static int xmp_opendir(const char *path, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_opendir] path: " << path;
+
     int res;
     struct xmp_dirp *d = (struct xmp_dirp *)malloc(sizeof(struct xmp_dirp));
     if (d == NULL)
@@ -190,6 +200,8 @@ static inline struct xmp_dirp *get_dirp(struct fuse_file_info *fi)
 static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                off_t offset, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_readdir] path: " << path;
+
     //------------------------------------------------------------------------------------
     // Network tests
     //------------------------------------------------------------------------------------
@@ -259,6 +271,8 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 static int xmp_releasedir(const char *path, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_releasedir] path: " << path;
+
     struct xmp_dirp *d = get_dirp(fi);
     (void) path;
     closedir(d->dp);
@@ -268,6 +282,8 @@ static int xmp_releasedir(const char *path, struct fuse_file_info *fi)
 
 static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)
 {
+    qDebug() << "[xmp_mknod] path: " << path;
+
     int res;
 
     if (S_ISFIFO(mode))
@@ -282,6 +298,8 @@ static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)
 
 static int xmp_mkdir(const char *path, mode_t mode)
 {
+    qDebug() << "[xmp_mkdir] path: " << path;
+
     int res;
 
     res = mkdir(path, mode);
@@ -293,6 +311,8 @@ static int xmp_mkdir(const char *path, mode_t mode)
 
 static int xmp_unlink(const char *path)
 {
+    qDebug() << "[xmp_unlink] path: " << path;
+
     int res;
 
     res = unlink(path);
@@ -304,6 +324,8 @@ static int xmp_unlink(const char *path)
 
 static int xmp_rmdir(const char *path)
 {
+    qDebug() << "[xmp_rmdir] path: " << path;
+
     int res;
 
     res = rmdir(path);
@@ -315,6 +337,8 @@ static int xmp_rmdir(const char *path)
 
 static int xmp_symlink(const char *from, const char *to)
 {
+    qDebug() << "[xmp_symlink] path: " << from;
+
     int res;
 
     res = symlink(from, to);
@@ -326,6 +350,8 @@ static int xmp_symlink(const char *from, const char *to)
 
 static int xmp_rename(const char *from, const char *to)
 {
+    qDebug() << "[xmp_rename] path: " << from;
+
     int res;
     res = rename(from, to);
     if (res == -1)
@@ -338,6 +364,8 @@ static int xmp_rename(const char *from, const char *to)
 
 static int xmp_setvolname(const char *volname)
 {
+    qDebug() << "[xmp_setvolname] path: " << volname;
+
     (void)volname;
     return 0;
 }
@@ -345,6 +373,8 @@ static int xmp_setvolname(const char *volname)
 static int xmp_exchange(const char *path1, const char *path2,
             unsigned long options)
 {
+    qDebug() << "[xmp_exchange] path: " << path1 << path2;
+
     int res;
 
     res = exchangedata(path1, path2, options);
@@ -358,6 +388,8 @@ static int xmp_exchange(const char *path1, const char *path2,
 
 static int xmp_link(const char *from, const char *to)
 {
+    qDebug() << "[xmp_link] path: " << from;
+
     int res;
 
     res = link(from, to);
@@ -372,6 +404,8 @@ static int xmp_link(const char *from, const char *to)
 static int xmp_fsetattr_x(const char *path, struct setattr_x *attr,
               struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_fsetattr_x] path: " << path;
+
     int res;
     uid_t uid = -1;
     gid_t gid = -1;
@@ -488,6 +522,8 @@ static int xmp_setattr_x(const char *path, struct setattr_x *attr)
 
 static int xmp_chflags(const char *path, uint32_t flags)
 {
+    qDebug() << "[xmp_chflags] path: " << path;
+
     int res;
 
     res = chflags(path, flags);
@@ -501,6 +537,8 @@ static int xmp_chflags(const char *path, uint32_t flags)
 static int xmp_getxtimes(const char *path, struct timespec *bkuptime,
              struct timespec *crtime)
 {
+    qDebug() << "[xmp_getxtimes] path: " << path;
+
     int res = 0;
     struct attrlist attributes;
 
@@ -541,6 +579,8 @@ static int xmp_getxtimes(const char *path, struct timespec *bkuptime,
 
 static int xmp_setbkuptime(const char *path, const struct timespec *bkuptime)
 {
+    qDebug() << "[xmp_setbkuptime] path: " << path;
+
     int res;
 
     struct attrlist attributes;
@@ -564,6 +604,8 @@ static int xmp_setbkuptime(const char *path, const struct timespec *bkuptime)
 
 static int xmp_setchgtime(const char *path, const struct timespec *chgtime)
 {
+    qDebug() << "[xmp_setchgtime] path: " << path;
+
     int res;
 
     struct attrlist attributes;
@@ -587,6 +629,8 @@ static int xmp_setchgtime(const char *path, const struct timespec *chgtime)
 
 static int xmp_setcrtime(const char *path, const struct timespec *crtime)
 {
+    qDebug() << "[xmp_setcrtime] path: " << path;
+
     int res;
 
     struct attrlist attributes;
@@ -612,6 +656,8 @@ static int xmp_setcrtime(const char *path, const struct timespec *crtime)
 
 static int xmp_chmod(const char *path, mode_t mode)
 {
+    qDebug() << "[xmp_chmod] path: " << path;
+
     int res;
 
 #ifdef __APPLE__
@@ -627,6 +673,8 @@ static int xmp_chmod(const char *path, mode_t mode)
 
 static int xmp_chown(const char *path, uid_t uid, gid_t gid)
 {
+    qDebug() << "[xmp_chown] path: " << path;
+
     int res;
 
     res = lchown(path, uid, gid);
@@ -638,6 +686,8 @@ static int xmp_chown(const char *path, uid_t uid, gid_t gid)
 
 static int xmp_truncate(const char *path, off_t size)
 {
+    qDebug() << "[xmp_truncate] path: " << path;
+
     int res;
 
     res = truncate(path, size);
@@ -650,6 +700,8 @@ static int xmp_truncate(const char *path, off_t size)
 static int xmp_ftruncate(const char *path, off_t size,
              struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_ftruncate] path: " << path;
+
     int res;
 
     (void) path;
@@ -664,6 +716,8 @@ static int xmp_ftruncate(const char *path, off_t size,
 #ifdef HAVE_UTIMENSAT
 static int xmp_utimens(const char *path, const struct timespec ts[2])
 {
+    qDebug() << "[xmp_utimens] path: " << path;
+
     int res;
 
     /* don't use utime/utimes since they follow symlinks */
@@ -677,6 +731,8 @@ static int xmp_utimens(const char *path, const struct timespec ts[2])
 
 static int xmp_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_create] path: " << path;
+
     int fd;
 
     fd = open(path, fi->flags, mode);
@@ -689,6 +745,8 @@ static int xmp_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 
 static int xmp_open(const char *path, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_open] path: " << path;
+
     int fd;
 
     fd = open(path, fi->flags);
@@ -702,6 +760,8 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
             struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_read] path: " << path;
+
     int res;
 
     (void) path;
@@ -715,6 +775,8 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 static int xmp_read_buf(const char *path, struct fuse_bufvec **bufp,
             size_t size, off_t offset, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_read_buf] path: " << path;
+
     struct fuse_bufvec *src;
 
     (void) path;
@@ -737,6 +799,8 @@ static int xmp_read_buf(const char *path, struct fuse_bufvec **bufp,
 static int xmp_write(const char *path, const char *buf, size_t size,
              off_t offset, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_write] path: " << path;
+
     int res;
 
     (void) path;
@@ -750,6 +814,8 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 static int xmp_write_buf(const char *path, struct fuse_bufvec *buf,
              off_t offset, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_write_buf] path: " << path;
+
     struct fuse_bufvec dst = FUSE_BUFVEC_INIT(fuse_buf_size(buf));
     (void) path;
 
@@ -762,6 +828,8 @@ static int xmp_write_buf(const char *path, struct fuse_bufvec *buf,
 
 static int xmp_statfs(const char *path, struct statvfs *stbuf)
 {
+    qDebug() << "[xmp_statfs] path: " << path;
+
     int res;
 
     res = statvfs(path, stbuf);
@@ -785,6 +853,8 @@ static int xmp_statfs(const char *path, struct statvfs *stbuf)
 
 static int xmp_flush(const char *path, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_flush] path: " << path;
+
     int res;
 
     (void) path;
@@ -802,6 +872,8 @@ static int xmp_flush(const char *path, struct fuse_file_info *fi)
 
 static int xmp_release(const char *path, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_release] path: " << path;
+
     (void) path;
     close(fi->fh);
 
@@ -811,6 +883,8 @@ static int xmp_release(const char *path, struct fuse_file_info *fi)
 static int xmp_fsync(const char *path, int isdatasync,
              struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_fsync] path: " << path;
+
     int res;
     (void) path;
 
@@ -832,6 +906,8 @@ static int xmp_fsync(const char *path, int isdatasync,
 static int xmp_fallocate(const char *path, int mode,
             off_t offset, off_t length, struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_fallocate] path: " << path;
+
 #ifdef __APPLE__
     fstore_t fstore;
 
@@ -877,6 +953,8 @@ static int xmp_setxattr(const char *path, const char *name, const char *value,
             size_t size, int flags)
 #endif
 {
+    qDebug() << "[xmp_setxattr] path: " << path;
+
 #ifdef __APPLE__
     int res;
     if (!strncmp(name, XATTR_APPLE_PREFIX, sizeof(XATTR_APPLE_PREFIX) - 1)) {
@@ -906,6 +984,8 @@ static int xmp_getxattr(const char *path, const char *name, char *value,
             size_t size)
 #endif
 {
+    qDebug() << "[xmp_getxattr] path: " << path;
+
 #ifdef __APPLE__
     int res;
     if (strcmp(name, A_KAUTH_FILESEC_XATTR) == 0) {
@@ -926,6 +1006,8 @@ static int xmp_getxattr(const char *path, const char *name, char *value,
 
 static int xmp_listxattr(const char *path, char *list, size_t size)
 {
+    qDebug() << "[xmp_listxattr] path: " << path;
+
 #ifdef __APPLE__
     ssize_t res = listxattr(path, list, size, XATTR_NOFOLLOW);
     if (res > 0) {
@@ -962,6 +1044,8 @@ static int xmp_listxattr(const char *path, char *list, size_t size)
 
 static int xmp_removexattr(const char *path, const char *name)
 {
+    qDebug() << "[xmp_removexattr] path: " << path;
+
 #ifdef __APPLE__
     int res;
     if (strcmp(name, A_KAUTH_FILESEC_XATTR) == 0) {
@@ -985,6 +1069,8 @@ static int xmp_removexattr(const char *path, const char *name)
 static int xmp_lock(const char *path, struct fuse_file_info *fi, int cmd,
             struct flock *lock)
 {
+    qDebug() << "[xmp_lock] path: " << path;
+
     (void) path;
 
     return ulockmgr_op(fi->fh, cmd, lock, &fi->lock_owner,
@@ -1010,6 +1096,8 @@ xmp_destroy(void *userdata)
 #ifndef __APPLE__
 static int xmp_flock(const char *path, struct fuse_file_info *fi, int op)
 {
+    qDebug() << "[xmp_flock] path: " << path;
+
     int res;
     (void) path;
 

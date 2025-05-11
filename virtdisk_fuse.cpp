@@ -123,21 +123,23 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 {
     qDebug() << "[xmp_readdir] path: " << path;
 
+    (void) offset;
+    (void) fi;
+
     //------------------------------------------------------------------------------------
     // Network tests
     //------------------------------------------------------------------------------------
-    {
     struct fuse_context *context = fuse_get_context();
     qDebug() << "[xmp_readdir] context:" << context << context->private_data;
     FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
     ReaddirResult *result = client->FD_readdir(path);
 
-    // struct stat st;
-    // memset(&st, 0, sizeof(st));
+    struct FUSE_STAT st;
+    memset(&st, 0, sizeof(st));
 
     qDebug() << "before for";
-    for (int i = 0; i < result->count; ++i)
+    for (unsigned int i = 0; i < result->count; ++i)
     {
         qDebug() << "for i" << i;
         FindData *fd = (FindData *)result->findData + i;
@@ -145,45 +147,47 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         qDebug() << "[xmp_readdir] incoming findData st_ino:" << fd->st_ino;
         qDebug() << "[xmp_readdir] incoming findData st_mode:" << fd->st_mode;
 
-        // st.st_ino = fd->st_ino;
-        // st.st_mode = fd->st_mode;
+        st.st_ino = fd->st_ino;
+        st.st_mode = fd->st_mode;
 
-        // filler(buf, fd->name, &st, /*nextoff*/0);
+        filler(buf, fd->name, &st, /*nextoff*/0);
     }
     qDebug() << "after for";
-    }
+
+    int status = result->status;
+    FreeResult(result);
+
+    return status;
     //------------------------------------------------------------------------------------
 
-    (void) offset;
+    // ReaddirResult *result = FUSEBackend::FD_readdir(path);
 
-    ReaddirResult *result = FUSEBackend::FD_readdir(path);
+    // if (result->status != 0)
+    // {
+    //     qDebug() << "[xmp_readdir] error result->status" << result->status;
+    //     return result->status;
+    // }
 
-    if (result->status != 0)
-    {
-        qDebug() << "[xmp_readdir] error result->status" << result->status;
-        return result->status;
-    }
+    // struct FindData
+    // {
+    //     char name[1024];
+    //     unsigned long long st_ino;
+    //     unsigned short st_mode;
+    // };
 
-    struct FindData
-    {
-        char name[1024];
-        unsigned long long st_ino;
-        unsigned short st_mode;
-    };
+    // struct FUSE_STAT stat;
+    // memset(&stat, 0, sizeof(FUSE_STAT));
 
-    struct FUSE_STAT stat;
-    memset(&stat, 0, sizeof(FUSE_STAT));
+    // for (unsigned int i = 0; i < result->count; ++i)
+    // {
+    //     auto findData = (FindData *)result->findData + i;
+    //     qDebug() << "[xmp_readdir] findData.name: " << findData->name;
+    //     stat.st_ino = findData->st_ino;
+    //     stat.st_mode = findData->st_mode;
+    //     filler(buf, findData->name, &stat, 0);
+    // }
 
-    for (unsigned int i = 0; i < result->count; ++i)
-    {
-        auto findData = (FindData *)result->findData + i;
-        qDebug() << "[xmp_readdir] findData.name: " << findData->name;
-        stat.st_ino = findData->st_ino;
-        stat.st_mode = findData->st_mode;
-        filler(buf, findData->name, &stat, 0);
-    }
-
-    return result->status;
+    // return result->status;
 }
 
 static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)

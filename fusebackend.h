@@ -21,13 +21,12 @@ struct ReaddirResult
 
 static void ReadResult(ReaddirResult **result, const char *data)
 {
-    // ReaddirResult *result = (ReaddirResult *)malloc(sizeof(ReaddirResult));
-    // memcpy(result, data, sizeof(ReaddirResult));
-    // result->findData = (void *)malloc(result->dataSize);
-    // memcpy(result->findData, data + sizeof(ReaddirResult), result->dataSize);
-    // return result;
-    *result = (ReaddirResult *)data;
-    (*result)->findData = (FindData *)(data + sizeof(ReaddirResult));
+    *result = (ReaddirResult *)malloc(sizeof(ReaddirResult));
+    memcpy(*result, data, sizeof(ReaddirResult));
+    (*result)->findData = (FindData *)malloc((*result)->dataSize);
+    memcpy((*result)->findData, data + sizeof(ReaddirResult), (*result)->dataSize);
+    // *result = (ReaddirResult *)data;
+    // (*result)->findData = (FindData *)(data + sizeof(ReaddirResult));
 }
 
 static void FreeResult(ReaddirResult *result)

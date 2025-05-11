@@ -2,6 +2,9 @@
 
 #include "fusebackend.h"
 
+#include <vector>
+#include <dirent.h>
+
 ReaddirResult *FUSEBackend::FD_readdir(const char *path)
 {
     ReaddirResult *result = (ReaddirResult *)malloc(sizeof(ReaddirResult));

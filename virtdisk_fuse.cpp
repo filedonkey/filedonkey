@@ -155,7 +155,7 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     qDebug() << "after for";
 
     int status = result->status;
-    FreeResult(result);
+    ReaddirResult::Free(result);
 
     return status;
     //------------------------------------------------------------------------------------

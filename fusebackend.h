@@ -17,23 +17,23 @@ struct ReaddirResult
     unsigned int count;
     unsigned int dataSize;
     FindData *findData;
+
+    static void ReadFrom(ReaddirResult **result, const char *data)
+    {
+        *result = (ReaddirResult *)malloc(sizeof(ReaddirResult));
+        memcpy(*result, data, sizeof(ReaddirResult));
+        (*result)->findData = (FindData *)malloc((*result)->dataSize);
+        memcpy((*result)->findData, data + sizeof(ReaddirResult), (*result)->dataSize);
+        // *result = (ReaddirResult *)data;
+        // (*result)->findData = (FindData *)(data + sizeof(ReaddirResult));
+    }
+
+    static void Free(ReaddirResult *result)
+    {
+        free(result->findData);
+        free(result);
+    }
 };
-
-static void ReadResult(ReaddirResult **result, const char *data)
-{
-    *result = (ReaddirResult *)malloc(sizeof(ReaddirResult));
-    memcpy(*result, data, sizeof(ReaddirResult));
-    (*result)->findData = (FindData *)malloc((*result)->dataSize);
-    memcpy((*result)->findData, data + sizeof(ReaddirResult), (*result)->dataSize);
-    // *result = (ReaddirResult *)data;
-    // (*result)->findData = (FindData *)(data + sizeof(ReaddirResult));
-}
-
-static void FreeResult(ReaddirResult *result)
-{
-    free(result->findData);
-    free(result);
-}
 
 class FUSEBackend
 {

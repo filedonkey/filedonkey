@@ -16,7 +16,7 @@ ReaddirResult *FUSEClient::FD_readdir(const char *path)
         qDebug() << "[FUSEClient::FD_readdir] incoming operation name:" << header->operationName;
 
         ReaddirResult *result;
-        ReadResult(&result, incoming.sliced(sizeof(DatagramHeader)).data());
+        ReaddirResult::ReadFrom(&result, incoming.sliced(sizeof(DatagramHeader)).data());
 
         qDebug() << "[FUSEClient::FD_readdir] incoming result status:" << result->status;
         qDebug() << "[FUSEClient::FD_readdir] incoming result dataSize:" << result->dataSize;

@@ -74,7 +74,7 @@ MainWindow::MainWindow(QWidget *parent)
     // qDebug() << "[ReaddirResult] size:" << result->dataSize;
     // qDebug() << "[ReaddirResult] count:" << result->count;
 
-    // FreeResult(result);
+    // ReaddirResult::Free(result);
 
     // qDebug() << "[DatagramHeader] sizeof:" << sizeof(header);
     // qDebug() << "[Datagram] size:" << datagram.size();
@@ -92,7 +92,7 @@ MainWindow::MainWindow(QWidget *parent)
     // qDebug() << "[DatagramHeader 2] operationName:" << header2->operationName;
 
     // ReaddirResult *result2;
-    // ReadResult(&result2, datagram.sliced(sizeof(DatagramHeader)).data());
+    // ReaddirResult::ReadFrom(&result2, datagram.sliced(sizeof(DatagramHeader)).data());
     // qDebug() << "[ReaddirResult 2] status:" << result2->status;
     // qDebug() << "[ReaddirResult 2] size:" << result2->dataSize;
     // qDebug() << "[ReaddirResult 2] count:" << result2->count;
@@ -102,6 +102,8 @@ MainWindow::MainWindow(QWidget *parent)
     //     FindData *findData = (FindData *)result2->findData + i;
     //     qDebug() << "[ReaddirResult 2]" << i << "findData.name" << findData->name;
     // }
+
+    // ReaddirResult::Free(result2);
 
     // Connection conn = {
     //     .machineId      = "test_machine_id",
@@ -280,7 +282,7 @@ void MainWindow::onSocketReadyRead()
             response.append((char *)result, sizeof(ReaddirResult));
             response.append((char *)result->findData, result->dataSize);
 
-            FreeResult(result);
+            ReaddirResult::Free(result);
         }
         else
         {

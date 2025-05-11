@@ -10,6 +10,7 @@ CONFIG += c++17
 
 SOURCES += \
     dokanbackend_win32.cpp \
+    fusebackend_macos.cpp \
     fusebackend_win32.cpp \
     fuseclient.cpp \
     lstat_win32.cpp \

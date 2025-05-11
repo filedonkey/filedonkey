@@ -3,6 +3,9 @@
 #if defined(__WIN32) && defined(__FUSE__)
 
 #include "virtdisk.h"
+#include "fuseclient.h"
+#include "fusebackend.h"
+
 #include <thread>
 
 #define FUSE_USE_VERSION 30
@@ -16,8 +19,6 @@
 #include "lstat_win32.cpp"
 #include "pread_win32.cpp"
 #endif
-
-#include "fusebackend.h"
 
 #ifdef linux
 /* For pread()/pwrite()/utimensat() */
@@ -45,6 +46,8 @@ static struct fuse *f;
 static struct fuse_chan *ch;
 static struct fuse_session *se;
 static char *mountpoint = "D:\\";
+
+static FUSEClient *g_Client;
 
 VirtDisk::VirtDisk(const Connection& conn) : conn(conn)
 {
@@ -119,6 +122,37 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                        off_t offset, struct fuse_file_info *fi)
 {
     qDebug() << "[xmp_readdir] path: " << path;
+
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    {
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_readdir] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+
+    ReaddirResult *result = client->FD_readdir(path);
+
+    // struct stat st;
+    // memset(&st, 0, sizeof(st));
+
+    qDebug() << "before for";
+    for (int i = 0; i < result->count; ++i)
+    {
+        qDebug() << "for i" << i;
+        FindData *fd = (FindData *)result->findData + i;
+        qDebug() << "[xmp_readdir] incoming findData name:" << fd->name;
+        qDebug() << "[xmp_readdir] incoming findData st_ino:" << fd->st_ino;
+        qDebug() << "[xmp_readdir] incoming findData st_mode:" << fd->st_mode;
+
+        // st.st_ino = fd->st_ino;
+        // st.st_mode = fd->st_mode;
+
+        // filler(buf, fd->name, &st, /*nextoff*/0);
+    }
+    qDebug() << "after for";
+    }
+    //------------------------------------------------------------------------------------
 
     (void) offset;
 
@@ -558,8 +592,23 @@ static struct fuse_operations xmp_oper = {
 // + xmp_readdir
 // + xmp_statfs
 
-static void Start(const Connection &conn)
+static void Start(Connection *conn)
 {
+    conn->socket = new QTcpSocket();
+    qDebug() << "[Start] try to connect";
+    conn->socket->connectToHost(QHostAddress(conn->machineAddress), conn->machinePort);
+    if (!conn->socket->waitForConnected())
+    {
+        qDebug()
+        << "[Start] socket connection error: "
+        << conn->socket->errorString();
+        return;
+    }
+
+    qDebug() << "[Start] socket connected";
+
+    g_Client = new FUSEClient(conn);
+
     int argc = 4;
     char *argv[] = {"FileDonkey", "M:", "-o", "volname=MacBook Pro"};
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
@@ -569,7 +618,7 @@ static void Start(const Connection &conn)
         (ch = fuse_mount(mountpoint, &args)) != NULL) {
 
         f = fuse_new(ch, &args, &xmp_oper,
-                     sizeof(xmp_oper), (void *)&conn);
+                     sizeof(xmp_oper), conn);
 
 
         se = fuse_get_session(f);
@@ -616,7 +665,7 @@ void VirtDisk::mount(const QString &mountPoint)
 
     // fuse_opt_free_args(&args);
 
-    thread = std::thread(Start, conn);
+    thread = std::thread(Start, &conn);
 }
 
 // int main(int argc, char *argv[])

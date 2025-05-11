@@ -1176,6 +1176,15 @@ static struct fuse_operations xmp_oper = {
 #endif
 };
 
+// What was used during navigation:
+//   xmp_statfs
+//   xmp_getattr
+//   xmp_fsetattr_x
+//   xmp_opendir
+// + xmp_readdir
+//   xmp_releasedir
+//   xmp_readlink
+
 static void Start(Connection *conn)
 {
     conn->socket = new QTcpSocket();

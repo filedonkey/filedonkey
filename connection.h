@@ -16,6 +16,8 @@ struct DatagramHeader
                    const char *operationName,
                    unsigned int protocolVersion = 1)
     {
+        memset(this, 0, sizeof(DatagramHeader));
+
         memcpy(this->messageType, messageType, strlen(messageType));
         memcpy(this->virtDiskType, virtDiskType, strlen(virtDiskType));
         memcpy(this->operationName, operationName, strlen(operationName));

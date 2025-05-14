@@ -10,16 +10,16 @@
 
 struct FindData
 {
-    char name[1024];
-    unsigned long long st_ino;
-    unsigned short st_mode;
+    i8 name[1024];
+    u64 st_ino;
+    u16 st_mode;
 };
 
 struct ReaddirResult
 {
-    int status;
-    unsigned int count;
-    unsigned int dataSize;
+    i32 status;
+    u32 count;
+    u32 dataSize;
     FindData *findData;
 
     ReaddirResult()
@@ -41,10 +41,43 @@ struct ReaddirResult
     }
 };
 
+struct ReadResult
+{
+    i32 status;
+    u64 size;
+    char *data;
+
+    ReadResult()
+    {
+        status = 0;
+        data = nullptr;
+    }
+
+    ReadResult(u64 size)
+    {
+        status = 0;
+        data = new char[size];
+        memset(data, 0, size);
+    }
+
+    ReadResult(const char *data)
+    {
+        memcpy(this, data, sizeof(ReadResult));
+        this->data = new char[this->size];
+        memcpy(this->data, data + sizeof(ReaddirResult), this->size);
+    }
+
+    ~ReadResult()
+    {
+        delete[] data;
+    }
+};
+
 class FUSEBackend
 {
 public:
     static Ref<ReaddirResult> FD_readdir(const char *path);
+    static Ref<ReadResult>    FD_read(cstr path, u64 size, i64 offset);
 };
 
 #endif // FUSEBACKEND_H

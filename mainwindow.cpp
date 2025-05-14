@@ -281,6 +281,24 @@ void MainWindow::onSocketReadyRead()
             response.append((char *)result.get(), sizeof(ReaddirResult));
             response.append((char *)result->findData, result->dataSize);
         }
+        if (strcmp(header->operationName, "read") == 0)
+        {
+            u64 size = *(incoming.sliced(sizeof(DatagramHeader)).data());
+            i64 offset = *(incoming.sliced(sizeof(DatagramHeader) + sizeof(u64)).data());
+            const char *path = incoming.sliced(sizeof(DatagramHeader)  + sizeof(u64) + sizeof(i64)).data();
+            qDebug() << "[onSocketReadyRead] incoming size:" << size;
+            qDebug() << "[onSocketReadyRead] incoming offset:" << offset;
+            qDebug() << "[onSocketReadyRead] incoming path:" << path;
+            Ref<ReadResult> result = FUSEBackend::FD_read(path, size, offset);
+            qDebug() << "[onSocketReadyRead] result status:" << result->status;
+
+            DatagramHeader header("response", "fuse", "read");
+            header.datagramSize += sizeof(ReaddirResult) + result->size;
+
+            response.append((char *)&header, sizeof(DatagramHeader));
+            response.append((char *)result.get(), sizeof(ReadResult));
+            response.append((char *)result->data, result->size);
+        }
         else
         {
             qDebug() << "[onSocketReadyRead] Error: invalid operation name:" << header->operationName;

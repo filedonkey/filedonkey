@@ -11,6 +11,7 @@ public:
     FUSEClient(Connection *conn) : conn(conn) {};
 
     Ref<ReaddirResult> FD_readdir(const char *path);
+    Ref<ReadResult>    FD_read(cstr path, u64 size, i64 offset);
 
 private:
     QByteArray Fetch(const char *operationName, const QByteArray &payload);

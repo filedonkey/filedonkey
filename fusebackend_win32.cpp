@@ -3,6 +3,7 @@
 #if defined(__WIN32) && defined(__FUSE__)
 
 #include "fusebackend.h"
+#include "pread_win32.h"
 
 #include <QDebug>
 
@@ -91,6 +92,29 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
     result->findData = new FindData[result->count];
     memcpy(result->findData, findDataList.data(), result->dataSize);
 
+    return result;
+}
+
+Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
+{
+    Ref<ReadResult> result = MakeRef<ReadResult>(size);
+
+    int fd = open(path, O_RDONLY);
+    if (fd == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    int res = pread(fd, result->data, size, offset);
+    if (res == -1)
+    {
+        close(fd);
+        result->status = -errno;
+        return result;
+    }
+
+    close(fd);
     return result;
 }
 

@@ -23,9 +23,7 @@ typedef double r64;
 
 typedef std::string  str;
 typedef std::wstring wstr;
-typedef const char* cstr;
-
-typedef float* rgba;
+typedef const char*  cstr;
 
 //------------------------------------------------------------------------------------
 // Refs

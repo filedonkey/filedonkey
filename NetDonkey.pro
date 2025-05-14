@@ -30,6 +30,7 @@ HEADERS += \
     fusebackend.h \
     fuseclient.h \
     mainwindow.h \
+    pread_win32.h \
     virtdisk.h
 
 FORMS += \

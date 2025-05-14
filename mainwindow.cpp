@@ -74,7 +74,7 @@ MainWindow::MainWindow(QWidget *parent)
     // qDebug() << "[ReaddirResult] size:" << result->dataSize;
     // qDebug() << "[ReaddirResult] count:" << result->count;
 
-    // ReaddirResult::Free(result);
+    // delete result;
 
     // qDebug() << "[DatagramHeader] sizeof:" << sizeof(header);
     // qDebug() << "[Datagram] size:" << datagram.size();
@@ -91,8 +91,7 @@ MainWindow::MainWindow(QWidget *parent)
     // qDebug() << "[DatagramHeader 2] virtDiskType:" << header2->virtDiskType;
     // qDebug() << "[DatagramHeader 2] operationName:" << header2->operationName;
 
-    // ReaddirResult *result2;
-    // ReaddirResult::ReadFrom(&result2, datagram.sliced(sizeof(DatagramHeader)).data());
+    // ReaddirResult *result2 = new ReaddirResult(datagram.sliced(sizeof(DatagramHeader)).data());
     // qDebug() << "[ReaddirResult 2] status:" << result2->status;
     // qDebug() << "[ReaddirResult 2] size:" << result2->dataSize;
     // qDebug() << "[ReaddirResult 2] count:" << result2->count;
@@ -103,7 +102,7 @@ MainWindow::MainWindow(QWidget *parent)
     //     qDebug() << "[ReaddirResult 2]" << i << "findData.name" << findData->name;
     // }
 
-    // ReaddirResult::Free(result2);
+    // delete result2;
 
     // Connection conn = {
     //     .machineId      = "test_machine_id",
@@ -272,17 +271,15 @@ void MainWindow::onSocketReadyRead()
         {
             const char *path = incoming.sliced(sizeof(DatagramHeader)).data();
             qDebug() << "[onSocketReadyRead] fuse readdir path:" << path;
-            ReaddirResult *result = FUSEBackend::FD_readdir(path);
+            Ref<ReaddirResult> result = FUSEBackend::FD_readdir(path);
             qDebug() << "[onSocketReadyRead] result status:" << result->status;
 
             DatagramHeader header("response", "fuse", "readdir");
             header.datagramSize += sizeof(ReaddirResult) + result->dataSize;
 
             response.append((char *)&header, sizeof(DatagramHeader));
-            response.append((char *)result, sizeof(ReaddirResult));
+            response.append((char *)result.get(), sizeof(ReaddirResult));
             response.append((char *)result->findData, result->dataSize);
-
-            ReaddirResult::Free(result);
         }
         else
         {

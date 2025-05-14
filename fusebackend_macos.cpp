@@ -5,10 +5,9 @@
 #include <vector>
 #include <dirent.h>
 
-ReaddirResult *FUSEBackend::FD_readdir(const char *path)
+Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 {
-    ReaddirResult *result = (ReaddirResult *)malloc(sizeof(ReaddirResult));
-    memset(result, 0, sizeof(ReaddirResult));
+    Ref<ReaddirResult> result = MakeRef<ReaddirResult>();
 
     std::vector<FindData> findDataList;
     DIR *dp;
@@ -36,7 +35,7 @@ ReaddirResult *FUSEBackend::FD_readdir(const char *path)
     result->status = 0;
     result->count = findDataList.size();
     result->dataSize = sizeof(FindData) * result->count;
-    result->findData = (FindData *)malloc(result->dataSize);
+    result->findData = new FindData[result->count];
     memcpy(result->findData, findDataList.data(), result->dataSize);
 
     return result;

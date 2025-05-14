@@ -1,8 +1,12 @@
 #ifndef FUSEBACKEND_H
 #define FUSEBACKEND_H
 
+#include "core.h"
+
 #include <string.h>
 #include <stdlib.h>
+
+#include <QDebug>
 
 struct FindData
 {
@@ -18,27 +22,29 @@ struct ReaddirResult
     unsigned int dataSize;
     FindData *findData;
 
-    static void ReadFrom(ReaddirResult **result, const char *data)
+    ReaddirResult()
     {
-        *result = (ReaddirResult *)malloc(sizeof(ReaddirResult));
-        memcpy(*result, data, sizeof(ReaddirResult));
-        (*result)->findData = (FindData *)malloc((*result)->dataSize);
-        memcpy((*result)->findData, data + sizeof(ReaddirResult), (*result)->dataSize);
-        // *result = (ReaddirResult *)data;
-        // (*result)->findData = (FindData *)(data + sizeof(ReaddirResult));
+        memset(this, 0, sizeof(ReaddirResult));
     }
 
-    static void Free(ReaddirResult *result)
+    ReaddirResult(const char *data)
     {
-        free(result->findData);
-        free(result);
+        memcpy(this, data, sizeof(ReaddirResult));
+        this->findData = new FindData[this->dataSize / sizeof(FindData)];
+        memcpy(this->findData, data + sizeof(ReaddirResult), this->dataSize);
+    }
+
+    ~ReaddirResult()
+    {
+        qDebug() << "[ReaddirResult] destructor";
+        delete[] this->findData;
     }
 };
 
 class FUSEBackend
 {
 public:
-    static ReaddirResult *FD_readdir(const char *path);
+    static Ref<ReaddirResult> FD_readdir(const char *path);
 };
 
 #endif // FUSEBACKEND_H

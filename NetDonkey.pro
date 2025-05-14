@@ -25,6 +25,7 @@ SOURCES += \
 
 HEADERS += \
     connection.h \
+    core.h \
     dokanbackend.h \
     fusebackend.h \
     fuseclient.h \

@@ -1,6 +1,6 @@
 #include "fuseclient.h"
 
-ReaddirResult *FUSEClient::FD_readdir(const char *path)
+Ref<ReaddirResult> FUSEClient::FD_readdir(const char *path)
 {
         qDebug() << "[FUSEClient::FD_readdir] machineId: " << conn->machineId;
 
@@ -15,8 +15,7 @@ ReaddirResult *FUSEClient::FD_readdir(const char *path)
         qDebug() << "[FUSEClient::FD_readdir] incoming virt disk type:" << header->virtDiskType;
         qDebug() << "[FUSEClient::FD_readdir] incoming operation name:" << header->operationName;
 
-        ReaddirResult *result;
-        ReaddirResult::ReadFrom(&result, incoming.sliced(sizeof(DatagramHeader)).data());
+        Ref<ReaddirResult> result = MakeRef<ReaddirResult>(incoming.sliced(sizeof(DatagramHeader)).data());
 
         qDebug() << "[FUSEClient::FD_readdir] incoming result status:" << result->status;
         qDebug() << "[FUSEClient::FD_readdir] incoming result dataSize:" << result->dataSize;

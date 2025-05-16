@@ -63,8 +63,8 @@ struct ReadResult
     ReadResult(const char *data)
     {
         memcpy(this, data, sizeof(ReadResult));
-        this->data = new char[this->size];
-        memcpy(this->data, data + sizeof(ReaddirResult), this->size);
+        this->data = new char[this->size]; // NOTE: this->size is NOT undefined here because of the memcpy call one line above.
+        memcpy(this->data, data + sizeof(ReadResult), this->size);
     }
 
     ~ReadResult()

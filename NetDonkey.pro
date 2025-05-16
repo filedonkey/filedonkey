@@ -28,6 +28,7 @@ HEADERS += \
     core.h \
     dokanbackend.h \
     fusebackend.h \
+    fusebackend_types.h \
     fuseclient.h \
     mainwindow.h \
     pread_win32.h \

@@ -91,8 +91,8 @@ static void *xmp_init(struct fuse_conn_info *conn,
        To make parallel_direct_writes valid, need either set cfg->direct_io
        in current function (recommended in high level API) or set fi->direct_io
        in xmp_create() or xmp_open(). */
-    // cfg->direct_io = 1;
-    cfg->parallel_direct_writes = 1;
+     cfg->direct_io = 1;
+//    cfg->parallel_direct_writes = 1;
 
     /* Pick up changes from lower filesystem right away. This is
        also necessary for better hardlink support. When the kernel
@@ -172,7 +172,7 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
             st.st_ino = de->d_ino;
             st.st_mode = de->d_type << 12;
         }
-        if (filler(buf, de->d_name, &st, 0, fill_dir_plus))
+        if (filler(buf, de->d_name, &st, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_PLUS)) // NOTE: Last argument was fill_dir_plus and not FUSE_FILL_DIR_PLUS
             break;
     }
 
@@ -343,7 +343,7 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
         for writes to the same file). */
     if (fi->flags & O_DIRECT) {
         fi->direct_io = 1;
-        fi->parallel_direct_writes = 1;
+//        fi->parallel_direct_writes = 1;
     }
 
     fi->fh = res;

@@ -307,7 +307,7 @@ void MainWindow::onSocketReadyRead()
             response.append((char *)result.get(), sizeof(ReaddirResult));
             response.append((char *)result->findData, result->dataSize);
         }
-        if (strcmp(header->operationName, "read") == 0)
+        else if (strcmp(header->operationName, "read") == 0)
         {
             u64 size = *(incoming.sliced(sizeof(DatagramHeader)).data());
             i64 offset = *(incoming.sliced(sizeof(DatagramHeader) + sizeof(u64)).data());

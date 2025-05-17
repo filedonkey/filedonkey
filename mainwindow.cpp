@@ -149,6 +149,32 @@ MainWindow::~MainWindow()
     connections.clear();
 }
 
+void MainWindow::changeEvent(QEvent *event)
+{
+    #ifdef Q_OS_MACOS
+        #define LIGHT_MODE 236
+        #define DARK_MODE  50
+    #elif defined(Q_OS_WINDOWS)
+        #define LIGHT_MODE 243
+        #define DARK_MODE  30
+    #elif // defined(Q_OS_LINUX)
+        #define LIGHT_MODE 236
+        #define DARK_MODE  50
+    #endif
+
+    if (event->type() == QEvent::PaletteChange)
+    {
+        auto bg = palette().color(QPalette::Active, QPalette::Window);
+        qDebug() << "[MainWindow::changeEvent] lightness:" << bg.lightness();
+
+        if (bg.lightness() == LIGHT_MODE) {
+            // QIcon::setThemeName(LIGHT_THEME);
+        } else {
+            // QIcon::setThemeName(DARK_THEME);
+        }
+    }
+}
+
 void MainWindow::broadcast()
 {
     QUdpSocket broadcaster;

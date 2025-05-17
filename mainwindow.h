@@ -27,6 +27,9 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+protected:
+    void changeEvent(QEvent *event) override;
+
 public slots:
     void onBroadcasting();
     void onConnection();

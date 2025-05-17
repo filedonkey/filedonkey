@@ -60,7 +60,7 @@ macx {
 
 linux {
     INCLUDEPATH += /usr/include/fuse3
-    LIBS += -L/usr/lib/x86_64-linux-gnu -lfuse -lpthread -ldl
+    LIBS += -L/usr/lib/x86_64-linux-gnu -lfuse3 -lpthread -ldl
     QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
 }
 

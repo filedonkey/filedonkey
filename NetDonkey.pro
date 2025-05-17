@@ -10,6 +10,7 @@ CONFIG += c++17
 
 SOURCES += \
     dokanbackend_win32.cpp \
+    fusebackend_linux.cpp \
     fusebackend_macos.cpp \
     fusebackend_win32.cpp \
     fuseclient.cpp \
@@ -54,6 +55,12 @@ win32 {
 macx {
     INCLUDEPATH += "/usr/local/include/fuse"
     LIBS += "/usr/local/lib/libfuse-t.dylib"
+    QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
+}
+
+linux {
+    INCLUDEPATH += /usr/include/fuse
+    LIBS += -L/usr/lib/x86_64-linux-gnu -lfuse -lpthread -ldl
     QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
 }
 

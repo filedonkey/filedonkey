@@ -17,7 +17,7 @@
 #define _XOPEN_SOURCE 700
 #endif
 
-#include <fuse.h>
+#include <fuse3/fuse.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -39,7 +39,7 @@ static int fill_dir_plus = 0;
 static std::thread thread;
 static struct fuse *f;
 static struct fuse_chan *ch;
-static char *mountpoint = "/Users/igorgoremykin";
+static char *mountpoint = "/home/vboxuser/Windows PC";
 
 static FUSEClient *g_Client;
 
@@ -622,20 +622,21 @@ static void Start(Connection *conn)
     conn->socket = new QTcpSocket();
     qDebug() << "[Start] try to connect";
     conn->socket->connectToHost(QHostAddress(conn->machineAddress), conn->machinePort);
-    if (!conn->socket->waitForConnected())
-    {
-        qDebug()
-            << "[Start] socket connection error: "
-            << conn->socket->errorString();
-        return;
-    }
+//    if (!conn->socket->waitForConnected())
+//    {
+//        qDebug()
+//            << "[Start] socket connection error: "
+//            << conn->socket->errorString();
+//        return;
+//    }
 
     qDebug() << "[Start] socket connected";
 
     g_Client = new FUSEClient(conn);
 
-    int argc = 4;
-    char *argv[] = {"FileDonkey", "/Users/Guest/Public/fuse/", "-o", "volname=Windows  PC"};
+    int argc = 3;
+    char *argv[] = {"FileDonkey", "-o", "fsname=Windows PC"};// "/var/tmp/fuse"};
+    system("mkdir -p /var/tmp/fuse");
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
     int err = -1;
 
@@ -653,8 +654,8 @@ static void Start(Connection *conn)
             fuse_loop(f);
             qDebug() << "after fuse_loop call";
             fuse_remove_signal_handlers(fuse_get_session(f));
-            fuse_destroy(f);
             fuse_unmount(f);
+            fuse_destroy(f);
 
     // int ret = fuse_main_real(args.argc, args.argv, &xmp_oper,
     //                          sizeof(xmp_oper), (void *)conn);

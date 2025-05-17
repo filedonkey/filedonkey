@@ -157,7 +157,7 @@ void MainWindow::changeEvent(QEvent *event)
     #elif defined(Q_OS_WINDOWS)
         #define LIGHT_MODE 243
         #define DARK_MODE  30
-    #elif // defined(Q_OS_LINUX)
+    #elif defined(Q_OS_LINUX)
         #define LIGHT_MODE 236
         #define DARK_MODE  50
     #endif

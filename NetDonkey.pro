@@ -59,6 +59,7 @@ macx {
 }
 
 linux {
+    INCLUDEPATH += /usr/include/fuse
     LIBS += -L/usr/lib/x86_64-linux-gnu -lfuse -lpthread -ldl
     QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
 }

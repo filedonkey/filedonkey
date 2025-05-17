@@ -186,7 +186,7 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
     Ref<ReaddirResult> result = client->FD_readdir(path);
 
-    struct FUSE_STAT st;
+    struct stat st;
     memset(&st, 0, sizeof(st));
 
     qDebug() << "before for";
@@ -201,7 +201,7 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         st.st_ino = fd->st_ino;
         st.st_mode = fd->st_mode;
 
-        filler(buf, fd->name, &st, /*nextoff*/0);
+        filler(buf, fd->name, &st, /*nextoff*/0, fuse_fill_dir_flags::FUSE_FILL_DIR_PLUS);
     }
     qDebug() << "after for";
 

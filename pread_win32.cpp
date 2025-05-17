@@ -1,3 +1,5 @@
+#if defined(__WIN32)
+
 #include "pread_win32.h"
 
 #include <io.h>
@@ -195,3 +197,5 @@ ssize_t win_pread_efficient(int fd, void *buf, size_t size, off_t offset) {
 //     _close(fd);
 //     return 0;
 // }
+
+#endif

@@ -3,7 +3,7 @@
 
 #include "core.h"
 #include "connection.h"
-#include "fusebackend.h"
+#include "fusebackend_types.h"
 
 class FUSEClient
 {

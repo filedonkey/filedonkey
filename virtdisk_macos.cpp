@@ -762,14 +762,34 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 {
     qDebug() << "[xmp_read] path: " << path;
 
-    int res;
+    (void) fi;
 
-    (void) path;
-    res = pread(fi->fh, buf, size, offset);
-    if (res == -1)
-        res = -errno;
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_readdir] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
-    return res;
+    Ref<ReadResult> result = client->FD_read(path, size, offset);
+
+    if (result->status == 0)
+    {
+        memcpy(buf, result->data, result->size);
+    }
+
+    return result->status;
+
+    //------------------------------------------------------------------------------------
+
+    // int res;
+
+    // (void) path;
+    // res = pread(fi->fh, buf, size, offset);
+    // if (res == -1)
+    //     res = -errno;
+
+    // return res;
 }
 
 static int xmp_read_buf(const char *path, struct fuse_bufvec **bufp,

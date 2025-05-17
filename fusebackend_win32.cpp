@@ -4,6 +4,7 @@
 
 #include "fusebackend.h"
 #include "pread_win32.h"
+#include "statvfs_win32.cpp"
 
 #include <QDebug>
 
@@ -115,6 +116,34 @@ Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
     }
 
     close(fd);
+    return result;
+}
+
+Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
+{
+    Ref<StatfsResult> result = MakeRef<StatfsResult>();
+
+    struct statvfs stbuf;
+
+    int res = statvfs(path, &stbuf);
+    if (res == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    result->f_bsize = stbuf.f_bsize;
+    result->f_frsize = stbuf.f_frsize;
+    result->f_blocks = stbuf.f_blocks;
+    result->f_bfree = stbuf.f_bfree;
+    result->f_bavail = stbuf.f_bavail;
+    result->f_files = stbuf.f_files;
+    result->f_ffree = stbuf.f_ffree;
+    result->f_favail = stbuf.f_favail;
+    result->f_fsid = stbuf.f_fsid;
+    result->f_flag = stbuf.f_flag;
+    result->f_namemax = stbuf.f_namemax;
+
     return result;
 }
 

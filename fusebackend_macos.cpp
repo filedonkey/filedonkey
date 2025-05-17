@@ -5,6 +5,7 @@
 #include <vector>
 #include <dirent.h>
 #include <fcntl.h>
+#include <sys/statvfs.h>
 
 Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 {
@@ -62,6 +63,24 @@ Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
     }
 
     close(fd);
+    return result;
+}
+
+Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
+{
+    Ref<StatfsResult> result = MakeRef<StatfsResult>();
+
+    struct statvfs stbuf;
+
+    int res = statvfs(path, &stbuf);
+    if (res == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    memcpy(result.get() + sizeof(result->status), &stbuf, sizeof(stbuf));
+
     return result;
 }
 

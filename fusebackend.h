@@ -8,7 +8,8 @@ class FUSEBackend
 {
 public:
     static Ref<ReaddirResult> FD_readdir(const char *path);
-    static Ref<ReadResult>    FD_read(cstr path, u64 size, i64 offset);
+    static Ref<ReadResult>    FD_read(const char * path, u64 size, i64 offset);
+    static Ref<StatfsResult>  FD_statfs(const char *path);
 };
 
 #endif // FUSEBACKEND_H

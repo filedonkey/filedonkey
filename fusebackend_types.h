@@ -69,4 +69,26 @@ struct ReadResult
     }
 };
 
+struct StatfsResult
+{
+    i32 status;
+    // statvfs data
+    u32 f_bsize;
+    u32 f_frsize;
+    u32 f_blocks;
+    u32 f_bfree;
+    u32 f_bavail;
+    u32 f_files;
+    u32 f_ffree;
+    u32 f_favail;
+    u32 f_fsid;
+    u32 f_flag;
+    u32 f_namemax;
+
+    StatfsResult()
+    {
+        memset(this, 0, sizeof(StatfsResult));
+    }
+};
+
 #endif // FUSEBACKEND_TYPES_H

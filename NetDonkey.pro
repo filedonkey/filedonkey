@@ -59,8 +59,10 @@ macx {
 }
 
 linux {
+    CONFIG += link_pkgconfig
+    PKGCONFIG += fuse
     INCLUDEPATH += /usr/include/fuse
-    LIBS += -L/usr/lib/x86_64-linux-gnu -lfuse -lpthread -ldl
+    LIBS += -lfuse
     QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
 }
 

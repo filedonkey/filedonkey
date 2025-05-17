@@ -4,6 +4,9 @@
 // https://github.com/libfuse/libfuse/blob/master/example/passthrough.c
 
 #include "virtdisk.h"
+#include "fuseclient.h"
+
+#include <thread>
 
 #define FUSE_USE_VERSION 31
 
@@ -32,6 +35,13 @@
 #endif
 
 static int fill_dir_plus = 0;
+
+static std::thread thread;
+static struct fuse *f;
+static struct fuse_chan *ch;
+static char *mountpoint = "/Users/igorgoremykin";
+
+static FUSEClient *g_Client;
 
 static int mknod_wrapper(int dirfd, const char *path, const char *link,
                          int mode, dev_t rdev)
@@ -557,39 +567,39 @@ static off_t xmp_lseek(const char *path, off_t off, int whence, struct fuse_file
 }
 
 static const struct fuse_operations xmp_oper = {
-    .init       = xmp_init,
     .getattr	= xmp_getattr,
-    .access		= xmp_access,
     .readlink	= xmp_readlink,
-    .readdir	= xmp_readdir,
     .mknod		= xmp_mknod,
     .mkdir		= xmp_mkdir,
-    .symlink	= xmp_symlink,
     .unlink		= xmp_unlink,
     .rmdir		= xmp_rmdir,
+    .symlink	= xmp_symlink,
     .rename		= xmp_rename,
     .link		= xmp_link,
     .chmod		= xmp_chmod,
     .chown		= xmp_chown,
     .truncate	= xmp_truncate,
-#ifdef HAVE_UTIMENSAT
-    .utimens	= xmp_utimens,
-#endif
     .open		= xmp_open,
-    .create 	= xmp_create,
     .read		= xmp_read,
     .write		= xmp_write,
     .statfs		= xmp_statfs,
     .release	= xmp_release,
     .fsync		= xmp_fsync,
-#ifdef HAVE_POSIX_FALLOCATE
-    .fallocate	= xmp_fallocate,
-#endif
 #ifdef HAVE_SETXATTR
     .setxattr	= xmp_setxattr,
     .getxattr	= xmp_getxattr,
     .listxattr	= xmp_listxattr,
     .removexattr	= xmp_removexattr,
+#endif
+    .readdir	= xmp_readdir,
+    .init       = xmp_init,
+    .access		= xmp_access,
+#ifdef HAVE_UTIMENSAT
+    .utimens	= xmp_utimens,
+#endif
+    .create 	= xmp_create,
+#ifdef HAVE_POSIX_FALLOCATE
+    .fallocate	= xmp_fallocate,
 #endif
 #ifdef HAVE_COPY_FILE_RANGE
     .copy_file_range = xmp_copy_file_range,
@@ -597,22 +607,111 @@ static const struct fuse_operations xmp_oper = {
     .lseek		= xmp_lseek,
 };
 
-int main(int argc, char *argv[])
+static void Start(Connection *conn)
 {
-    enum { MAX_ARGS = 10 };
-    int i,new_argc;
-    char *new_argv[MAX_ARGS];
-
-    umask(0);
-    /* Process the "--plus" option apart */
-    for (i=0, new_argc=0; (i<argc) && (new_argc<MAX_ARGS); i++) {
-        if (!strcmp(argv[i], "--plus")) {
-            fill_dir_plus = FUSE_FILL_DIR_PLUS;
-        } else {
-            new_argv[new_argc++] = argv[i];
-        }
+    conn->socket = new QTcpSocket();
+    qDebug() << "[Start] try to connect";
+    conn->socket->connectToHost(QHostAddress(conn->machineAddress), conn->machinePort);
+    if (!conn->socket->waitForConnected())
+    {
+        qDebug()
+            << "[Start] socket connection error: "
+            << conn->socket->errorString();
+        return;
     }
-    return fuse_main(new_argc, new_argv, &xmp_oper, NULL);
+
+    qDebug() << "[Start] socket connected";
+
+    g_Client = new FUSEClient(conn);
+
+    int argc = 4;
+    char *argv[] = {"FileDonkey", "/Users/Guest/Public/fuse/", "-o", "volname=Windows  PC"};
+    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+    int err = -1;
+
+    if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
+            (ch = fuse_mount(mountpoint, &args)) != NULL) {
+
+            f = fuse_new(ch, &args, &xmp_oper, sizeof(xmp_oper), conn);
+            qDebug() << "before fuse_set_signal_handlers call";
+            if (fuse_set_signal_handlers(fuse_get_session(f)) != 0) {
+                fprintf(stderr, "Failed to set up signal handlers\n");
+                perror("fuse_set_signal_handlers");
+                fuse_destroy(f);
+                fuse_unmount(mountpoint, ch);
+                return;
+            }
+            qDebug() << "before fuse_loop call";
+            fuse_loop(f);
+            qDebug() << "after fuse_loop call";
+//            struct fuse_session *se;
+//            se = fuse_get_session(f);
+//            if (se != NULL) {
+//                if (fuse_set_signal_handlers(se) != -1) {
+//                    fuse_session_add_chan(se, ch);
+//                    err = fuse_session_loop(se);
+//                    fuse_remove_signal_handlers(se);
+//                    fuse_session_remove_chan(ch);
+//                }
+//                fuse_session_destroy(se);
+//            }
+//             fuse_exit(f);
+            fuse_remove_signal_handlers(fuse_get_session(f));
+            fuse_destroy(f);
+            fuse_unmount(mountpoint, ch);
+        }
+
+    // int ret = fuse_main_real(args.argc, args.argv, &xmp_oper,
+    //                          sizeof(xmp_oper), (void *)conn);
+
+//    umask(0);
+//        loopback.blocksize = 4096;
+//        loopback.case_insensitive = 0;
+//        if (fuse_opt_parse(&args, &loopback, loopback_opts, NULL) == -1) {
+//            exit(1);
+//        }
+//    qDebug() << "before fuse_main call";
+//     int res = fuse_main(argc, argv, &xmp_oper, conn);
+//     qDebug() << "fuse_main result: " << res;
+//     fuse_opt_free_args(&args);
 }
+
+void VirtDisk::mount(const QString &mountPoint)
+{
+    int argc = 4;
+    char *argv[] = {"FileDonkey", "/Users/Guest/Public/fuse/", "-o", "volname=Windows PC"};
+    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+
+//    loopback.blocksize = 4096;
+//    loopback.case_insensitive = 0;
+//    if (fuse_opt_parse(&args, &loopback, loopback_opts, NULL) == -1) {
+//        exit(1);
+//    }
+
+//    umask(0);
+//    int res = fuse_main(args.argc, args.argv, &loopback_oper, NULL);
+
+//    qDebug() << "fuse_main result: " << res;
+
+    thread = std::thread(Start, &conn);
+}
+
+//int main(int argc, char *argv[])
+//{
+//    enum { MAX_ARGS = 10 };
+//    int i,new_argc;
+//    char *new_argv[MAX_ARGS];
+
+//    umask(0);
+//    /* Process the "--plus" option apart */
+//    for (i=0, new_argc=0; (i<argc) && (new_argc<MAX_ARGS); i++) {
+//        if (!strcmp(argv[i], "--plus")) {
+//            fill_dir_plus = FUSE_FILL_DIR_PLUS;
+//        } else {
+//            new_argv[new_argc++] = argv[i];
+//        }
+//    }
+//    return fuse_main(new_argc, new_argv, &xmp_oper, NULL);
+//}
 
 #endif

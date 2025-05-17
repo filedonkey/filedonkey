@@ -4,7 +4,7 @@
 
 #include "fusebackend.h"
 #include "pread_win32.h"
-#include "statvfs_win32.cpp"
+#include "statvfs_win32.h"
 
 #include <QDebug>
 

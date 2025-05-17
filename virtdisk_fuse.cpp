@@ -15,9 +15,9 @@
 #endif
 
 #if defined(__WIN32)
-#include "statvfs_win32.cpp"
+#include "statvfs_win32.h"
 #include "lstat_win32.cpp"
-#include "pread_win32.cpp"
+#include "pread_win32.h"
 #endif
 
 #ifdef linux

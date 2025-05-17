@@ -171,12 +171,47 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                        off_t offset, struct fuse_file_info *fi,
                        enum fuse_readdir_flags flags)
 {
-    DIR *dp;
-    struct dirent *de;
+    qDebug() << "[xmp_readdir] path: " << path;
 
     (void) offset;
     (void) fi;
     (void) flags;
+
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_readdir] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+
+    Ref<ReaddirResult> result = client->FD_readdir(path);
+
+    struct FUSE_STAT st;
+    memset(&st, 0, sizeof(st));
+
+    qDebug() << "before for";
+    for (unsigned int i = 0; i < result->count; ++i)
+    {
+        qDebug() << "for i" << i;
+        FindData *fd = (FindData *)result->findData + i;
+        qDebug() << "[xmp_readdir] incoming findData name:" << fd->name;
+        qDebug() << "[xmp_readdir] incoming findData st_ino:" << fd->st_ino;
+        qDebug() << "[xmp_readdir] incoming findData st_mode:" << fd->st_mode;
+
+        st.st_ino = fd->st_ino;
+        st.st_mode = fd->st_mode;
+
+        filler(buf, fd->name, &st, /*nextoff*/0);
+    }
+    qDebug() << "after for";
+
+    int status = result->status;
+
+    return status;
+    //------------------------------------------------------------------------------------
+
+    DIR *dp;
+    struct dirent *de;
 
     dp = opendir(path);
     if (dp == NULL)
@@ -373,6 +408,27 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_read] path: " << path;
+
+    (void) fi;
+
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_read] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+
+    Ref<ReadResult> result = client->FD_read(path, size, offset);
+
+    if (result->status == 0)
+    {
+        memcpy(buf, result->data, result->size);
+    }
+
+    return result->status;
+    //------------------------------------------------------------------------------------
+
     int fd;
     int res;
 

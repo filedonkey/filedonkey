@@ -367,7 +367,7 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
     // Network tests
     //------------------------------------------------------------------------------------
     struct fuse_context *context = fuse_get_context();
-    qDebug() << "[xmp_readdir] context:" << context << context->private_data;
+    qDebug() << "[xmp_read] context:" << context << context->private_data;
     FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
     Ref<ReadResult> result = client->FD_read(path, size, offset);

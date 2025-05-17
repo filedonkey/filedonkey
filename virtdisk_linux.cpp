@@ -622,13 +622,13 @@ static void Start(Connection *conn)
     conn->socket = new QTcpSocket();
     qDebug() << "[Start] try to connect";
     conn->socket->connectToHost(QHostAddress(conn->machineAddress), conn->machinePort);
-//    if (!conn->socket->waitForConnected())
-//    {
-//        qDebug()
-//            << "[Start] socket connection error: "
-//            << conn->socket->errorString();
-//        return;
-//    }
+    if (!conn->socket->waitForConnected())
+    {
+        qDebug()
+            << "[Start] socket connection error: "
+            << conn->socket->errorString();
+        return;
+    }
 
     qDebug() << "[Start] socket connected";
 

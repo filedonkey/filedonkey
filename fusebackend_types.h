@@ -89,6 +89,11 @@ struct StatfsResult
     {
         memset(this, 0, sizeof(StatfsResult));
     }
+
+    StatfsResult(const char *data)
+    {
+        memcpy(this, data, sizeof(StatfsResult));
+    }
 };
 
 struct fd_timespec {
@@ -117,6 +122,11 @@ struct GetattrResult
     GetattrResult()
     {
         memset(this, 0, sizeof(GetattrResult));
+    }
+
+    GetattrResult(const char *data)
+    {
+        memcpy(this, data, sizeof(GetattrResult));
     }
 };
 

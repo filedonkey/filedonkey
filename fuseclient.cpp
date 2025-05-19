@@ -2,43 +2,27 @@
 
 Ref<ReaddirResult> FUSEClient::FD_readdir(const char *path)
 {
-        QByteArray payload((char *)path, strlen(path));
-        QByteArray incoming = Fetch("readdir", payload);
+    QByteArray payload((char *)path, strlen(path));
+    FetchResult incoming = Fetch("readdir", payload);
 
-        DatagramHeader *header;
-        DatagramHeader::ReadFrom(&header, incoming.data());
+    Ref<ReaddirResult> result = MakeRef<ReaddirResult>(incoming.payload.data());
 
-        qDebug() << "[FUSEClient::FD_readdir] incoming message type:" << header->messageType;
-        qDebug() << "[FUSEClient::FD_readdir] incoming protocol version:" << header->protocolVersion;
-        qDebug() << "[FUSEClient::FD_readdir] incoming virt disk type:" << header->virtDiskType;
-        qDebug() << "[FUSEClient::FD_readdir] incoming operation name:" << header->operationName;
+    qDebug() << "[FUSEClient::FD_readdir] incoming result status:" << result->status;
+    qDebug() << "[FUSEClient::FD_readdir] incoming result dataSize:" << result->dataSize;
+    qDebug() << "[FUSEClient::FD_readdir] incoming result count:" << result->count;
 
-        Ref<ReaddirResult> result = MakeRef<ReaddirResult>(incoming.sliced(sizeof(DatagramHeader)).data());
-
-        qDebug() << "[FUSEClient::FD_readdir] incoming result status:" << result->status;
-        qDebug() << "[FUSEClient::FD_readdir] incoming result dataSize:" << result->dataSize;
-        qDebug() << "[FUSEClient::FD_readdir] incoming result count:" << result->count;
-
-        return result;
+    return result;
 }
 
-Ref<ReadResult> FUSEClient::FD_read(cstr path, u64 size, i64 offset)
+Ref<ReadResult> FUSEClient::FD_read(const char *path, u64 size, i64 offset)
 {
     QByteArray payload((char *)&size, sizeof(u64));
     payload.append((char *)&offset, sizeof(i64));
     payload.append((char *)path, strlen(path));
 
-    QByteArray incoming = Fetch("read", payload);
+    FetchResult incoming = Fetch("read", payload);
 
-    DatagramHeader *header;
-    DatagramHeader::ReadFrom(&header, incoming.data());
-
-    qDebug() << "[FUSEClient::FD_read] incoming message type:" << header->messageType;
-    qDebug() << "[FUSEClient::FD_read] incoming protocol version:" << header->protocolVersion;
-    qDebug() << "[FUSEClient::FD_read] incoming virt disk type:" << header->virtDiskType;
-    qDebug() << "[FUSEClient::FD_read] incoming operation name:" << header->operationName;
-
-    Ref<ReadResult> result = MakeRef<ReadResult>(incoming.sliced(sizeof(DatagramHeader)).data());
+    Ref<ReadResult> result = MakeRef<ReadResult>(incoming.payload.data());
 
     qDebug() << "[FUSEClient::FD_read] incoming result status:" << result->status;
     qDebug() << "[FUSEClient::FD_read] incoming result size:" << result->size;
@@ -46,7 +30,37 @@ Ref<ReadResult> FUSEClient::FD_read(cstr path, u64 size, i64 offset)
     return result;
 }
 
-QByteArray FUSEClient::Fetch(const char *operationName, const QByteArray &payload)
+Ref<StatfsResult> FUSEClient::FD_statfs(const char *path)
+{
+    QByteArray payload((char *)path, strlen(path));
+    FetchResult incoming = Fetch("statfs", payload);
+
+    Ref<StatfsResult> result = MakeRef<StatfsResult>(incoming.payload.data());
+
+    qDebug() << "[FUSEClient::FD_statfs] incoming result status:" << result->status;
+    qDebug() << "[FUSEClient::FD_statfs] incoming result f_bavail:" << result->f_bavail;
+    qDebug() << "[FUSEClient::FD_statfs] incoming result f_bfree:" << result->f_bfree;
+    qDebug() << "[FUSEClient::FD_statfs] incoming result f_bsize:" << result->f_bsize;
+
+    return result;
+}
+
+Ref<GetattrResult> FUSEClient::FD_getattr(const char *path)
+{
+    QByteArray payload((char *)path, strlen(path));
+    FetchResult incoming = Fetch("getattr", payload);
+
+    Ref<GetattrResult> result = MakeRef<GetattrResult>(incoming.payload.data());
+
+    qDebug() << "[FUSEClient::FD_getattr] incoming result status:" << result->status;
+    qDebug() << "[FUSEClient::FD_getattr] incoming result st_size:" << result->st_size;
+    qDebug() << "[FUSEClient::FD_getattr] incoming result st_blksize:" << result->st_blksize;
+    qDebug() << "[FUSEClient::FD_getattr] incoming result st_blocks:" << result->st_blocks;
+
+    return result;
+}
+
+FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &payload)
 {
     qDebug() << "[FUSEClient::Fetch] machineId: " << conn->machineId;
     qDebug() << "[FUSEClient::Fetch] machineName: " << conn->machineName;
@@ -86,7 +100,20 @@ QByteArray FUSEClient::Fetch(const char *operationName, const QByteArray &payloa
         qDebug() << "[FUSEClient::Fetch] count:" << count;
         qDebug() << "[FUSEClient::Fetch] incoming size:" << incoming.size();
 
-        return incoming;
+        DatagramHeader *inHeader;
+        DatagramHeader::ReadFrom(&inHeader, incoming.data());
+
+        qDebug() << "[FUSEClient::Fetch] incoming message type:" << inHeader->messageType;
+        qDebug() << "[FUSEClient::Fetch] incoming protocol version:" << inHeader->protocolVersion;
+        qDebug() << "[FUSEClient::Fetch] incoming virt disk type:" << inHeader->virtDiskType;
+        qDebug() << "[FUSEClient::Fetch] incoming operation name:" << inHeader->operationName;
+
+        FetchResult result = {
+            .header = *inHeader,
+            .payload = incoming.sliced(sizeof(DatagramHeader))
+        };
+
+        return result;
     }
     else
     {

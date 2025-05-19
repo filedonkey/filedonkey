@@ -1,20 +1,22 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
 
+#include "core.h"
+
 #include <QTcpSocket>
 
 struct DatagramHeader
 {
-    long long datagramSize;
+    i64 datagramSize;
     char messageType[32];
-    unsigned int protocolVersion;
+    u32 protocolVersion;
     char virtDiskType[32];
     char operationName[32];
 
     DatagramHeader(const char *messageType,
                    const char *virtDiskType,
                    const char *operationName,
-                   unsigned int protocolVersion = 1)
+                   u32 protocolVersion = 1)
     {
         memset(this, 0, sizeof(DatagramHeader));
 

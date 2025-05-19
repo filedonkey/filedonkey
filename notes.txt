@@ -1,0 +1,46 @@
++-  stbuf->st_atim;
+    stbuf->st_blksize;
+    stbuf->st_blocks;
++-  stbuf->st_ctim;
+ +  stbuf->st_dev;
+ +  stbuf->st_gid;
+ +  stbuf->st_ino;
+ +  stbuf->st_mode;
++-  stbuf->st_mtim;
+ +  stbuf->st_nlink;
+ +  stbuf->st_rdev;
+ +  stbuf->st_size;
+ +  stbuf->st_uid;
+
+
+// Linux sys/stat.h sizes:
+[MainWindow] stat->st_atim 16
+[MainWindow] stat->st_blksize 8
+[MainWindow] stat->st_blocks 8
+[MainWindow] stat->st_ctim 16
+[MainWindow] stat->st_dev 8
+[MainWindow] stat->st_gid 4
+[MainWindow] stat->st_ino 8
+[MainWindow] stat->st_mode 4
+[MainWindow] stat->st_mtim 16
+[MainWindow] stat->st_nlink 8
+[MainWindow] stat->st_rdev 8
+[MainWindow] stat->st_size 8
+[MainWindow] stat->st_uid 4
+[MainWindow] stat 144
+
+// Cygwing64 FUSE_STAT sizes:
+[MainWindow] stat->st_atim 16
+[MainWindow] stat->st_blksize 4
+[MainWindow] stat->st_blocks 8
+[MainWindow] stat->st_ctim 16
+[MainWindow] stat->st_dev 4
+[MainWindow] stat->st_gid 4
+[MainWindow] stat->st_ino 8
+[MainWindow] stat->st_mode 2
+[MainWindow] stat->st_mtim 16
+[MainWindow] stat->st_nlink 2
+[MainWindow] stat->st_rdev 4
+[MainWindow] stat->st_size 8
+[MainWindow] stat->st_uid 4
+[MainWindow] stat 120

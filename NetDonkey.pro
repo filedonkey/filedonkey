@@ -31,6 +31,7 @@ HEADERS += \
     fusebackend.h \
     fusebackend_types.h \
     fuseclient.h \
+    lstat_win32.h \
     mainwindow.h \
     pread_win32.h \
     statvfs_win32.h \

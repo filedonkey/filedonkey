@@ -4,7 +4,7 @@
 
 #include "virtdisk.h"
 #include "fuseclient.h"
-#include "fusebackend.h"
+#include "fusebackend_types.h"
 
 #include <thread>
 
@@ -16,7 +16,7 @@
 
 #if defined(__WIN32)
 #include "statvfs_win32.h"
-#include "lstat_win32.cpp"
+#include "lstat_win32.h"
 #include "pread_win32.h"
 #endif
 

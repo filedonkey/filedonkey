@@ -65,6 +65,8 @@
 // For local testing
 //------------------------------------------------------------------------------------
 
+// #include <sys/types.h>
+// #include <sys/stat.h>
 #include <fuse/fuse_win.h>
 #include <typeinfo>
 #include <unordered_map>
@@ -103,7 +105,7 @@ struct EqualTo
     type_names[typeid(unsigned long)] = "u64";
     type_names[typeid(long)] = "i64";
 
-    struct FUSE_STAT *stbuf;
+    struct FUSE_STAT /*stat*/ *stbuf;
 
     qDebug() << "[MainWindow] stat->st_atim.tv_sec" << type_names[typeid(stbuf->st_atim.tv_sec)].c_str() << sizeof(stbuf->st_atim.tv_sec);
     qDebug() << "[MainWindow] stat->st_atim.tv_nsec" << type_names[typeid(stbuf->st_atim.tv_nsec)].c_str() << sizeof(stbuf->st_atim.tv_nsec);

@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <sys/statvfs.h>
 
 Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
@@ -81,6 +82,39 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
     }
 
     memcpy(result.get() + sizeof(result->status), &stbuf, sizeof(stbuf));
+
+    return result;
+}
+
+Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
+{
+    Ref<GetattrResult> result = MakeRef<GetattrResult>();
+
+    struct FUSE_STAT stbuf;
+
+    int res = lstat(path, &stbuf);
+    if (res == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    result->st_dev = stbuf.st_dev;
+    result->st_ino = stbuf.st_ino;
+    result->st_nlink = stbuf.st_nlink;
+    result->st_mode = stbuf.st_mode;
+    result->st_uid = stbuf.st_uid;
+    result->st_gid = stbuf.st_gid;
+    result->st_rdev = stbuf.st_rdev;
+    result->st_size = stbuf.st_size;
+    result->st_blksize = stbuf.st_blksize;
+    result->st_blocks = stbuf.st_blocks;
+    result->st_atim.tv_sec = stbuf.st_atimespec.tv_sec;
+    result->st_atim.tv_nsec = stbuf.st_atimespec.tv_nsec;
+    result->st_mtim.tv_sec = stbuf.st_mtimespec.tv_sec;
+    result->st_mtim.tv_nsec = stbuf.st_mtimespec.tv_nsec;
+    result->st_ctim.tv_sec = stbuf.st_ctimespec.tv_sec;
+    result->st_ctim.tv_nsec = stbuf.st_ctimespec.tv_nsec;
 
     return result;
 }

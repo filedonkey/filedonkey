@@ -91,4 +91,33 @@ struct StatfsResult
     }
 };
 
+struct fd_timespec {
+  i64 tv_sec;
+  i64 tv_nsec;
+};
+
+struct GetattrResult
+{
+    i32 status;
+    // stat data
+    u64 st_dev;
+    u64 st_ino;
+    u64 st_nlink;
+    u32 st_mode;
+    u32 st_uid;
+    u32 st_gid;
+    u64 st_rdev;
+    i64 st_size;
+    i64 st_blksize;
+    i64 st_blocks;
+    fd_timespec st_atim;
+    fd_timespec st_mtim;
+    fd_timespec st_ctim;
+
+    GetattrResult()
+    {
+        memset(this, 0, sizeof(GetattrResult));
+    }
+};
+
 #endif // FUSEBACKEND_TYPES_H

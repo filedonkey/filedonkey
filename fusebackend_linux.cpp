@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <sys/statvfs.h>
 
 Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
@@ -74,6 +75,24 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
     struct statvfs stbuf;
 
     int res = statvfs(path, &stbuf);
+    if (res == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    memcpy(result.get() + sizeof(result->status), &stbuf, sizeof(stbuf));
+
+    return result;
+}
+
+Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
+{
+    Ref<GetattrResult> result = MakeRef<GetattrResult>();
+
+    struct FUSE_STAT stbuf;
+
+    int res = lstat(path, &stbuf);
     if (res == -1)
     {
         result->status = -errno;

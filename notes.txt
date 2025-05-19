@@ -60,3 +60,64 @@
 [MainWindow] stat->st_size 8
 [MainWindow] stat->st_uid 4
 [MainWindow] stat 144
+
+//------------------------------------------------------------------------------------
+// For local testing
+//------------------------------------------------------------------------------------
+
+#include <fuse/fuse_win.h>
+#include <typeinfo>
+#include <unordered_map>
+
+using TypeInfoRef = std::reference_wrapper<const std::type_info>;
+
+struct Hasher
+{
+    std::size_t operator()(TypeInfoRef code) const
+    {
+        return code.get().hash_code();
+    }
+};
+
+struct EqualTo
+{
+    bool operator()(TypeInfoRef lhs, TypeInfoRef rhs) const
+    {
+        return lhs.get() == rhs.get();
+    }
+};
+
+//------------------------------------------------------------------------------------
+
+    std::unordered_map<TypeInfoRef, std::string, Hasher, EqualTo> type_names;
+
+    type_names[typeid(i8)] = "i8";
+    type_names[typeid(i16)] = "i16";
+    type_names[typeid(i32)] = "i32";
+    type_names[typeid(i64)] = "i64";
+    type_names[typeid(u8)] = "u8";
+    type_names[typeid(u16)] = "u16";
+    type_names[typeid(u32)] = "u32";
+    type_names[typeid(u64)] = "u64";
+    type_names[typeid(cstr)] = "cstr";
+    type_names[typeid(unsigned long)] = "u64";
+    type_names[typeid(long)] = "i64";
+
+    struct FUSE_STAT *stbuf;
+
+    qDebug() << "[MainWindow] stat->st_atim.tv_sec" << type_names[typeid(stbuf->st_atim.tv_sec)].c_str() << sizeof(stbuf->st_atim.tv_sec);
+    qDebug() << "[MainWindow] stat->st_atim.tv_nsec" << type_names[typeid(stbuf->st_atim.tv_nsec)].c_str() << sizeof(stbuf->st_atim.tv_nsec);
+    qDebug() << "[MainWindow] stat->st_dev" << type_names[typeid(stbuf->st_dev)].c_str() << sizeof(stbuf->st_dev);
+    qDebug() << "[MainWindow] stat->st_ino" << type_names[typeid(stbuf->st_ino)].c_str() << sizeof(stbuf->st_ino);
+    qDebug() << "[MainWindow] stat->st_nlink" << type_names[typeid(stbuf->st_nlink)].c_str() << sizeof(stbuf->st_nlink);
+    qDebug() << "[MainWindow] stat->st_mode" << type_names[typeid(stbuf->st_mode)].c_str() << sizeof(stbuf->st_mode);
+    qDebug() << "[MainWindow] stat->st_uid" << type_names[typeid(stbuf->st_uid)].c_str();
+    qDebug() << "[MainWindow] stat->st_gid" << type_names[typeid(stbuf->st_gid)].c_str() << sizeof(stbuf->st_gid);
+    qDebug() << "[MainWindow] stat->st_rdev" << type_names[typeid(stbuf->st_rdev)].c_str() << sizeof(stbuf->st_rdev);
+    qDebug() << "[MainWindow] stat->st_size" << type_names[typeid(stbuf->st_size)].c_str() << sizeof(stbuf->st_size);
+    qDebug() << "[MainWindow] stat->st_blksize" << type_names[typeid(stbuf->st_blksize)].c_str() << sizeof(stbuf->st_blksize);
+    qDebug() << "[MainWindow] stat->st_blocks" << type_names[typeid(stbuf->st_blocks)].c_str() << sizeof(stbuf->st_blocks);
+
+    return;
+
+//------------------------------------------------------------------------------------

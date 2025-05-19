@@ -44,3 +44,19 @@
 [MainWindow] stat->st_size 8
 [MainWindow] stat->st_uid 4
 [MainWindow] stat 120
+
+// macOS sys/stat.h sizes:
+[MainWindow] stat->st_atim 16
+[MainWindow] stat->st_blksize 4
+[MainWindow] stat->st_blocks 8
+[MainWindow] stat->st_ctim 16
+[MainWindow] stat->st_dev 4
+[MainWindow] stat->st_gid 4
+[MainWindow] stat->st_ino 8
+[MainWindow] stat->st_mode 2
+[MainWindow] stat->st_mtim 16
+[MainWindow] stat->st_nlink 2
+[MainWindow] stat->st_rdev 4
+[MainWindow] stat->st_size 8
+[MainWindow] stat->st_uid 4
+[MainWindow] stat 144

@@ -5,6 +5,7 @@
 #include <vector>
 #include <dirent.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/statvfs.h>
 
 Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)

@@ -19,6 +19,17 @@
 #include <QStorageInfo>
 #include <QDesktopServices>
 
+#ifdef Q_OS_MACOS
+#define LIGHT_MODE 236
+#define DARK_MODE  50
+#elif defined(Q_OS_WINDOWS)
+#define LIGHT_MODE 243
+#define DARK_MODE  30
+#elif defined(Q_OS_LINUX)
+#define LIGHT_MODE 236
+#define DARK_MODE  50
+#endif
+
 #define MACHINE_NAME    "Leg3nd's Desktop"
 
 #define UDP_PORT    45454
@@ -147,32 +158,6 @@ MainWindow::~MainWindow()
         delete conn.socket;
     }
     connections.clear();
-}
-
-void MainWindow::changeEvent(QEvent *event)
-{
-    #ifdef Q_OS_MACOS
-        #define LIGHT_MODE 236
-        #define DARK_MODE  50
-    #elif defined(Q_OS_WINDOWS)
-        #define LIGHT_MODE 243
-        #define DARK_MODE  30
-    #elif defined(Q_OS_LINUX)
-        #define LIGHT_MODE 236
-        #define DARK_MODE  50
-    #endif
-
-    if (event->type() == QEvent::PaletteChange)
-    {
-        auto bg = palette().color(QPalette::Active, QPalette::Window);
-        qDebug() << "[MainWindow::changeEvent] lightness:" << bg.lightness();
-
-        if (bg.lightness() == LIGHT_MODE) {
-            // QIcon::setThemeName(LIGHT_THEME);
-        } else {
-            // QIcon::setThemeName(DARK_THEME);
-        }
-    }
 }
 
 void MainWindow::broadcast()
@@ -363,8 +348,40 @@ void MainWindow::createTrayIcon()
     trayIconMenu->addAction(quitAction);
 
     trayIcon = new QSystemTrayIcon(this);
-    trayIcon->setIcon(QIcon(":/assets/filedonkey_tray_icon_light.ico"));
+
+    auto bg = palette().color(QPalette::Active, QPalette::Window);
+    if (bg.lightness() == LIGHT_MODE)
+    {
+        // QIcon::setThemeName(LIGHT_THEME);
+        trayIcon->setIcon(QIcon(":/assets/filedonkey_tray_icon_dark.ico"));
+    }
+    else
+    {
+        // QIcon::setThemeName(DARK_THEME);
+        trayIcon->setIcon(QIcon(":/assets/filedonkey_tray_icon_light.ico"));
+    }
+
     trayIcon->setToolTip("FileDonkey");
     trayIcon->setContextMenu(trayIconMenu);
     trayIcon->show();
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::PaletteChange)
+    {
+        auto bg = palette().color(QPalette::Active, QPalette::Window);
+        qDebug() << "[MainWindow::changeEvent] lightness:" << bg.lightness();
+
+        if (bg.lightness() == LIGHT_MODE)
+        {
+            // QIcon::setThemeName(LIGHT_THEME);
+            trayIcon->setIcon(QIcon(":/assets/filedonkey_tray_icon_light.ico"));
+        }
+        else
+        {
+            // QIcon::setThemeName(DARK_THEME);
+            trayIcon->setIcon(QIcon(":/assets/filedonkey_tray_icon_dark.ico"));
+        }
+    }
 }

@@ -1,0 +1,1 @@
+- use FUSEClient's FD_statfs and FD_getattr at linux and macOS virtdisk implementations

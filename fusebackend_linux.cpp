@@ -90,7 +90,7 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 {
     Ref<GetattrResult> result = MakeRef<GetattrResult>();
 
-    struct FUSE_STAT stbuf;
+    struct stat stbuf;
 
     int res = lstat(path, &stbuf);
     if (res == -1)

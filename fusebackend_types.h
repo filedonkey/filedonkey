@@ -73,17 +73,17 @@ struct StatfsResult
 {
     i32 status;
     // statvfs data
-    u32 f_bsize;
-    u32 f_frsize;
-    u32 f_blocks;
-    u32 f_bfree;
-    u32 f_bavail;
-    u32 f_files;
-    u32 f_ffree;
-    u32 f_favail;
-    u32 f_fsid;
-    u32 f_flag;
-    u32 f_namemax;
+    u64 f_bsize;
+    u64 f_frsize;
+    u64 f_blocks;
+    u64 f_bfree;
+    u64 f_bavail;
+    u64 f_files;
+    u64 f_ffree;
+    u64 f_favail;
+    u64 f_fsid;
+    u64 f_flag;
+    u64 f_namemax;
 
     StatfsResult()
     {

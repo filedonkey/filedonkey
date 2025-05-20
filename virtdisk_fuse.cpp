@@ -65,29 +65,62 @@ static int xmp_getattr(const char *path, struct FUSE_STAT /*stat*/ *stbuf)
 {
     qDebug() << "[xmp_getattr] path: " << path;
 
-    int res;
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_read] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
-    res = lstat(path, stbuf);
-    if (res == -1)
-        return -errno;
+    Ref<GetattrResult> result = client->FD_getattr(path);
 
-    qDebug() << "\tst_atimespec" << stbuf->st_atim.tv_sec << stbuf->st_atim.tv_nsec;
-    qDebug() << "\tst_birthtimespec" << stbuf->st_birthtim.tv_sec << stbuf->st_birthtim.tv_nsec;
-    qDebug() << "\tst_blksize" << stbuf->st_blksize;
-    qDebug() << "\tst_blocks" << stbuf->st_blocks;
-    qDebug() << "\tst_ctimespec" << stbuf->st_ctim.tv_sec << stbuf->st_ctim.tv_nsec;
-    qDebug() << "\tst_dev" << stbuf->st_dev;
-    qDebug() << "\tst_gid" << stbuf->st_gid;
-    qDebug() << "\tst_ino" << stbuf->st_ino;
-    qDebug() << "\tst_mode" << stbuf->st_mode;
-    qDebug() << "\tst_mtimespec" << stbuf->st_mtim.tv_sec << stbuf->st_mtim.tv_nsec;
-    qDebug() << "\tst_nlink" << stbuf->st_nlink;
-    qDebug() << "\tst_rdev" << stbuf->st_rdev;
-    qDebug() << "\tst_size" << stbuf->st_size;
-    qDebug() << "\tst_uid" << stbuf->st_uid;
-    qDebug() << "\t";
+    if (result->status == 0)
+    {
+        stbuf->st_dev = result->st_dev;
+        stbuf->st_ino = result->st_ino;
+        stbuf->st_nlink = result->st_nlink;
+        stbuf->st_mode = result->st_mode;
+        stbuf->st_uid = result->st_uid;
+        stbuf->st_gid = result->st_gid;
+        stbuf->st_rdev = result->st_rdev;
+        stbuf->st_size = result->st_size;
+        stbuf->st_blksize = result->st_blksize;
+        stbuf->st_blocks = result->st_blocks;
+        stbuf->st_atim.tv_sec = result->st_atim.tv_sec;
+        stbuf->st_atim.tv_nsec = result->st_atim.tv_nsec;
+        stbuf->st_mtim.tv_sec = result->st_mtim.tv_sec;
+        stbuf->st_mtim.tv_nsec = result->st_mtim.tv_nsec;
+        stbuf->st_ctim.tv_sec = result->st_ctim.tv_sec;
+        stbuf->st_ctim.tv_nsec = result->st_ctim.tv_nsec;
+    }
 
-    return 0;
+    return result->status;
+
+    //------------------------------------------------------------------------------------
+
+    // int res;
+
+    // res = lstat(path, stbuf);
+    // if (res == -1)
+    //     return -errno;
+
+    // qDebug() << "\tst_atimespec" << stbuf->st_atim.tv_sec << stbuf->st_atim.tv_nsec;
+    // qDebug() << "\tst_birthtimespec" << stbuf->st_birthtim.tv_sec << stbuf->st_birthtim.tv_nsec;
+    // qDebug() << "\tst_blksize" << stbuf->st_blksize;
+    // qDebug() << "\tst_blocks" << stbuf->st_blocks;
+    // qDebug() << "\tst_ctimespec" << stbuf->st_ctim.tv_sec << stbuf->st_ctim.tv_nsec;
+    // qDebug() << "\tst_dev" << stbuf->st_dev;
+    // qDebug() << "\tst_gid" << stbuf->st_gid;
+    // qDebug() << "\tst_ino" << stbuf->st_ino;
+    // qDebug() << "\tst_mode" << stbuf->st_mode;
+    // qDebug() << "\tst_mtimespec" << stbuf->st_mtim.tv_sec << stbuf->st_mtim.tv_nsec;
+    // qDebug() << "\tst_nlink" << stbuf->st_nlink;
+    // qDebug() << "\tst_rdev" << stbuf->st_rdev;
+    // qDebug() << "\tst_size" << stbuf->st_size;
+    // qDebug() << "\tst_uid" << stbuf->st_uid;
+    // qDebug() << "\t";
+
+    // return 0;
 }
 
 static int xmp_access(const char *path, int mask)
@@ -422,26 +455,54 @@ static int xmp_statfs(const char *path, struct statvfs *stbuf)
 {
     qDebug() << "[xmp_statfs] path: " << path;
 
-    int res;
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_read] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
-    res = statvfs(path, stbuf);
-    if (res == -1)
-        return -errno;
+    Ref<StatfsResult> result = client->FD_statfs(path);
 
-    qDebug() << "\tf_bavail" << stbuf->f_bavail;
-    qDebug() << "\tf_bfree" << stbuf->f_bfree;
-    qDebug() << "\tf_blocks" << stbuf->f_blocks;
-    qDebug() << "\tf_bsize" << stbuf->f_bsize;
-    qDebug() << "\tf_ffree" << stbuf->f_ffree;
-    qDebug() << "\tf_files" << stbuf->f_files;
-    qDebug() << "\tf_favail" << stbuf->f_favail;
-    qDebug() << "\tf_flag" << stbuf->f_flag;
-    qDebug() << "\tf_frsize" << stbuf->f_frsize;
-    qDebug() << "\tf_fsid" << stbuf->f_fsid;
-    qDebug() << "\tf_namemax" << stbuf->f_namemax;
-    qDebug() << "\n";
+    if (result->status == 0)
+    {
+        stbuf->f_bsize = result->f_bsize;
+        stbuf->f_frsize = result->f_frsize;
+        stbuf->f_blocks = result->f_blocks;
+        stbuf->f_bfree = result->f_bfree;
+        stbuf->f_bavail = result->f_bavail;
+        stbuf->f_files = result->f_files;
+        stbuf->f_ffree = result->f_ffree;
+        stbuf->f_favail = result->f_favail;
+        stbuf->f_fsid = result->f_fsid;
+        stbuf->f_flag = result->f_flag;
+        stbuf->f_namemax = result->f_namemax;
+    }
 
-    return 0;
+    return result->status;
+
+    //------------------------------------------------------------------------------------
+
+    // int res;
+
+    // res = statvfs(path, stbuf);
+    // if (res == -1)
+    //     return -errno;
+
+    // qDebug() << "\tf_bavail" << stbuf->f_bavail;
+    // qDebug() << "\tf_bfree" << stbuf->f_bfree;
+    // qDebug() << "\tf_blocks" << stbuf->f_blocks;
+    // qDebug() << "\tf_bsize" << stbuf->f_bsize;
+    // qDebug() << "\tf_ffree" << stbuf->f_ffree;
+    // qDebug() << "\tf_files" << stbuf->f_files;
+    // qDebug() << "\tf_favail" << stbuf->f_favail;
+    // qDebug() << "\tf_flag" << stbuf->f_flag;
+    // qDebug() << "\tf_frsize" << stbuf->f_frsize;
+    // qDebug() << "\tf_fsid" << stbuf->f_fsid;
+    // qDebug() << "\tf_namemax" << stbuf->f_namemax;
+    // qDebug() << "\n";
+
+    // return 0;
 }
 
 static int xmp_release(const char *path, struct fuse_file_info *fi)

@@ -12,7 +12,7 @@
 <h1 align="center">FileDonkey: Your Devices, One Filesystem</h1>
 
 <p align="center">
-  <a href="https://www.producthunt.com/products/filedonkey?utm_source=badge-follow&amp;utm_medium=badge&amp;utm_souce=badge-filedonkey" target="_blank" class="badge" style="text-decoration: none;">
+  <a href="https://www.twitch.tv/l_hazard" target="_blank" class="badge" style="text-decoration: none;">
     <img src="https://filedonkey.app/twitch-follow.svg" alt="FileDonkey - Important files instantly accessible wherever you need them | Twitch" style="width: 86px; height: 32px;" width="86" height="32">
   </a>
   <a href="https://x.com/filedonkeyapp" target="_blank" style="text-decoration: none;">

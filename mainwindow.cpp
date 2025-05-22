@@ -277,6 +277,32 @@ void MainWindow::onSocketReadyRead()
             response.append((char *)result.get(), sizeof(ReadResult));
             response.append((char *)result->data, result->size);
         }
+        if (strcmp(header->operationName, "statfs") == 0)
+        {
+            const char *path = incoming.sliced(sizeof(DatagramHeader)).data();
+            qDebug() << "[onSocketReadyRead] fuse statfs path:" << path;
+            Ref<StatfsResult> result = FUSEBackend::FD_statfs(path);
+            qDebug() << "[onSocketReadyRead] result status:" << result->status;
+
+            DatagramHeader header("response", "fuse", "statfs");
+            header.datagramSize += sizeof(StatfsResult);
+
+            response.append((char *)&header, sizeof(DatagramHeader));
+            response.append((char *)result.get(), sizeof(StatfsResult));
+        }
+        if (strcmp(header->operationName, "getattr") == 0)
+        {
+            const char *path = incoming.sliced(sizeof(DatagramHeader)).data();
+            qDebug() << "[onSocketReadyRead] fuse getattr path:" << path;
+            Ref<GetattrResult> result = FUSEBackend::FD_getattr(path);
+            qDebug() << "[onSocketReadyRead] result status:" << result->status;
+
+            DatagramHeader header("response", "fuse", "getattr");
+            header.datagramSize += sizeof(GetattrResult);
+
+            response.append((char *)&header, sizeof(DatagramHeader));
+            response.append((char *)result.get(), sizeof(GetattrResult));
+        }
         else
         {
             qDebug() << "[onSocketReadyRead] Error: invalid operation name:" << header->operationName;

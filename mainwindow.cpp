@@ -250,25 +250,22 @@ void MainWindow::onSocketReadyRead()
 
     QByteArray response;
 
-    if (strcmp(header->virtDiskType, "fuse") == 0)
-    {
-        QString operationName(header->operationName);
-        if (fuseHandlers.contains(operationName))
-        {
-            RequestHandler handler = fuseHandlers[operationName];
-            response = handler(incoming.sliced(sizeof(DatagramHeader)));
-        }
-        else
-        {
-            qDebug() << "[onSocketReadyRead] Error: invalid operation name:" << header->operationName;
-            return;
-        }
-    }
-    else
+    if (strcmp(header->virtDiskType, "fuse") != 0)
     {
         qDebug() << "[onSocketReadyRead] Error: invalid virt disk type:" << header->virtDiskType;
         return;
     }
+
+    QString operationName(header->operationName);
+
+    if (!fuseHandlers.contains(operationName))
+    {
+        qDebug() << "[onSocketReadyRead] Error: invalid operation name:" << header->operationName;
+        return;
+    }
+
+    RequestHandler handler = fuseHandlers[operationName];
+    response = handler(incoming.sliced(sizeof(DatagramHeader)));
 
     // QStorageInfo storage = QStorageInfo::root();
     // storage.bytesTotal();

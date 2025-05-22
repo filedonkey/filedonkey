@@ -26,6 +26,8 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 
     while ((de = readdir(dp)) != NULL)
     {
+        if (de->d_name[0] == '.') continue;
+
         FindData &findData = findDataList.emplace_back();
         memset(&findData, 0, sizeof(FindData));
 

@@ -4,6 +4,8 @@
 #include "connection.h"
 #include "virtdisk.h"
 
+#include <functional>
+
 #include <QMainWindow>
 #include <QMap>
 #include <QTcpServer>
@@ -18,6 +20,8 @@ namespace Ui {
 class MainWindow;
 }
 QT_END_NAMESPACE
+
+using RequestHandler = std::function<QByteArray(QByteArray)>;
 
 class MainWindow : public QMainWindow
 {
@@ -40,6 +44,11 @@ private:
     void broadcast();
     void createTrayIcon();
 
+    QByteArray readdirHandler(QByteArray payload);
+    QByteArray readHandler(QByteArray payload);
+    QByteArray statfsHandler(QByteArray payload);
+    QByteArray getattrHandler(QByteArray payload);
+
     Ui::MainWindow  *ui = nullptr;
     QAction         *restoreAction;
     QAction         *quitAction;
@@ -51,6 +60,7 @@ private:
     QUdpSocket     *broadcaster = nullptr;
 
     QMap<QString, Connection> connections;
+    QMap<QString, RequestHandler> fuseHandlers;
 
     VirtDisk *virtDisk = nullptr;
 };

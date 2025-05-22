@@ -33,7 +33,9 @@
 #define MACHINE_NAME    "Leg3nd's Desktop"
 
 #define UDP_PORT    4545
-#define TCP_PORT    0 // 5454
+#define TCP_PORT    5454
+
+using namespace std::placeholders;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -128,6 +130,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     // return;
     //------------------------------------------------------------------------------------
+
+    fuseHandlers.insert("readdir", std::bind(&MainWindow::readdirHandler, this, _1));
+    fuseHandlers.insert("read", std::bind(&MainWindow::readHandler, this, _1));
+    fuseHandlers.insert("statfs", std::bind(&MainWindow::statfsHandler, this, _1));
+    fuseHandlers.insert("getattr", std::bind(&MainWindow::getattrHandler, this, _1));
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
     if (!server->listen(QHostAddress::Any, TCP_PORT))
@@ -245,63 +252,11 @@ void MainWindow::onSocketReadyRead()
 
     if (strcmp(header->virtDiskType, "fuse") == 0)
     {
-        if (strcmp(header->operationName, "readdir") == 0)
+        QString operationName(header->operationName);
+        if (fuseHandlers.contains(operationName))
         {
-            const char *path = incoming.sliced(sizeof(DatagramHeader)).data();
-            qDebug() << "[onSocketReadyRead] fuse readdir path:" << path;
-            Ref<ReaddirResult> result = FUSEBackend::FD_readdir(path);
-            qDebug() << "[onSocketReadyRead] result status:" << result->status;
-
-            DatagramHeader header("response", "fuse", "readdir");
-            header.datagramSize += sizeof(ReaddirResult) + result->dataSize;
-
-            response.append((char *)&header, sizeof(DatagramHeader));
-            response.append((char *)result.get(), sizeof(ReaddirResult));
-            response.append((char *)result->findData, result->dataSize);
-        }
-        else if (strcmp(header->operationName, "read") == 0)
-        {
-            u64 size = *(incoming.sliced(sizeof(DatagramHeader)).data());
-            i64 offset = *(incoming.sliced(sizeof(DatagramHeader) + sizeof(u64)).data());
-            const char *path = incoming.sliced(sizeof(DatagramHeader)  + sizeof(u64) + sizeof(i64)).data();
-            qDebug() << "[onSocketReadyRead] incoming size:" << size;
-            qDebug() << "[onSocketReadyRead] incoming offset:" << offset;
-            qDebug() << "[onSocketReadyRead] incoming path:" << path;
-            Ref<ReadResult> result = FUSEBackend::FD_read(path, size, offset);
-            qDebug() << "[onSocketReadyRead] result status:" << result->status;
-
-            DatagramHeader header("response", "fuse", "read");
-            header.datagramSize += sizeof(ReaddirResult) + result->size;
-
-            response.append((char *)&header, sizeof(DatagramHeader));
-            response.append((char *)result.get(), sizeof(ReadResult));
-            response.append((char *)result->data, result->size);
-        }
-        else if (strcmp(header->operationName, "statfs") == 0)
-        {
-            const char *path = incoming.sliced(sizeof(DatagramHeader)).data();
-            qDebug() << "[onSocketReadyRead] fuse statfs path:" << path;
-            Ref<StatfsResult> result = FUSEBackend::FD_statfs(path);
-            qDebug() << "[onSocketReadyRead] result status:" << result->status;
-
-            DatagramHeader header("response", "fuse", "statfs");
-            header.datagramSize += sizeof(StatfsResult);
-
-            response.append((char *)&header, sizeof(DatagramHeader));
-            response.append((char *)result.get(), sizeof(StatfsResult));
-        }
-        else if (strcmp(header->operationName, "getattr") == 0)
-        {
-            const char *path = incoming.sliced(sizeof(DatagramHeader)).data();
-            qDebug() << "[onSocketReadyRead] fuse getattr path:" << path;
-            Ref<GetattrResult> result = FUSEBackend::FD_getattr(path);
-            qDebug() << "[onSocketReadyRead] result status:" << result->status;
-
-            DatagramHeader header("response", "fuse", "getattr");
-            header.datagramSize += sizeof(GetattrResult);
-
-            response.append((char *)&header, sizeof(DatagramHeader));
-            response.append((char *)result.get(), sizeof(GetattrResult));
+            RequestHandler handler = fuseHandlers[operationName];
+            response = handler(incoming.sliced(sizeof(DatagramHeader)));
         }
         else
         {
@@ -322,6 +277,76 @@ void MainWindow::onSocketReadyRead()
     // qDebug() << "[Server] incoming totalNumberOfFreeBytes: " << storage.bytesFree();
 
     newConnection->write(response);
+}
+
+QByteArray MainWindow::readdirHandler(QByteArray payload)
+{
+    const char *path = payload.data();
+    qDebug() << "[onSocketReadyRead] fuse readdir path:" << path;
+    Ref<ReaddirResult> result = FUSEBackend::FD_readdir(path);
+    qDebug() << "[onSocketReadyRead] result status:" << result->status;
+
+    DatagramHeader header("response", "fuse", "readdir");
+    header.datagramSize += sizeof(ReaddirResult) + result->dataSize;
+
+    QByteArray response((char *)&header, sizeof(DatagramHeader));
+    response.append((char *)result.get(), sizeof(ReaddirResult));
+    response.append((char *)result->findData, result->dataSize);
+
+    return response;
+}
+
+QByteArray MainWindow::readHandler(QByteArray payload)
+{
+    u64 size = *(payload.data());
+    i64 offset = *(payload.sliced(sizeof(u64)).data());
+    const char *path = payload.sliced(sizeof(u64) + sizeof(i64)).data();
+    qDebug() << "[onSocketReadyRead] incoming size:" << size;
+    qDebug() << "[onSocketReadyRead] incoming offset:" << offset;
+    qDebug() << "[onSocketReadyRead] incoming path:" << path;
+    Ref<ReadResult> result = FUSEBackend::FD_read(path, size, offset);
+    qDebug() << "[onSocketReadyRead] result status:" << result->status;
+
+    DatagramHeader header("response", "fuse", "read");
+    header.datagramSize += sizeof(ReaddirResult) + result->size;
+
+    QByteArray response((char *)&header, sizeof(DatagramHeader));
+    response.append((char *)result.get(), sizeof(ReadResult));
+    response.append((char *)result->data, result->size);
+
+    return response;
+}
+
+QByteArray MainWindow::statfsHandler(QByteArray payload)
+{
+    const char *path = payload.data();
+    qDebug() << "[onSocketReadyRead] fuse statfs path:" << path;
+    Ref<StatfsResult> result = FUSEBackend::FD_statfs(path);
+    qDebug() << "[onSocketReadyRead] result status:" << result->status;
+
+    DatagramHeader header("response", "fuse", "statfs");
+    header.datagramSize += sizeof(StatfsResult);
+
+    QByteArray response((char *)&header, sizeof(DatagramHeader));
+    response.append((char *)result.get(), sizeof(StatfsResult));
+
+    return response;
+}
+
+QByteArray MainWindow::getattrHandler(QByteArray payload)
+{
+    const char *path = payload.data();
+    qDebug() << "[onSocketReadyRead] fuse getattr path:" << path;
+    Ref<GetattrResult> result = FUSEBackend::FD_getattr(path);
+    qDebug() << "[onSocketReadyRead] result status:" << result->status;
+
+    DatagramHeader header("response", "fuse", "getattr");
+    header.datagramSize += sizeof(GetattrResult);
+
+    QByteArray response((char *)&header, sizeof(DatagramHeader));
+    response.append((char *)result.get(), sizeof(GetattrResult));
+
+    return response;
 }
 
 void MainWindow::onUpgradeToPro()

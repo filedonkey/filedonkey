@@ -35,7 +35,10 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
         return result;
     }
 
-    while ((de = readdir(dp)) != NULL) {
+    while ((de = readdir(dp)) != NULL)
+    {
+        if (de->d_name[0] == '.') continue;
+
         FindData &findData = findDataList.emplace_back();
         memset(&findData, 0, sizeof(FindData));
 
@@ -46,13 +49,15 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
         memcpy(direntPath + (strlen(dp->dd_name) - 1), de->d_name, strlen(de->d_name));
 
         int wchars_needed = MultiByteToWideChar(CP_UTF8, 0, direntPath, -1, NULL, 0);
-        if (wchars_needed <= 0) {
+        if (wchars_needed <= 0)
+        {
             result->status = -1;
             return result;
         }
 
         wchar_t* wpath = new wchar_t[wchars_needed];
-        if (MultiByteToWideChar(CP_UTF8, 0, direntPath, -1, wpath, wchars_needed) <= 0) {
+        if (MultiByteToWideChar(CP_UTF8, 0, direntPath, -1, wpath, wchars_needed) <= 0)
+        {
             delete[] wpath;
             result->status = -1;
             return result;
@@ -68,11 +73,16 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 #define WIN_S_IFREG  0100000  // regular file
 
             bool isSymLink = (fileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
-            if (isSymLink) {
+            if (isSymLink)
+            {
                 findData.st_mode |= WIN_S_IFLNK;
-            } else if (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            }
+            else if (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+            {
                 findData.st_mode |= WIN_S_IFDIR;
-            } else {
+            }
+            else
+            {
                 findData.st_mode |= WIN_S_IFREG;
             }
         }

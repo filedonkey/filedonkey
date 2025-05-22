@@ -209,41 +209,7 @@ void MainWindow::onBroadcasting()
 
         virtDisk = new VirtDisk(newConn);
         virtDisk->mount("M:\\");
-
-        //establishConnection(newConn);
     }
-}
-
-void MainWindow::establishConnection(const Connection& conn)
-{
-    Connection newConn = std::move(conn);
-    newConn.socket = new QTcpSocket(this);
-    qDebug() << "[establishConnection] try to connect";
-    newConn.socket->connectToHost(QHostAddress(newConn.machineAddress), newConn.machinePort);
-    if (newConn.socket->waitForConnected())
-    {
-        connections.insert(newConn.machineId, newConn);
-        qDebug() << "[establishConnection] socket connected";
-        sendInitialInfo(newConn);
-    }
-    else
-    {
-        qDebug() << "[establishConnection] NOT connected: " << newConn.socket->errorString();
-    }
-}
-
-void MainWindow::sendInitialInfo(const Connection& conn)
-{
-    virtDisk = new VirtDisk(conn);
-    virtDisk->mount("M:\\");
-
-    // QDir dir("D:\\Pictures");
-    // QStringList entries = dir.entryList();
-    // qDebug() << "[Client] Entries: " << entries.size();
-    // QJsonObject root;
-    // root["dirList"] = QJsonArray::fromStringList(entries);
-    // QByteArray data = QJsonDocument(root).toJson(QJsonDocument::Compact);
-    // conn.socket->write(data);
 }
 
 void MainWindow::onConnection()

@@ -38,8 +38,6 @@ public slots:
 
 private:
     void broadcast();
-    void establishConnection(const Connection&);
-    void sendInitialInfo(const Connection&);
     void createTrayIcon();
 
     Ui::MainWindow  *ui = nullptr;

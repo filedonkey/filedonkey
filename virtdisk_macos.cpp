@@ -93,32 +93,46 @@ static int xmp_getattr(const char *path, struct stat *stbuf)
 {
     qDebug() << "[xmp_getattr] path: " << path;
 
-    int res;
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_read] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
-    res = lstat(path, stbuf);
-    if (res == -1)
-        return -errno;
+    Ref<GetattrResult> result = client->FD_getattr(path);
 
-    qDebug() << "st_atimespec" << stbuf->st_atimespec.tv_sec << stbuf->st_atimespec.tv_nsec;
-    qDebug() << "st_birthtimespec" << stbuf->st_birthtimespec.tv_sec << stbuf->st_birthtimespec.tv_nsec;
-    qDebug() << "st_blksize" << stbuf->st_blksize;
-    qDebug() << "st_blocks" << stbuf->st_blocks;
-    qDebug() << "st_ctimespec" << stbuf->st_ctimespec.tv_sec << stbuf->st_ctimespec.tv_nsec;
-    qDebug() << "st_dev" << stbuf->st_dev;
-    qDebug() << "st_flags" << stbuf->st_flags;
-    qDebug() << "st_gen" << stbuf->st_gen;
-    qDebug() << "st_gid" << stbuf->st_gid;
-    qDebug() << "st_ino" << stbuf->st_ino;
-    qDebug() << "st_lspare" << stbuf->st_lspare;
-    qDebug() << "st_mode" << stbuf->st_mode;
-    qDebug() << "st_mtimespec" << stbuf->st_mtimespec.tv_sec << stbuf->st_mtimespec.tv_nsec;
-    qDebug() << "st_nlink" << stbuf->st_nlink;
-    qDebug() << "st_qspare" << stbuf->st_qspare; // Same value as before lstat call
-    qDebug() << "st_rdev" << stbuf->st_rdev;
-    qDebug() << "st_size" << stbuf->st_size;
-    qDebug() << "st_uid" << stbuf->st_uid;
+    if (result->status == 0)
+    {
+        stbuf->st_dev = result->st_dev;
+        stbuf->st_ino = result->st_ino;
+        stbuf->st_nlink = result->st_nlink;
+        stbuf->st_mode = result->st_mode;
+        stbuf->st_uid = result->st_uid;
+        stbuf->st_gid = result->st_gid;
+        stbuf->st_rdev = result->st_rdev;
+        stbuf->st_size = result->st_size;
+        stbuf->st_blksize = result->st_blksize;
+        stbuf->st_blocks = result->st_blocks;
+        stbuf->st_atimespec.tv_sec = result->st_atim.tv_sec;
+        stbuf->st_atimespec.tv_nsec = result->st_atim.tv_nsec;
+        stbuf->st_mtimespec.tv_sec = result->st_mtim.tv_sec;
+        stbuf->st_mtimespec.tv_nsec = result->st_mtim.tv_nsec;
+        stbuf->st_ctimespec.tv_sec = result->st_ctim.tv_sec;
+        stbuf->st_ctimespec.tv_nsec = result->st_ctim.tv_nsec;
+    }
 
-    return 0;
+    return result->status;
+
+    //------------------------------------------------------------------------------------
+
+    // int res;
+
+    // res = lstat(path, stbuf);
+    // if (res == -1)
+    //     return -errno;
+
+    // return 0;
 }
 
 static int xmp_fgetattr(const char *path, struct stat *stbuf,
@@ -850,25 +864,41 @@ static int xmp_statfs(const char *path, struct statvfs *stbuf)
 {
     qDebug() << "[xmp_statfs] path: " << path;
 
-    int res;
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_read] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
-    res = statvfs(path, stbuf);
-    if (res == -1)
-        return -errno;
+    Ref<StatfsResult> result = client->FD_statfs(path);
 
-    qDebug() << "f_bavail" << stbuf->f_bavail;
-    qDebug() << "f_bfree" << stbuf->f_bfree;
-    qDebug() << "f_blocks" << stbuf->f_blocks;
-    qDebug() << "f_bsize" << stbuf->f_bsize;
-    qDebug() << "f_ffree" << stbuf->f_ffree;
-    qDebug() << "f_files" << stbuf->f_files;
-    qDebug() << "f_favail" << stbuf->f_favail;
-    qDebug() << "f_flag" << stbuf->f_flag;
-    qDebug() << "f_frsize" << stbuf->f_frsize;
-    qDebug() << "f_fsid" << stbuf->f_fsid;
-    qDebug() << "f_namemax" << stbuf->f_namemax;
+    if (result->status == 0)
+    {
+        stbuf->f_bsize = result->f_bsize;
+        stbuf->f_frsize = result->f_frsize;
+        stbuf->f_blocks = result->f_blocks;
+        stbuf->f_bfree = result->f_bfree;
+        stbuf->f_bavail = result->f_bavail;
+        stbuf->f_files = result->f_files;
+        stbuf->f_ffree = result->f_ffree;
+        stbuf->f_favail = result->f_favail;
+        stbuf->f_fsid = result->f_fsid;
+        stbuf->f_flag = result->f_flag;
+        stbuf->f_namemax = result->f_namemax;
+    }
 
-    return 0;
+    return result->status;
+
+    //------------------------------------------------------------------------------------
+
+    // int res;
+
+    // res = statvfs(path, stbuf);
+    // if (res == -1)
+    //     return -errno;
+
+    // return 0;
 }
 
 static int xmp_flush(const char *path, struct fuse_file_info *fi)

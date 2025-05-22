@@ -133,14 +133,51 @@ static void *xmp_init(struct fuse_conn_info *conn,
 static int xmp_getattr(const char *path, struct stat *stbuf,
                        struct fuse_file_info *fi)
 {
+    qDebug() << "[xmp_getattr] path: " << path;
+
     (void) fi;
-    int res;
 
-    res = lstat(path, stbuf);
-    if (res == -1)
-        return -errno;
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_read] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
-    return 0;
+    Ref<GetattrResult> result = client->FD_getattr(path);
+
+    if (result->status == 0)
+    {
+        stbuf->st_dev = result->st_dev;
+        stbuf->st_ino = result->st_ino;
+        stbuf->st_nlink = result->st_nlink;
+        stbuf->st_mode = result->st_mode;
+        stbuf->st_uid = result->st_uid;
+        stbuf->st_gid = result->st_gid;
+        stbuf->st_rdev = result->st_rdev;
+        stbuf->st_size = result->st_size;
+        stbuf->st_blksize = result->st_blksize;
+        stbuf->st_blocks = result->st_blocks;
+        stbuf->st_atim.tv_sec = result->st_atim.tv_sec;
+        stbuf->st_atim.tv_nsec = result->st_atim.tv_nsec;
+        stbuf->st_mtim.tv_sec = result->st_mtim.tv_sec;
+        stbuf->st_mtim.tv_nsec = result->st_mtim.tv_nsec;
+        stbuf->st_ctim.tv_sec = result->st_ctim.tv_sec;
+        stbuf->st_ctim.tv_nsec = result->st_ctim.tv_nsec;
+    }
+
+    return result->status;
+
+    //------------------------------------------------------------------------------------
+
+    // (void) fi;
+    // int res;
+
+    // res = lstat(path, stbuf);
+    // if (res == -1)
+    //     return -errno;
+
+    // return 0;
 }
 
 static int xmp_access(const char *path, int mask)
@@ -475,13 +512,43 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 
 static int xmp_statfs(const char *path, struct statvfs *stbuf)
 {
-    int res;
+    qDebug() << "[xmp_statfs] path: " << path;
 
-    res = statvfs(path, stbuf);
-    if (res == -1)
-        return -errno;
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_read] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
-    return 0;
+    Ref<StatfsResult> result = client->FD_statfs(path);
+
+    if (result->status == 0)
+    {
+        stbuf->f_bsize = result->f_bsize;
+        stbuf->f_frsize = result->f_frsize;
+        stbuf->f_blocks = result->f_blocks;
+        stbuf->f_bfree = result->f_bfree;
+        stbuf->f_bavail = result->f_bavail;
+        stbuf->f_files = result->f_files;
+        stbuf->f_ffree = result->f_ffree;
+        stbuf->f_favail = result->f_favail;
+        stbuf->f_fsid = result->f_fsid;
+        stbuf->f_flag = result->f_flag;
+        stbuf->f_namemax = result->f_namemax;
+    }
+
+    return result->status;
+
+    //------------------------------------------------------------------------------------
+
+    // int res;
+
+    // res = statvfs(path, stbuf);
+    // if (res == -1)
+    //     return -errno;
+
+    // return 0;
 }
 
 static int xmp_release(const char *path, struct fuse_file_info *fi)

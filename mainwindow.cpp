@@ -33,7 +33,7 @@
 #define MACHINE_NAME    "Leg3nd's Desktop"
 
 #define UDP_PORT    4545
-#define TCP_PORT    5454
+#define TCP_PORT    0 // 5454
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -277,7 +277,7 @@ void MainWindow::onSocketReadyRead()
             response.append((char *)result.get(), sizeof(ReadResult));
             response.append((char *)result->data, result->size);
         }
-        if (strcmp(header->operationName, "statfs") == 0)
+        else if (strcmp(header->operationName, "statfs") == 0)
         {
             const char *path = incoming.sliced(sizeof(DatagramHeader)).data();
             qDebug() << "[onSocketReadyRead] fuse statfs path:" << path;
@@ -290,7 +290,7 @@ void MainWindow::onSocketReadyRead()
             response.append((char *)&header, sizeof(DatagramHeader));
             response.append((char *)result.get(), sizeof(StatfsResult));
         }
-        if (strcmp(header->operationName, "getattr") == 0)
+        else if (strcmp(header->operationName, "getattr") == 0)
         {
             const char *path = incoming.sliced(sizeof(DatagramHeader)).data();
             qDebug() << "[onSocketReadyRead] fuse getattr path:" << path;

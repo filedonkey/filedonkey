@@ -168,7 +168,7 @@ void MainWindow::broadcast()
     QJsonObject machine;
 
     machine["id"]   = QSysInfo::machineUniqueId().constData();
-    machine["name"] = MACHINE_NAME;
+    machine["name"] = QSysInfo::machineHostName();
     machine["port"] = server->serverPort();
 
     root["machine"] = machine;

@@ -32,7 +32,8 @@
 
 #define MACHINE_NAME    "Leg3nd's Desktop"
 
-#define UDP_PORT    45454
+#define UDP_PORT    4545
+#define TCP_PORT    5454
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -129,7 +130,7 @@ MainWindow::MainWindow(QWidget *parent)
     //------------------------------------------------------------------------------------
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
-    if (!server->listen())
+    if (!server->listen(QHostAddress::Any, TCP_PORT))
     {
         qDebug() << "[Server] Unable to start: " << server->errorString();
     }

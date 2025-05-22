@@ -265,7 +265,8 @@ void MainWindow::onSocketReadyRead()
     }
 
     RequestHandler handler = fuseHandlers[operationName];
-    response = handler(incoming.sliced(sizeof(DatagramHeader)));
+    QByteArray payload = incoming.sliced(sizeof(DatagramHeader));
+    response = handler(payload);
 
     // QStorageInfo storage = QStorageInfo::root();
     // storage.bytesTotal();

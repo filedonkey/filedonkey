@@ -308,7 +308,7 @@ QByteArray MainWindow::readHandler(QByteArray payload)
     qDebug() << "[onSocketReadyRead] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "read");
-    header.datagramSize += sizeof(ReaddirResult) + result->size;
+    header.datagramSize += sizeof(ReadResult) + result->size;
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
     response.append((char *)result.get(), sizeof(ReadResult));

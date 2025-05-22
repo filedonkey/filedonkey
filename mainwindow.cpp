@@ -141,7 +141,7 @@ MainWindow::MainWindow(QWidget *parent)
     broadcast();
 
     connect(broadcaster, SIGNAL(readyRead()), this, SLOT(onBroadcasting()));
-    broadcaster->bind(45454, QUdpSocket::ShareAddress);
+    broadcaster->bind(UDP_PORT, QUdpSocket::ShareAddress);
 }
 
 MainWindow::~MainWindow()

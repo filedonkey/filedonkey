@@ -221,11 +221,11 @@ QByteArray MainWindow::readHandler(QByteArray payload)
 {
     u64 size = *(payload.data());
     i64 offset = *(payload.sliced(sizeof(u64)).data());
-    const char *path = payload.sliced(sizeof(u64) + sizeof(i64)).data();
+    QByteArray path = payload.sliced(sizeof(u64) + sizeof(i64));
     qDebug() << "[onSocketReadyRead] incoming size:" << size;
     qDebug() << "[onSocketReadyRead] incoming offset:" << offset;
-    qDebug() << "[onSocketReadyRead] incoming path:" << path;
-    Ref<ReadResult> result = FUSEBackend::FD_read(path, size, offset);
+    qDebug() << "[onSocketReadyRead] incoming path:" << path.data();
+    Ref<ReadResult> result = FUSEBackend::FD_read(path.data(), size, offset);
     qDebug() << "[onSocketReadyRead] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "read");

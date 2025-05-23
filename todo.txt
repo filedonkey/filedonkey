@@ -1,4 +1,3 @@
 - Fix disksize issue.
-- Fix UDP broadcasting issue: windows -> macos and linux->windows not working.
 - Fix file reading.
 - Fix file sizes: all file sizes are 0 for some reason.

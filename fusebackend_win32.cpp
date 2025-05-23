@@ -39,9 +39,6 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
     {
         if (de->d_name[0] == '.') continue;
 
-        FindData &findData = findDataList.emplace_back();
-        memset(&findData, 0, sizeof(FindData));
-
         size_t dientPathLen = strlen(dp->dd_name) + strlen(de->d_name);
         char *direntPath = (char *)alloca(dientPathLen);
         memset(direntPath, 0, dientPathLen);
@@ -65,7 +62,12 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 
         WIN32_FILE_ATTRIBUTE_DATA fileData;
         BOOL success = GetFileAttributesExW(wpath, GetFileExInfoStandard, &fileData);
-        findData.st_mode = 0;
+
+        if (fileData.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) continue;
+
+        FindData &findData = findDataList.emplace_back();
+        memset(&findData, 0, sizeof(FindData));
+
         if (success)
         {
 #define WIN_S_IFLNK  0120000  // symbolic link

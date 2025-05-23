@@ -225,8 +225,8 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
     Ref<ReaddirResult> result = client->FD_readdir(path);
 
-    // struct stat st;
-    // memset(&st, 0, sizeof(st));
+     struct stat st;
+     memset(&st, 0, sizeof(st));
 
     qDebug() << "before for";
     for (int i = 0; i < result->count; ++i)
@@ -237,50 +237,52 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         qDebug() << "[xmp_readdir] incoming findData st_ino:" << fd->st_ino;
         qDebug() << "[xmp_readdir] incoming findData st_mode:" << fd->st_mode;
 
-        // st.st_ino = fd->st_ino;
-        // st.st_mode = fd->st_mode;
+         st.st_ino = fd->st_ino;
+         st.st_mode = fd->st_mode;
 
-        // filler(buf, fd->name, &st, /*nextoff*/0);
+         filler(buf, fd->name, &st, /*nextoff*/0);
     }
     qDebug() << "after for";
+
+    return result->status;
     //------------------------------------------------------------------------------------
 
-    struct xmp_dirp *d = get_dirp(fi);
+//    struct xmp_dirp *d = get_dirp(fi);
 
-    (void) path;
-    if (offset != d->offset) {
-        seekdir(d->dp, offset);
-        d->entry = NULL;
-        d->offset = offset;
-    }
-    while (1) {
-        struct stat st;
-        off_t nextoff;
+//    (void) path;
+//    if (offset != d->offset) {
+//        seekdir(d->dp, offset);
+//        d->entry = NULL;
+//        d->offset = offset;
+//    }
+//    while (1) {
+//        struct stat st;
+//        off_t nextoff;
 
-        if (!d->entry) {
-            d->entry = readdir(d->dp);
-            if (!d->entry)
-                break;
-        }
+//        if (!d->entry) {
+//            d->entry = readdir(d->dp);
+//            if (!d->entry)
+//                break;
+//        }
 
-        memset(&st, 0, sizeof(st));
-        st.st_ino = d->entry->d_ino;
-        st.st_mode = d->entry->d_type << 12;
-        nextoff = telldir(d->dp);
-        nextoff++;
+//        memset(&st, 0, sizeof(st));
+//        st.st_ino = d->entry->d_ino;
+//        st.st_mode = d->entry->d_type << 12;
+//        nextoff = telldir(d->dp);
+//        nextoff++;
 
-        qDebug() << "[xmp_readdir] fill name:" << d->entry->d_name;
-        qDebug() << "[xmp_readdir] fill st_ino:" << st.st_ino;
-        qDebug() << "[xmp_readdir] fill st_mode:" << st.st_mode;
+//        qDebug() << "[xmp_readdir] fill name:" << d->entry->d_name;
+//        qDebug() << "[xmp_readdir] fill st_ino:" << st.st_ino;
+//        qDebug() << "[xmp_readdir] fill st_mode:" << st.st_mode;
 
-        if (filler(buf, d->entry->d_name, &st, /*nextoff*/0))
-            break;
+//        if (filler(buf, d->entry->d_name, &st, /*nextoff*/0))
+//            break;
 
-        d->entry = NULL;
-        d->offset = nextoff;
-    }
+//        d->entry = NULL;
+//        d->offset = nextoff;
+//    }
 
-    return 0;
+//    return 0;
 }
 
 static int xmp_releasedir(const char *path, struct fuse_file_info *fi)

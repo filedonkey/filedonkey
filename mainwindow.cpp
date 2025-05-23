@@ -117,19 +117,15 @@ void MainWindow::broadcast()
 
     for (int i = 0; i < ifaces.size(); i++)
     {
-        // Now get all IP addresses for the current interface
         QList<QNetworkAddressEntry> addrs = ifaces[i].addressEntries();
-
-        qDebug() << "humanReadableName:" << ifaces[i].humanReadableName();
-
-        // And for any IP address, if it is IPv4 and the interface is active, send the packet
+        // qDebug() << "[MainWindow::broadcast] Network interface:" << ifaces[i].humanReadableName();
         for (int j = 0; j < addrs.size(); j++)
         {
-            qDebug() << "broadcast:" << addrs[j].broadcast().toString();
+            // qDebug() << "[MainWindow::broadcast] Address:" << addrs[j].broadcast().toString();
             if ((addrs[j].ip().protocol() == QAbstractSocket::IPv4Protocol) && (addrs[j].broadcast().toString() != ""))
             {
                 quint64 sentSize = broadcaster.writeDatagram(datagram, addrs[j].broadcast(), UDP_PORT);
-                qDebug() << "[Broadcas] Sent size: " << sentSize;
+                // qDebug() << "[MainWindow::broadcast] Sent size: " << sentSize;
             }
         }
     }

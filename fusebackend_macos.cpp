@@ -83,7 +83,19 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
         return result;
     }
 
-    memcpy(result.get() + sizeof(result->status), &stbuf, sizeof(stbuf));
+    // memcpy(result.get() + sizeof(result->status), &stbuf, sizeof(stbuf));
+
+    result->f_bsize = stbuf.f_bsize;
+    result->f_frsize = stbuf.f_frsize;
+    result->f_blocks = stbuf.f_blocks;
+    result->f_bfree = stbuf.f_bfree;
+    result->f_bavail = stbuf.f_bavail;
+    result->f_files = stbuf.f_files;
+    result->f_ffree = stbuf.f_ffree;
+    result->f_favail = stbuf.f_favail;
+    result->f_fsid = stbuf.f_fsid;
+    result->f_flag = stbuf.f_flag;
+    result->f_namemax = stbuf.f_namemax;
 
     return result;
 }

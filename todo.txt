@@ -1,3 +1,5 @@
 - Fix disksize issue.
 - Fix file reading.
 - Fix file sizes: all file sizes are 0 for some reason.
+- Fix macOS directory browsing available only for 1st level
+- Fix linux doesn't show any windows files

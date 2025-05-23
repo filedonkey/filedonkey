@@ -83,7 +83,19 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
         return result;
     }
 
-    memcpy(result.get() + sizeof(result->status), &stbuf, sizeof(stbuf));
+//    memcpy(result.get() + sizeof(result->status), &stbuf, sizeof(stbuf));
+
+    result->f_bsize = stbuf.f_bsize;
+    result->f_frsize = stbuf.f_frsize;
+    result->f_blocks = stbuf.f_blocks;
+    result->f_bfree = stbuf.f_bfree;
+    result->f_bavail = stbuf.f_bavail;
+    result->f_files = stbuf.f_files;
+    result->f_ffree = stbuf.f_ffree;
+    result->f_favail = stbuf.f_favail;
+    result->f_fsid = stbuf.f_fsid;
+    result->f_flag = stbuf.f_flag;
+    result->f_namemax = stbuf.f_namemax;
 
     return result;
 }
@@ -101,7 +113,24 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
         return result;
     }
 
-    memcpy(result.get() + sizeof(result->status), &stbuf, sizeof(stbuf));
+//    memcpy(result.get() + sizeof(result->status), &stbuf, sizeof(stbuf));
+
+    result->st_dev = stbuf.st_dev;
+    result->st_ino = stbuf.st_ino;
+    result->st_nlink = stbuf.st_nlink;
+    result->st_mode = stbuf.st_mode;
+    result->st_uid = stbuf.st_uid;
+    result->st_gid = stbuf.st_gid;
+    result->st_rdev = stbuf.st_rdev;
+    result->st_size = stbuf.st_size;
+    result->st_blksize = stbuf.st_blksize;
+    result->st_blocks = stbuf.st_blocks;
+    result->st_atim.tv_sec = stbuf.st_atim.tv_sec;
+    result->st_atim.tv_nsec = stbuf.st_atim.tv_nsec;
+    result->st_mtim.tv_sec = stbuf.st_mtim.tv_sec;
+    result->st_mtim.tv_nsec = stbuf.st_mtim.tv_nsec;
+    result->st_ctim.tv_sec = stbuf.st_ctim.tv_sec;
+    result->st_ctim.tv_nsec = stbuf.st_ctim.tv_nsec;
 
     return result;
 }

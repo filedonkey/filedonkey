@@ -43,6 +43,7 @@ public slots:
 private:
     void broadcast();
     void createTrayIcon();
+    void setTryaIcon();
 
     QByteArray readdirHandler(QByteArray payload);
     QByteArray readHandler(QByteArray payload);

@@ -2,10 +2,9 @@
 #include "ui_mainwindow.h"
 
 #include "fusebackend.h"
-// #include <fuse/fuse_win.h>
 
-#include "assert.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>
 
 #include <QStringList>
 #include <QDir>
@@ -19,18 +18,7 @@
 #include <QStorageInfo>
 #include <QDesktopServices>
 
-#ifdef Q_OS_MACOS
-#define LIGHT_MODE 236
-#define DARK_MODE  50
-#elif defined(Q_OS_WINDOWS)
-#define LIGHT_MODE 243
-#define DARK_MODE  30
-#elif defined(Q_OS_LINUX)
-#define LIGHT_MODE 236
-#define DARK_MODE  50
-#endif
-
-#define MACHINE_NAME    "Leg3nd's Desktop"
+#define THEME_LIGHTNESS_BARRIER 128
 
 #define UDP_PORT    4545
 #define TCP_PORT    5454
@@ -59,65 +47,6 @@ MainWindow::MainWindow(QWidget *parent)
     //------------------------------------------------------------------------------------
     // For local testing
     //------------------------------------------------------------------------------------
-    // DatagramHeader header("request", "fuse", "readdir");
-
-    // QByteArray datagram((char *)&header, sizeof(DatagramHeader));
-
-    // ReaddirResult *result = FUSEBackend::FD_readdir("/");
-
-    // struct FindData
-    // {
-    //     char name[1024];
-    //     struct FUSE_STAT stat;
-    // };
-
-    // FindData *findData = (FindData *)result->findData;
-    // qDebug() << "[ReaddirResult] findData.name" << findData->name << strlen(findData->name);
-
-    // datagram.append((char *)result, sizeof(ReaddirResult));
-    // datagram.append((char *)result->findData, result->dataSize);
-
-    // for (unsigned int i = 0; i < (result->dataSize / sizeof(FindData)); ++i)
-    // {
-    //     FindData *findData = (FindData *)result->findData + i;
-    //     qDebug() << "[ReaddirResult]" << i << "findData.name" << findData->name;
-    // }
-
-    // qDebug() << "[ReaddirResult] sizeof:" << sizeof(ReaddirResult);
-    // qDebug() << "[ReaddirResult] status:" << result->status;
-    // qDebug() << "[ReaddirResult] size:" << result->dataSize;
-    // qDebug() << "[ReaddirResult] count:" << result->count;
-
-    // delete result;
-
-    // qDebug() << "[DatagramHeader] sizeof:" << sizeof(header);
-    // qDebug() << "[Datagram] size:" << datagram.size();
-
-    // qDebug() << "[DatagramHeader] messageType:" << header.messageType;
-    // qDebug() << "[DatagramHeader] protocolVersion:" << header.protocolVersion;
-    // qDebug() << "[DatagramHeader] virtDiskType:" << header.virtDiskType;
-    // qDebug() << "[DatagramHeader] operationName:" << header.operationName;
-
-    // DatagramHeader *header2;
-    // DatagramHeader::ReadFrom(&header2, datagram.data());
-    // qDebug() << "[DatagramHeader 2] messageType:" << header2->messageType;
-    // qDebug() << "[DatagramHeader 2] protocolVersion:" << header2->protocolVersion;
-    // qDebug() << "[DatagramHeader 2] virtDiskType:" << header2->virtDiskType;
-    // qDebug() << "[DatagramHeader 2] operationName:" << header2->operationName;
-
-    // ReaddirResult *result2 = new ReaddirResult(datagram.sliced(sizeof(DatagramHeader)).data());
-    // qDebug() << "[ReaddirResult 2] status:" << result2->status;
-    // qDebug() << "[ReaddirResult 2] size:" << result2->dataSize;
-    // qDebug() << "[ReaddirResult 2] count:" << result2->count;
-
-    // for (unsigned int i = 0; i < (result2->dataSize / sizeof(FindData)); ++i)
-    // {
-    //     FindData *findData = (FindData *)result2->findData + i;
-    //     qDebug() << "[ReaddirResult 2]" << i << "findData.name" << findData->name;
-    // }
-
-    // delete result2;
-
     // Connection conn = {
     //     .machineId      = "test_machine_id",
     //     .machineName    = "test_machine_name",
@@ -228,12 +157,6 @@ void MainWindow::onConnection()
         qDebug() << "[Server] Befor next pending connection";
         QTcpSocket *newConnection = server->nextPendingConnection();
         connect(newConnection, SIGNAL(readyRead()), this, SLOT(onSocketReadyRead()));
-        //qDebug() << "[Server] Befor wait for ready read";
-        //qDebug() << "[Server] Wait for ready read" << newConnection->waitForReadyRead(3000);
-        // QByteArray buff = newConnection->readAll();
-        // QJsonDocument doc = QJsonDocument::fromJson(buff);
-        // QJsonArray dirList = doc["dirList"].toArray();
-        // qDebug() << "[Server] Recieved: " << dirList.toVariantList();
     }
 }
 
@@ -364,19 +287,7 @@ void MainWindow::createTrayIcon()
     trayIconMenu->addAction(quitAction);
 
     trayIcon = new QSystemTrayIcon(this);
-
-    auto bg = palette().color(QPalette::Active, QPalette::Window);
-    if (bg.lightness() == LIGHT_MODE)
-    {
-        // QIcon::setThemeName(LIGHT_THEME);
-        trayIcon->setIcon(QIcon(":/assets/filedonkey_tray_icon_dark.ico"));
-    }
-    else
-    {
-        // QIcon::setThemeName(DARK_THEME);
-        trayIcon->setIcon(QIcon(":/assets/filedonkey_tray_icon_light.ico"));
-    }
-
+    setTryaIcon();
     trayIcon->setToolTip("FileDonkey");
     trayIcon->setContextMenu(trayIconMenu);
     trayIcon->show();
@@ -386,18 +297,23 @@ void MainWindow::changeEvent(QEvent *event)
 {
     if (event->type() == QEvent::PaletteChange)
     {
-        auto bg = palette().color(QPalette::Active, QPalette::Window);
-        qDebug() << "[MainWindow::changeEvent] lightness:" << bg.lightness();
+        setTryaIcon();
+    }
+}
 
-        if (bg.lightness() == LIGHT_MODE)
-        {
-            // QIcon::setThemeName(LIGHT_THEME);
-            trayIcon->setIcon(QIcon(":/assets/filedonkey_tray_icon_light.ico"));
-        }
-        else
-        {
-            // QIcon::setThemeName(DARK_THEME);
-            trayIcon->setIcon(QIcon(":/assets/filedonkey_tray_icon_dark.ico"));
-        }
+void MainWindow::setTryaIcon()
+{
+    auto bg = palette().color(QPalette::Active, QPalette::Window);
+    qDebug() << "[MainWindow::changeEvent] lightness:" << bg.lightness();
+
+    if (bg.lightness() < THEME_LIGHTNESS_BARRIER)
+    {
+        // QIcon::setThemeName(LIGHT_THEME);
+        trayIcon->setIcon(QIcon(":/assets/filedonkey_tray_icon_light.ico"));
+    }
+    else
+    {
+        // QIcon::setThemeName(DARK_THEME);
+        trayIcon->setIcon(QIcon(":/assets/filedonkey_tray_icon_dark.ico"));
     }
 }

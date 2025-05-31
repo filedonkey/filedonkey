@@ -113,20 +113,17 @@ void MainWindow::broadcast()
 
     QByteArray datagram = QJsonDocument(root).toJson(QJsonDocument::Compact);
 
-    QList<QNetworkInterface> allInterfaces = QNetworkInterface::allInterfaces();
-
-    for (int i = 0; i < allInterfaces.size(); i++)
+    for (auto networkInterface : QNetworkInterface::allInterfaces())
     {
-        QList<QNetworkAddressEntry> addressEntries = allInterfaces[i].addressEntries();
-        // qDebug() << "[MainWindow::broadcast] Network interface:" << ifaces[i].humanReadableName();
-        for (int j = 0; j < addressEntries.size(); j++)
+        // qDebug() << "[MainWindow::broadcast] Network interface:" << networkInterface.humanReadableName();
+        for (auto addressEntry : networkInterface.addressEntries())
         {
-            // qDebug() << "[MainWindow::broadcast] Address:" << addrs[j].broadcast().toString();
-            bool isIPv4Protocol = addressEntries[j].ip().protocol() == QAbstractSocket::IPv4Protocol;
-            bool isBroadcastNotEmpty = addressEntries[j].broadcast().toString() != "";
+            // qDebug() << "[MainWindow::broadcast] Address:" << addressEntry.broadcast().toString();
+            bool isIPv4Protocol = addressEntry.ip().protocol() == QAbstractSocket::IPv4Protocol;
+            bool isBroadcastNotEmpty = addressEntry.broadcast().toString() != "";
             if (isIPv4Protocol && isBroadcastNotEmpty)
             {
-                QHostAddress host = addressEntries[j].broadcast();
+                QHostAddress host = addressEntry.broadcast();
                 quint64 sentSize = broadcaster.writeDatagram(datagram, host, UDP_PORT);
                 // qDebug() << "[MainWindow::broadcast] Sent size: " << sentSize;
             }

@@ -61,6 +61,14 @@ ssize_t readlink(const char *path, char *buf, size_t size) {
     ssize_t result = -1;
     WCHAR widePath[MAX_PATH];
     DWORD bufferSize;
+    char *tempBuffer = NULL;
+    int fullTargetLen;
+
+    // POSIX readlink should set errno to EINVAL for size 0
+    if (size == 0) {
+        errno = EINVAL;
+        return -1;
+    }
 
     // Convert path to wide character
     if (MultiByteToWideChar(CP_UTF8, 0, path, -1, widePath, MAX_PATH) == 0) {
@@ -134,143 +142,130 @@ ssize_t readlink(const char *path, char *buf, size_t size) {
         linkTarget = (WCHAR*)((BYTE*)reparseBuffer->SymbolicLinkReparseBuffer.PathBuffer +
                                 reparseBuffer->SymbolicLinkReparseBuffer.PrintNameOffset);
 
-        // Convert wide character target to UTF-8
-        int targetLen = WideCharToMultiByte(
+        // First, get the full length needed for conversion
+        fullTargetLen = WideCharToMultiByte(
             CP_UTF8, 0,
             linkTarget,
             reparseBuffer->SymbolicLinkReparseBuffer.PrintNameLength / sizeof(WCHAR),
-            buf, (int)size - 1,  // Leave space for null terminator
+            NULL, 0,  // Get required size
             NULL, NULL
             );
 
-        if (targetLen > 0) {
-            buf[targetLen] = '\0';
-            result = targetLen;
+        if (fullTargetLen > 0) {
+            // POSIX behavior: if target is longer than buffer, truncate silently
+            if ((size_t)fullTargetLen <= size) {
+                // Target fits in buffer - convert directly
+                int convertedLen = WideCharToMultiByte(
+                    CP_UTF8, 0,
+                    linkTarget,
+                    reparseBuffer->SymbolicLinkReparseBuffer.PrintNameLength / sizeof(WCHAR),
+                    buf, (int)size,
+                    NULL, NULL
+                    );
+
+                if (convertedLen > 0) {
+                    result = convertedLen;
+                } else {
+                    errno = EILSEQ;
+                }
+            } else {
+                // Target is longer than buffer - need to truncate
+                // Allocate temporary buffer for full target
+                tempBuffer = (char*)malloc(fullTargetLen);
+                if (tempBuffer) {
+                    int convertedLen = WideCharToMultiByte(
+                        CP_UTF8, 0,
+                        linkTarget,
+                        reparseBuffer->SymbolicLinkReparseBuffer.PrintNameLength / sizeof(WCHAR),
+                        tempBuffer, fullTargetLen,
+                        NULL, NULL
+                        );
+
+                    if (convertedLen > 0) {
+                        // Copy only what fits in the buffer (POSIX truncation behavior)
+                        memcpy(buf, tempBuffer, size);
+                        result = size;  // Return buffer size to indicate truncation
+                    } else {
+                        errno = EILSEQ;
+                    }
+                } else {
+                    errno = ENOMEM;
+                }
+            }
         } else {
             errno = EILSEQ;  // Invalid character sequence
         }
-
     } else if (dwReparseTag == IO_REPARSE_TAG_MOUNT_POINT) {
         // Junction point (mount point)
         linkTarget = (WCHAR*)((BYTE*)reparseBuffer->MountPointReparseBuffer.PathBuffer +
                                 reparseBuffer->MountPointReparseBuffer.PrintNameOffset);
 
-        // Convert wide character target to UTF-8
-        int targetLen = WideCharToMultiByte(
+        // First, get the full length needed for conversion
+        fullTargetLen = WideCharToMultiByte(
             CP_UTF8, 0,
             linkTarget,
             reparseBuffer->MountPointReparseBuffer.PrintNameLength / sizeof(WCHAR),
-            buf, (int)size - 1,  // Leave space for null terminator
+            NULL, 0,  // Get required size
             NULL, NULL
             );
 
-        if (targetLen > 0) {
-            buf[targetLen] = '\0';
-            result = targetLen;
+        if (fullTargetLen > 0) {
+            // POSIX behavior: if target is longer than buffer, truncate silently
+            if ((size_t)fullTargetLen <= size) {
+                // Target fits in buffer - convert directly
+                int convertedLen = WideCharToMultiByte(
+                    CP_UTF8, 0,
+                    linkTarget,
+                    reparseBuffer->MountPointReparseBuffer.PrintNameLength / sizeof(WCHAR),
+                    buf, (int)size,
+                    NULL, NULL
+                    );
+
+                if (convertedLen > 0) {
+                    result = convertedLen;
+                } else {
+                    errno = EILSEQ;
+                }
+            } else {
+                // Target is longer than buffer - need to truncate
+                // Allocate temporary buffer for full target
+                tempBuffer = (char*)malloc(fullTargetLen);
+                if (tempBuffer) {
+                    int convertedLen = WideCharToMultiByte(
+                        CP_UTF8, 0,
+                        linkTarget,
+                        reparseBuffer->MountPointReparseBuffer.PrintNameLength / sizeof(WCHAR),
+                        tempBuffer, fullTargetLen,
+                        NULL, NULL
+                        );
+
+                    if (convertedLen > 0) {
+                        // Copy only what fits in the buffer (POSIX truncation behavior)
+                        memcpy(buf, tempBuffer, size);
+                        result = size;  // Return buffer size to indicate truncation
+                    } else {
+                        errno = EILSEQ;
+                    }
+                } else {
+                    errno = ENOMEM;
+                }
+            }
         } else {
             errno = EILSEQ;  // Invalid character sequence
         }
-
     } else {
-        // Unknown reparse point type
+        // Unknown reparse point type - not a symbolic link
         errno = EINVAL;
     }
 
+    if (tempBuffer) {
+        free(tempBuffer);
+    }
     free(reparseBuffer);
     CloseHandle(hFile);
 
     return result;
 }
-
-// Helper function to check if a path is a symbolic link
-int is_symlink(const char *path) {
-    DWORD attrs = GetFileAttributesA(path);
-
-    if (attrs == INVALID_FILE_ATTRIBUTES) {
-        return 0;  // File doesn't exist or can't be accessed
-    }
-
-    return (attrs & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
-}
-
-// Simplified readlink implementation using GetFinalPathNameByHandle
-// ssize_t readlink(const char *path, char *buf, size_t size) {
-//     HANDLE hFile;
-//     WCHAR widePath[MAX_PATH];
-//     WCHAR targetPath[MAX_PATH];
-//     DWORD result;
-//     int targetLen;
-
-//     // Convert path to wide character
-//     if (MultiByteToWideChar(CP_UTF8, 0, path, -1, widePath, MAX_PATH) == 0) {
-//         errno = EINVAL;
-//         return -1;
-//     }
-
-//     // Open the file
-//     hFile = CreateFileW(
-//         widePath,
-//         0,
-//         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-//         NULL,
-//         OPEN_EXISTING,
-//         FILE_FLAG_BACKUP_SEMANTICS,
-//         NULL
-//         );
-
-//     if (hFile == INVALID_HANDLE_VALUE) {
-//         DWORD error = GetLastError();
-//         switch (error) {
-//         case ERROR_FILE_NOT_FOUND:
-//         case ERROR_PATH_NOT_FOUND:
-//             errno = ENOENT;
-//             break;
-//         case ERROR_ACCESS_DENIED:
-//             errno = EACCES;
-//             break;
-//         default:
-//             errno = EIO;
-//             break;
-//         }
-//         return -1;
-//     }
-
-//     // Get the final path name (resolves symbolic links)
-//     result = GetFinalPathNameByHandleW(
-//         hFile,
-//         targetPath,
-//         MAX_PATH,
-//         FILE_NAME_NORMALIZED | VOLUME_NAME_DOS
-//         );
-
-//     CloseHandle(hFile);
-
-//     if (result == 0 || result >= MAX_PATH) {
-//         errno = EIO;
-//         return -1;
-//     }
-
-//     // Remove \\?\ prefix if present
-//     WCHAR *finalPath = targetPath;
-//     if (wcsncmp(targetPath, L"\\\\?\\", 4) == 0) {
-//         finalPath = targetPath + 4;
-//     }
-
-//     // Convert back to UTF-8
-//     targetLen = WideCharToMultiByte(
-//         CP_UTF8, 0,
-//         finalPath, -1,
-//         buf, (int)size,
-//         NULL, NULL
-//         );
-
-//     if (targetLen <= 0) {
-//         errno = EILSEQ;
-//         return -1;
-//     }
-
-//     return targetLen - 1; // Subtract 1 for null terminator
-// }
 
 // Example usage and test function
 // void test_readlink() {
@@ -282,15 +277,11 @@ int is_symlink(const char *path) {
 
 //     printf("Testing readlink with: %s\n", test_link);
 
-//     if (is_symlink(test_link)) {
-//         len = readlink(test_link, target, sizeof(target));
-//         if (len >= 0) {
-//             printf("Link target: %s (length: %zd)\n", target, len);
-//         } else {
-//             perror("readlink failed");
-//         }
+//     len = readlink(test_link, target, sizeof(target));
+//     if (len >= 0) {
+//         printf("Link target: %s (length: %zd)\n", target, len);
 //     } else {
-//         printf("File is not a symbolic link or doesn't exist\n");
+//         perror("readlink failed");
 //     }
 // }
 

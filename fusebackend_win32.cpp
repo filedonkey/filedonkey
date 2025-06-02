@@ -6,6 +6,7 @@
 #include "pread_win32.h"
 #include "lstat_win32.h"
 #include "statvfs_win32.h"
+#include "readlink_win32.h"
 
 #include <QDebug>
 
@@ -129,6 +130,22 @@ Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
     }
 
     close(fd);
+    return result;
+}
+
+Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
+{
+    Ref<ReadlinkResult> result = MakeRef<ReadlinkResult>(size);
+
+    int res = readlink(path, result->data, size - 1);
+    if (res == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    result->data[res] = '\0';
+
     return result;
 }
 

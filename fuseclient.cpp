@@ -30,6 +30,21 @@ Ref<ReadResult> FUSEClient::FD_read(const char *path, u64 size, i64 offset)
     return result;
 }
 
+Ref<ReadlinkResult> FUSEClient::FD_readlink(const char *path, u64 size)
+{
+    QByteArray payload((char *)&size, sizeof(u64));
+    payload.append((char *)path, strlen(path));
+
+    FetchResult incoming = Fetch("readlink", payload);
+
+    Ref<ReadlinkResult> result = MakeRef<ReadlinkResult>(incoming.payload.data());
+
+    qDebug() << "[FUSEClient::FD_readlink] incoming result status:" << result->status;
+    qDebug() << "[FUSEClient::FD_readlink] incoming result size:" << result->size;
+
+    return result;
+}
+
 Ref<StatfsResult> FUSEClient::FD_statfs(const char *path)
 {
     QByteArray payload((char *)path, strlen(path));

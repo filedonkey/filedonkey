@@ -1,3 +1,5 @@
+Add fuseclient's readlink usage in virtdisk implementations
+
 Bugs:
 - Disksize issue.
 - File reading.

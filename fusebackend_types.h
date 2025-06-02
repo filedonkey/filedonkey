@@ -69,6 +69,38 @@ struct ReadResult
     }
 };
 
+struct ReadlinkResult
+{
+    i32 status;
+    u64 size;
+    char *data;
+
+    ReadlinkResult()
+    {
+        status = 0;
+        data = nullptr;
+    }
+
+    ReadlinkResult(u64 size)
+    {
+        status = 0;
+        data = new char[size];
+        memset(data, 0, size);
+    }
+
+    ReadlinkResult(const char *data)
+    {
+        memcpy(this, data, sizeof(ReadlinkResult));
+        this->data = new char[this->size]; // NOTE: this->size is NOT undefined here because of the memcpy call one line above.
+        memcpy(this->data, data + sizeof(ReadlinkResult), this->size);
+    }
+
+    ~ReadlinkResult()
+    {
+        delete[] data;
+    }
+};
+
 struct StatfsResult
 {
     i32 status;

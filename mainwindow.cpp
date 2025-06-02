@@ -64,6 +64,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     fuseHandlers.insert("readdir", std::bind(&MainWindow::readdirHandler, this, _1));
     fuseHandlers.insert("read", std::bind(&MainWindow::readHandler, this, _1));
+    fuseHandlers.insert("readlink", std::bind(&MainWindow::readlinkHandler, this, _1));
     fuseHandlers.insert("statfs", std::bind(&MainWindow::statfsHandler, this, _1));
     fuseHandlers.insert("getattr", std::bind(&MainWindow::getattrHandler, this, _1));
 
@@ -250,6 +251,25 @@ QByteArray MainWindow::readHandler(QByteArray payload)
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
     response.append((char *)result.get(), sizeof(ReadResult));
+    response.append((char *)result->data, result->size);
+
+    return response;
+}
+
+QByteArray MainWindow::readlinkHandler(QByteArray payload)
+{
+    u64 size = *(payload.data());
+    QByteArray path = payload.sliced(sizeof(u64));
+    qDebug() << "[onSocketReadyRead] incoming size:" << size;
+    qDebug() << "[onSocketReadyRead] incoming path:" << path.data();
+    Ref<ReadlinkResult> result = FUSEBackend::FD_readlink(path.data(), size);
+    qDebug() << "[onSocketReadyRead] result status:" << result->status;
+
+    DatagramHeader header("response", "fuse", "readlink");
+    header.datagramSize += sizeof(ReadlinkResult) + result->size;
+
+    QByteArray response((char *)&header, sizeof(DatagramHeader));
+    response.append((char *)result.get(), sizeof(ReadlinkResult));
     response.append((char *)result->data, result->size);
 
     return response;

@@ -140,6 +140,25 @@ static int xmp_readlink(const char *path, char *buf, size_t size)
 {
     qDebug() << "[xmp_readlink] path: " << path;
 
+
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_readlink] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+
+    Ref<ReadlinkResult> result = client->FD_readlink(path, size);
+
+    if (result->status == 0)
+    {
+        memcpy(buf, result->data, result->size);
+    }
+
+    return result->status;
+
+    //------------------------------------------------------------------------------------
+
     // int res;
 
     // res = readlink(path, buf, size - 1);
@@ -147,7 +166,7 @@ static int xmp_readlink(const char *path, char *buf, size_t size)
     //     return -errno;
 
     // buf[res] = '\0';
-    return 0;
+    // return 0;
 }
 
 

@@ -45,16 +45,17 @@ struct ReadResult
 
     ReadResult()
     {
-        status = 0;
-        data = nullptr;
+        this->status = 0;
+        this->size = 0;
+        this->data = nullptr;
     }
 
     ReadResult(u64 size)
     {
-        status = 0;
+        this->status = 0;
         this->size = size;
-        data = new char[size];
-        memset(data, 0, size);
+        this->data = new char[size];
+        memset(this->data, 0, size);
     }
 
     ReadResult(const char *data)
@@ -78,16 +79,17 @@ struct ReadlinkResult
 
     ReadlinkResult()
     {
-        status = 0;
-        data = nullptr;
+        this->status = 0;
+        this->size = 0;
+        this->data = nullptr;
     }
 
     ReadlinkResult(u64 size)
     {
-        status = 0;
+        this->status = 0;
         this->size = size;
-        data = new char[size];
-        memset(data, 0, size);
+        this->data = new char[size];
+        memset(this->data, 0, size);
     }
 
     ReadlinkResult(const char *data)

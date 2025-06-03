@@ -134,7 +134,7 @@ void MainWindow::broadcast()
 
 void MainWindow::onBroadcasting()
 {
-    qDebug() << "[IncomingBroadcasting] Connected";
+    qDebug() << "[MainWindow::onBroadcasting] Connected";
     while (broadcaster->hasPendingDatagrams())
     {
         QNetworkDatagram netDG = broadcaster->receiveDatagram();
@@ -154,11 +154,11 @@ void MainWindow::onBroadcasting()
 
         if (connections.contains(newConn.machineId)) return;
 
-        qDebug() << "[IncomingBroadcasting] machine id: "     << newConn.machineId;
-        qDebug() << "[IncomingBroadcasting] machine name: "   << newConn.machineName;
-        qDebug() << "[IncomingBroadcasting] machine port: "   << newConn.machinePort;
-        qDebug() << "[IncomingBroadcasting] sender address: " << newConn.machineAddress;
-        qDebug() << "[IncomingBroadcasting] sender port: "    << netDG.senderPort();
+        qDebug() << "[MainWindow::onBroadcasting] machine id: "     << newConn.machineId;
+        qDebug() << "[MainWindow::onBroadcasting] machine name: "   << newConn.machineName;
+        qDebug() << "[MainWindow::onBroadcasting] machine port: "   << newConn.machinePort;
+        qDebug() << "[MainWindow::onBroadcasting] sender address: " << newConn.machineAddress;
+        qDebug() << "[MainWindow::onBroadcasting] sender port: "    << netDG.senderPort();
 
         connections.insert(newConn.machineId, newConn);
 
@@ -169,10 +169,10 @@ void MainWindow::onBroadcasting()
 
 void MainWindow::onConnection()
 {
-    qDebug() << "[Server] Connected";
+    qDebug() << "[MainWindow::onConnection] Connected";
     while (server->hasPendingConnections())
     {
-        qDebug() << "[Server] Befor next pending connection";
+        qDebug() << "[MainWindow::onConnection] Befor next pending connection";
         QTcpSocket *newConnection = server->nextPendingConnection();
         connect(newConnection, SIGNAL(readyRead()), this, SLOT(onSocketReadyRead()));
     }
@@ -193,7 +193,7 @@ void MainWindow::onSocketReadyRead()
 
     if (strcmp(header->virtDiskType, "fuse") != 0)
     {
-        qDebug() << "[onSocketReadyRead] Error: invalid virt disk type:" << header->virtDiskType;
+        qDebug() << "[MainWindow::onSocketReadyRead] Error: invalid virt disk type:" << header->virtDiskType;
         return;
     }
 
@@ -201,7 +201,7 @@ void MainWindow::onSocketReadyRead()
 
     if (!fuseHandlers.contains(operationName))
     {
-        qDebug() << "[onSocketReadyRead] Error: invalid operation name:" << header->operationName;
+        qDebug() << "[MainWindow::onSocketReadyRead] Error: invalid operation name:" << header->operationName;
         return;
     }
 
@@ -221,9 +221,9 @@ void MainWindow::onSocketReadyRead()
 QByteArray MainWindow::readdirHandler(QByteArray payload)
 {
     const char *path = payload.data();
-    qDebug() << "[onSocketReadyRead] fuse readdir path:" << path;
+    qDebug() << "[MainWindow::readdirHandler] fuse readdir path:" << path;
     Ref<ReaddirResult> result = FUSEBackend::FD_readdir(path);
-    qDebug() << "[onSocketReadyRead] result status:" << result->status;
+    qDebug() << "[MainWindow::readdirHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "readdir");
     header.datagramSize += sizeof(ReaddirResult) + result->dataSize;
@@ -240,11 +240,11 @@ QByteArray MainWindow::readHandler(QByteArray payload)
     u64 size = *(payload.data());
     i64 offset = *(payload.sliced(sizeof(u64)).data());
     QByteArray path = payload.sliced(sizeof(u64) + sizeof(i64));
-    qDebug() << "[onSocketReadyRead] incoming size:" << size;
-    qDebug() << "[onSocketReadyRead] incoming offset:" << offset;
-    qDebug() << "[onSocketReadyRead] incoming path:" << path.data();
+    qDebug() << "[MainWindow::readHandler] incoming size:" << size;
+    qDebug() << "[MainWindow::readHandler] incoming offset:" << offset;
+    qDebug() << "[MainWindow::readHandler] incoming path:" << path.data();
     Ref<ReadResult> result = FUSEBackend::FD_read(path.data(), size, offset);
-    qDebug() << "[onSocketReadyRead] result status:" << result->status;
+    qDebug() << "[MainWindow::readHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "read");
     header.datagramSize += sizeof(ReadResult) + result->size;
@@ -260,10 +260,10 @@ QByteArray MainWindow::readlinkHandler(QByteArray payload)
 {
     u64 size = *(payload.data());
     QByteArray path = payload.sliced(sizeof(u64));
-    qDebug() << "[onSocketReadyRead] incoming size:" << size;
-    qDebug() << "[onSocketReadyRead] incoming path:" << path.data();
+    qDebug() << "[MainWindow::readlinkHandler] incoming size:" << size;
+    qDebug() << "[MainWindow::readlinkHandler] incoming path:" << path.data();
     Ref<ReadlinkResult> result = FUSEBackend::FD_readlink(path.data(), size);
-    qDebug() << "[onSocketReadyRead] result status:" << result->status;
+    qDebug() << "[MainWindow::readlinkHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "readlink");
     header.datagramSize += sizeof(ReadlinkResult) + result->size;
@@ -278,9 +278,9 @@ QByteArray MainWindow::readlinkHandler(QByteArray payload)
 QByteArray MainWindow::statfsHandler(QByteArray payload)
 {
     const char *path = payload.data();
-    qDebug() << "[onSocketReadyRead] fuse statfs path:" << path;
+    qDebug() << "[MainWindow::statfsHandler] fuse statfs path:" << path;
     Ref<StatfsResult> result = FUSEBackend::FD_statfs(path);
-    qDebug() << "[onSocketReadyRead] result status:" << result->status;
+    qDebug() << "[MainWindow::statfsHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "statfs");
     header.datagramSize += sizeof(StatfsResult);
@@ -294,9 +294,9 @@ QByteArray MainWindow::statfsHandler(QByteArray payload)
 QByteArray MainWindow::getattrHandler(QByteArray payload)
 {
     const char *path = payload.data();
-    qDebug() << "[onSocketReadyRead] fuse getattr path:" << path;
+    qDebug() << "[MainWindow::getattrHandler] fuse getattr path:" << path;
     Ref<GetattrResult> result = FUSEBackend::FD_getattr(path);
-    qDebug() << "[onSocketReadyRead] result status:" << result->status;
+    qDebug() << "[MainWindow::getattrHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "getattr");
     header.datagramSize += sizeof(GetattrResult);
@@ -341,7 +341,7 @@ void MainWindow::changeEvent(QEvent *event)
 void MainWindow::setTryaIcon()
 {
     auto bg = palette().color(QPalette::Active, QPalette::Window);
-    qDebug() << "[MainWindow::changeEvent] lightness:" << bg.lightness();
+    qDebug() << "[MainWindow::setTryaIcon] lightness:" << bg.lightness();
 
     if (bg.lightness() < THEME_LIGHTNESS_BARRIER)
     {

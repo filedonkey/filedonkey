@@ -52,6 +52,7 @@ struct ReadResult
     ReadResult(u64 size)
     {
         status = 0;
+        this->size = size;
         data = new char[size];
         memset(data, 0, size);
     }
@@ -84,6 +85,7 @@ struct ReadlinkResult
     ReadlinkResult(u64 size)
     {
         status = 0;
+        this->size = size;
         data = new char[size];
         memset(data, 0, size);
     }

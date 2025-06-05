@@ -135,7 +135,7 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 
     struct stat stbuf;
 
-    std::string homePath = "~";
+    std::string homePath = getenv("HOME");
     homePath += path;
 
     int res = lstat(homePath.c_str(), &stbuf);

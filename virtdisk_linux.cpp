@@ -807,6 +807,16 @@ static const struct fuse_operations xmp_oper = {
     .lseek		= xmp_lseek,
 };
 
+// What was used during navigation:
+// xmp_access
+// xmp_getattr
+// xmp_read
+// xmp_readdir
+// xmp_readlink
+// xmp_statfs
+// xmp_open
+// xmp_release
+
 static void Start(Connection *conn)
 {
     conn->socket = new QTcpSocket();

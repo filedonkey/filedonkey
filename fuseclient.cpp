@@ -27,6 +27,7 @@ Ref<ReadResult> FUSEClient::FD_read(const char *path, u64 size, i64 offset)
 
     qDebug() << "[FUSEClient::FD_read] incoming result status:" << result->status;
     qDebug() << "[FUSEClient::FD_read] incoming result size:" << result->size;
+//    qDebug() << "[FUSEClient::FD_read] incoming result data:" << result->data;
 
     return result;
 }

@@ -1,5 +1,15 @@
 #include "fuseclient.h"
 
+#include <QDateTime>
+
+struct CacheValue
+{
+    QDateTime expirationDate;
+    QByteArray response;
+};
+
+static QHash<QString, CacheValue> netCache;
+
 Ref<ReaddirResult> FUSEClient::FD_readdir(const char *path)
 {
     QByteArray payload((char *)path, strlen(path));
@@ -82,6 +92,40 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
     qDebug() << "[FUSEClient::Fetch] machineId: " << conn->machineId;
     qDebug() << "[FUSEClient::Fetch] machineName: " << conn->machineName;
 
+    //------------------------------------------------------------------------------------
+    // Caching
+    //------------------------------------------------------------------------------------
+    QString cacheKey = QString("%1%2%3").arg(conn->machineId).arg(operationName).arg(payload);
+
+    if (netCache.contains(cacheKey))
+    {
+        CacheValue value = netCache.value(cacheKey);
+        if (value.expirationDate > QDateTime::currentDateTimeUtc())
+        {
+            QByteArray incoming = value.response;
+
+            DatagramHeader *inHeader;
+            DatagramHeader::ReadFrom(&inHeader, incoming.data());
+
+            qDebug() << "[FUSEClient::Fetch] cached message type:" << inHeader->messageType;
+            qDebug() << "[FUSEClient::Fetch] cached protocol version:" << inHeader->protocolVersion;
+            qDebug() << "[FUSEClient::Fetch] cached virt disk type:" << inHeader->virtDiskType;
+            qDebug() << "[FUSEClient::Fetch] cached operation name:" << inHeader->operationName;
+
+            FetchResult result = {
+                .header = *inHeader,
+                .payload = incoming.sliced(sizeof(DatagramHeader))
+            };
+
+            return result;
+        }
+        else
+        {
+            netCache.remove(cacheKey);
+        }
+    }
+    //------------------------------------------------------------------------------------
+
     QTcpSocket *socket = conn->socket;
 
     if (socket)
@@ -113,6 +157,16 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
         }
 
         assert(incoming.size() == datagramSize);
+
+        //--------------------------------------------------------------------------------
+        // Caching
+        //--------------------------------------------------------------------------------
+        CacheValue value = {
+            .expirationDate = QDateTime::currentDateTimeUtc().addSecs(15),
+            .response = incoming
+        };
+        netCache.insert(cacheKey, value);
+        //--------------------------------------------------------------------------------
 
         qDebug() << "[FUSEClient::Fetch] count:" << count;
         qDebug() << "[FUSEClient::Fetch] incoming size:" << incoming.size();

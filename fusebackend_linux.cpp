@@ -17,7 +17,7 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
     DIR *dp;
     struct dirent *de;
 
-    std::string homePath = "~";
+    std::string homePath = getenv("HOME");
     homePath += path;
 
     dp = opendir(homePath.c_str());
@@ -54,7 +54,7 @@ Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
 {
     Ref<ReadResult> result = MakeRef<ReadResult>(size);
 
-    std::string homePath = "~";
+    std::string homePath = getenv("HOME");
     homePath += path;
 
     int fd = open(homePath.c_str(), O_RDONLY);
@@ -81,7 +81,7 @@ Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
 {
     Ref<ReadlinkResult> result = MakeRef<ReadlinkResult>(size);
 
-    std::string homePath = "~";
+    std::string homePath = getenv("HOME");
     homePath += path;
 
     int res = readlink(homePath.c_str(), result->data, size - 1);
@@ -102,7 +102,7 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 
     struct statvfs stbuf;
 
-    std::string homePath = "~";
+    std::string homePath = getenv("HOME");
     homePath += path;
 
     int res = statvfs(homePath.c_str(), &stbuf);

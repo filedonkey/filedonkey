@@ -512,11 +512,11 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 
     if (result->status == 0)
     {
-        memset(buf, 0, size);
-        memcpy(buf, result->data, strlen(result->data));
+        // memset(buf, 0, size);
+        memcpy(buf, result->data, result->size);
     }
 
-    return strlen(result->data);
+    return result->status;
     //------------------------------------------------------------------------------------
 
     int fd;

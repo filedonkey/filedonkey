@@ -6,6 +6,6 @@ const log = fs.readFileSync(path.resolve('D:\\', 'log.txt'), {
   flag: "rs",
 });
 
-const usedFuncs = [...new Set(log.split('\n').filter(e => e.startsWith('[')).map(e => e.split(' ')[0].replace(/[\[\]]/g, '')))];
+const usedFuncs = [...new Set(log.split('\n').filter(e => e.startsWith('[xmp_')).map(e => e.split(' ')[0].replace(/[\[\]]/g, '')))];
 
 usedFuncs.forEach(e => console.log(e));

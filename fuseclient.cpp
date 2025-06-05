@@ -16,8 +16,9 @@ Ref<ReaddirResult> FUSEClient::FD_readdir(const char *path)
 
 Ref<ReadResult> FUSEClient::FD_read(const char *path, u64 size, i64 offset)
 {
-    QByteArray payload((char *)&size, sizeof(u64));
-    payload.append((char *)&offset, sizeof(i64));
+    QByteArray payload;
+    payload.append((char *)(&size), sizeof(size));
+    payload.append((char *)(&offset), sizeof(offset));
     payload.append((char *)path, strlen(path));
 
     FetchResult incoming = Fetch("read", payload);

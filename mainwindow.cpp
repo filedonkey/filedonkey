@@ -237,8 +237,8 @@ QByteArray MainWindow::readdirHandler(QByteArray payload)
 
 QByteArray MainWindow::readHandler(QByteArray payload)
 {
-    u64 size = *(payload.data());
-    i64 offset = *(payload.sliced(sizeof(u64)).data());
+    u64 size = *(u64 *)(payload.data());
+    i64 offset = *(i64 *)(payload.sliced(sizeof(u64)).data());
     QByteArray path = payload.sliced(sizeof(u64) + sizeof(i64));
     qDebug() << "[MainWindow::readHandler] incoming size:" << size;
     qDebug() << "[MainWindow::readHandler] incoming offset:" << offset;
@@ -258,7 +258,7 @@ QByteArray MainWindow::readHandler(QByteArray payload)
 
 QByteArray MainWindow::readlinkHandler(QByteArray payload)
 {
-    u64 size = *(payload.data());
+    u64 size = *(u64 *)(payload.data());
     QByteArray path = payload.sliced(sizeof(u64));
     qDebug() << "[MainWindow::readlinkHandler] incoming size:" << size;
     qDebug() << "[MainWindow::readlinkHandler] incoming path:" << path.data();

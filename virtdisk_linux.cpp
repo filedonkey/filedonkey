@@ -141,7 +141,7 @@ static int xmp_getattr(const char *path, struct stat *stbuf,
     // Network tests
     //------------------------------------------------------------------------------------
     struct fuse_context *context = fuse_get_context();
-    qDebug() << "[xmp_read] context:" << context << context->private_data;
+    qDebug() << "[xmp_getattr] context:" << context << context->private_data;
     FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
     Ref<GetattrResult> result = client->FD_getattr(path);
@@ -184,11 +184,11 @@ static int xmp_access(const char *path, int mask)
 {
     qDebug() << "[xmp_access] path: " << path;
 
-    int res;
+//    int res;
 
-    res = access(path, mask);
-    if (res == -1)
-        return -errno;
+//    res = access(path, mask);
+//    if (res == -1)
+//        return -errno;
 
     return 0;
 }
@@ -471,28 +471,28 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 {
     qDebug() << "[xmp_open] path: " << path;
 
-    int res;
+//    int res;
 
-    res = open(path, fi->flags);
-    if (res == -1)
-        return -errno;
+//    res = open(path, fi->flags);
+//    if (res == -1)
+//        return -errno;
 
-    /* Enable direct_io when open has flags O_DIRECT to enjoy the feature
-        parallel_direct_writes (i.e., to get a shared lock, not exclusive lock,
-        for writes to the same file). */
-    if (fi->flags & O_DIRECT) {
-        fi->direct_io = 1;
-//        fi->parallel_direct_writes = 1;
-    }
+//    /* Enable direct_io when open has flags O_DIRECT to enjoy the feature
+//        parallel_direct_writes (i.e., to get a shared lock, not exclusive lock,
+//        for writes to the same file). */
+//    if (fi->flags & O_DIRECT) {
+//        fi->direct_io = 1;
+////        fi->parallel_direct_writes = 1;
+//    }
 
-    fi->fh = res;
+//    fi->fh = res;
     return 0;
 }
 
 static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi)
 {
-    qDebug() << "[xmp_read] path: " << path;
+    qDebug() << "[xmp_read] path: " << path << size << offset;
 
     (void) fi;
 
@@ -567,7 +567,7 @@ static int xmp_statfs(const char *path, struct statvfs *stbuf)
     // Network tests
     //------------------------------------------------------------------------------------
     struct fuse_context *context = fuse_get_context();
-    qDebug() << "[xmp_read] context:" << context << context->private_data;
+    qDebug() << "[xmp_statfs] context:" << context << context->private_data;
     FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
     Ref<StatfsResult> result = client->FD_statfs(path);
@@ -604,8 +604,8 @@ static int xmp_release(const char *path, struct fuse_file_info *fi)
 {
     qDebug() << "[xmp_release] path: " << path;
 
-    (void) path;
-    close(fi->fh);
+//    (void) path;
+//    close(fi->fh);
     return 0;
 }
 

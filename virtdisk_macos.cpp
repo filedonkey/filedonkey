@@ -807,12 +807,14 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 
     Ref<ReadResult> result = client->FD_read(path, size, offset);
 
-    if (result->status == 0)
+    memset(buf, 0, size);
+
+    if (result->status > 0)
     {
-        memcpy(buf, result->data, result->size);
+        memcpy(buf, result->data, result->status);
     }
 
-    return strlen(result->data);
+    return result->status;
 
     //------------------------------------------------------------------------------------
 

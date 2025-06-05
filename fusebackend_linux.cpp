@@ -67,6 +67,7 @@ Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
     }
 
     close(fd);
+    result->status = res;
     return result;
 }
 

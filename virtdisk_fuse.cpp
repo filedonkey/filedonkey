@@ -127,11 +127,11 @@ static int xmp_access(const char *path, int mask)
 {
     qDebug() << "[xmp_access] path: " << path;
 
-    int res;
+    // int res;
 
-    res = access(path, mask);
-    if (res == -1)
-        return -errno;
+    // res = access(path, mask);
+    // if (res == -1)
+    //     return -errno;
 
     return 0;
 }
@@ -398,13 +398,13 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 {
     qDebug() << "[xmp_open] path: " << path;
 
-    int res;
+    // int res;
 
-    res = open(path, fi->flags);
-    if (res == -1)
-        return -errno;
+    // res = open(path, fi->flags);
+    // if (res == -1)
+    //     return -errno;
 
-    close(res);
+    // close(res);
     return 0;
 }
 

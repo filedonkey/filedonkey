@@ -8,6 +8,8 @@
 #include <time.h>
 #include <io.h>
 
+#include <QRandomGenerator>
+
 // Define constants similar to POSIX file types
 #define WIN_S_IFMT   0170000  // bit mask for the file type bit field
 #define WIN_S_IFSOCK 0140000  // socket
@@ -131,7 +133,7 @@ int lstat(const char* path, struct FUSE_STAT* buf) {
     }
 
     if (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-        buf->st_mode |= WIN_S_IXGRP | WIN_S_IXOTH;  // If directory, also give execute permission
+        buf->st_mode |= WIN_S_IXGRP | WIN_S_IXOTH | WIN_S_IRGRP | WIN_S_IROTH;  // If directory, also give execute permission
     }
 
     // Hard to determine number of links in Windows, assume 1
@@ -153,7 +155,7 @@ int lstat(const char* path, struct FUSE_STAT* buf) {
 
     // Not directly available in Windows
     buf->st_dev = 0;
-    buf->st_ino = 0;
+    buf->st_ino = QRandomGenerator::global()->generate64();
     buf->st_rdev = 0;
 
     // Use some sensible defaults for block info

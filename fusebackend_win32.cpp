@@ -9,6 +9,7 @@
 #include "readlink_win32.h"
 
 #include <QDebug>
+#include <QRandomGenerator>
 
 #include <stdlib.h>
 #include <fuse/fuse_win.h>
@@ -94,7 +95,7 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
         qDebug() << "[FD_readdir] d_name" << de->d_name << strlen(de->d_name);
         qDebug() << "[FD_readdir] direntPath" << direntPath << strlen(direntPath);
 
-        findData.st_ino = de->d_ino;
+        findData.st_ino = QRandomGenerator::global()->generate64(); // de->d_ino;
         // findData.stat.st_mode = st_mode; // de->d_type << 12;
         memcpy(findData.name, de->d_name, strlen(de->d_name));
     }
@@ -214,6 +215,8 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
     result->st_mtim.tv_nsec = stbuf.st_mtim.tv_nsec;
     result->st_ctim.tv_sec = stbuf.st_ctim.tv_sec;
     result->st_ctim.tv_nsec = stbuf.st_ctim.tv_nsec;
+
+    qDebug() << "[FUSEBackend::FD_getattr] result->st_ino:" << result->st_ino;
 
     return result;
 }

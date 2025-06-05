@@ -17,7 +17,10 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
     DIR *dp;
     struct dirent *de;
 
-    dp = opendir(path);
+    std::string homePath = "~";
+    homePath += path;
+
+    dp = opendir(homePath.c_str());
     if (dp == NULL)
     {
         result->status = -errno;
@@ -51,7 +54,10 @@ Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
 {
     Ref<ReadResult> result = MakeRef<ReadResult>(size);
 
-    int fd = open(path, O_RDONLY);
+    std::string homePath = "~";
+    homePath += path;
+
+    int fd = open(homePath.c_str(), O_RDONLY);
     if (fd == -1)
     {
         result->status = -errno;
@@ -75,7 +81,10 @@ Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
 {
     Ref<ReadlinkResult> result = MakeRef<ReadlinkResult>(size);
 
-    int res = readlink(path, result->data, size - 1);
+    std::string homePath = "~";
+    homePath += path;
+
+    int res = readlink(homePath.c_str(), result->data, size - 1);
     if (res == -1)
     {
         result->status = -errno;
@@ -93,7 +102,10 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 
     struct statvfs stbuf;
 
-    int res = statvfs(path, &stbuf);
+    std::string homePath = "~";
+    homePath += path;
+
+    int res = statvfs(homePath.c_str(), &stbuf);
     if (res == -1)
     {
         result->status = -errno;
@@ -123,7 +135,10 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 
     struct stat stbuf;
 
-    int res = lstat(path, &stbuf);
+    std::string homePath = "~";
+    homePath += path;
+
+    int res = lstat(homePath.c_str(), &stbuf);
     if (res == -1)
     {
         result->status = -errno;

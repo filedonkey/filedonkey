@@ -812,7 +812,7 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
         memcpy(buf, result->data, result->size);
     }
 
-    return result->status;
+    return strlen(result->data);
 
     //------------------------------------------------------------------------------------
 

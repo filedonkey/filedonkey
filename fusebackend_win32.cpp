@@ -113,32 +113,24 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 
 Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
 {
-    char *buf = new char[size];
+    Ref<ReadResult> result = MakeRef<ReadResult>(size);
 
     int fd = open(path, O_RDONLY);
     if (fd == -1)
     {
-        Ref<ReadResult> result = MakeRef<ReadResult>();
         result->status = -errno;
         return result;
     }
 
-    int res = pread(fd, buf, size, offset);
+    int res = pread(fd, result->data, size, offset);
     if (res == -1)
     {
         close(fd);
-        Ref<ReadResult> result = MakeRef<ReadResult>();
         result->status = -errno;
         return result;
     }
+
     close(fd);
-
-    Ref<ReadResult> result = MakeRef<ReadResult>(res);
-    memcpy(result->data, buf, res);
-    result->status = res;
-
-    delete[] buf;
-
     return result;
 }
 

@@ -508,7 +508,7 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
     qDebug() << "[xmp_read] incoming result status:" << result->status;
     qDebug() << "[xmp_read] incoming result size:" << result->size;
     qDebug() << "[xmp_read] incoming result length:" << strlen(result->data);
-//    qDebug() << "[xmp_read] incoming result data:" << result->data;
+    qDebug() << "[xmp_read] incoming result data:" << result->data;
 
     if (result->status == 0)
     {
@@ -516,7 +516,7 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
         memcpy(buf, result->data, result->size);
     }
 
-    return result->status;
+    return strlen(result->data);
     //------------------------------------------------------------------------------------
 
     int fd;

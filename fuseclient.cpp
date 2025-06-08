@@ -136,6 +136,9 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
 
         socket->write(request);
 
+        uploaded += request.size();
+        emit uploadedChanged(uploaded);
+
         qDebug() << "[FUSEClient::Fetch] after write";
 
         socket->waitForReadyRead();
@@ -143,20 +146,33 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
         qDebug() << "[FUSEClient::Fetch] socket bytesAvailable:" << socket->bytesAvailable();
 
         QByteArray incoming = socket->readAll();
+        downloaded += incoming.size();
+        emit downloadedChanged(downloaded);
         qsizetype datagramSize = *((qsizetype *)incoming.data());
 
-        qDebug() << "[FUSEClient::Fetch] datagram size:" << datagramSize;
+        QLocale locale(QLocale::English, QLocale::UnitedStates);
+        qDebug() << "[FUSEClient::Fetch] datagram size:"
+                 << locale.formattedDataSize(datagramSize).toStdString().c_str();
 
         incoming.reserve(datagramSize);
         int count = 0;
         while (incoming.size() < datagramSize)
         {
             socket->waitForReadyRead();
-            incoming.append(socket->readAll());
+            QByteArray data = socket->readAll();
+            downloaded += data.size();
+            emit downloadedChanged(downloaded);
+            incoming.append(data);
             count++;
         }
 
         assert(incoming.size() == datagramSize);
+
+        qDebug() << QString("[FUSEClient::Fetch] uploaded: %1    downloaded: %2")
+                        .arg(locale.formattedDataSize(uploaded))
+                        .arg(locale.formattedDataSize(downloaded))
+                        .toStdString()
+                        .c_str();
 
         //--------------------------------------------------------------------------------
         // Caching
@@ -169,7 +185,8 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
         //--------------------------------------------------------------------------------
 
         qDebug() << "[FUSEClient::Fetch] count:" << count;
-        qDebug() << "[FUSEClient::Fetch] incoming size:" << incoming.size();
+        qDebug() << "[FUSEClient::Fetch] incoming size:"
+                 << locale.formattedDataSize(incoming.size()).toStdString().c_str();
 
         DatagramHeader *inHeader;
         DatagramHeader::ReadFrom(&inHeader, incoming.data());

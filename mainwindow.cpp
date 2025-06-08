@@ -82,6 +82,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(broadcaster, SIGNAL(readyRead()), this, SLOT(onBroadcasting()));
     broadcaster->bind(UDP_PORT, QUdpSocket::ShareAddress);
+
+    ui->statusbar->addWidget(ui->networkWidget);
 }
 
 MainWindow::~MainWindow()
@@ -163,6 +165,8 @@ void MainWindow::onBroadcasting()
         connections.insert(newConn.machineId, newConn);
 
         virtDisk = new VirtDisk(newConn);
+        connect(virtDisk->client, SIGNAL(uploadedChanged(u64)), this, SLOT(onUploaded(u64)));
+        connect(virtDisk->client, SIGNAL(downloadedChanged(u64)), this, SLOT(onDownloaded(u64)));
         virtDisk->mount("M:\\");
     }
 }
@@ -311,6 +315,18 @@ void MainWindow::onUpgradeToPro()
 {
     QString link = "https://filedonkey.app";
     QDesktopServices::openUrl(QUrl(link));
+}
+
+void MainWindow::onUploaded(u64 uploaded)
+{
+    QLocale locale(QLocale::English, QLocale::UnitedStates);
+    this->ui->uploadedLbl->setText(QString("⬆️ %1").arg(locale.formattedDataSize(uploaded)));
+}
+
+void MainWindow::onDownloaded(u64 downloaded)
+{
+    QLocale locale(QLocale::English, QLocale::UnitedStates);
+    this->ui->downloadedLbl->setText(QString("⬇️ %1").arg(locale.formattedDataSize(downloaded)));
 }
 
 void MainWindow::createTrayIcon()

@@ -11,10 +11,12 @@ struct FetchResult
     QByteArray payload;
 };
 
-class FUSEClient
+class FUSEClient : public QObject
 {
+    Q_OBJECT
+
 public:
-    FUSEClient(Connection *conn) : conn(conn) {};
+    FUSEClient(Connection *conn) : conn(conn), uploaded(0), downloaded(0) {};
 
     Ref<ReaddirResult>  FD_readdir(const char *path);
     Ref<ReadResult>     FD_read(const char *path, u64 size, i64 offset);
@@ -22,10 +24,16 @@ public:
     Ref<StatfsResult>   FD_statfs(const char *path);
     Ref<GetattrResult>  FD_getattr(const char *path);
 
+signals:
+    void uploadedChanged(u64 uploaded);
+    void downloadedChanged(u64 downloaded);
+
 private:
     FetchResult Fetch(const char *operationName, const QByteArray &payload);
 
     Connection *conn;
+    u64 uploaded;
+    u64 downloaded;
 };
 
 #endif // FUSECLIENT_H

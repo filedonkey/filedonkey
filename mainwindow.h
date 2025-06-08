@@ -39,6 +39,8 @@ public slots:
     void onConnection();
     void onSocketReadyRead();
     void onUpgradeToPro();
+    void onUploaded(u64 uploaded);
+    void onDownloaded(u64 downloaded);
 
 private:
     void broadcast();

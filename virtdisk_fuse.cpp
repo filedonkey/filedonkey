@@ -49,7 +49,7 @@ static char *mountpoint = "D:\\";
 
 static FUSEClient *g_Client;
 
-VirtDisk::VirtDisk(const Connection& conn) : conn(conn)
+VirtDisk::VirtDisk(const Connection& conn) : conn(conn), client(new FUSEClient(&this->conn))
 {
 }
 
@@ -701,7 +701,7 @@ static struct fuse_operations xmp_oper = {
 // + xmp_readdir
 // + xmp_statfs
 
-static void Start(Connection *conn)
+static void Start(VirtDisk *self, Connection *conn)
 {
     conn->socket = new QTcpSocket();
     qDebug() << "[Start] try to connect";
@@ -716,7 +716,7 @@ static void Start(Connection *conn)
 
     qDebug() << "[Start] socket connected";
 
-    g_Client = new FUSEClient(conn);
+    g_Client = self->client;
 
     int argc = 4;
     char *argv[] = {"FileDonkey", "M:", "-o", "volname=MacBook Pro"};
@@ -774,7 +774,7 @@ void VirtDisk::mount(const QString &mountPoint)
 
     // fuse_opt_free_args(&args);
 
-    thread = std::thread(Start, &conn);
+    thread = std::thread(Start, this, &conn);
 }
 
 // int main(int argc, char *argv[])

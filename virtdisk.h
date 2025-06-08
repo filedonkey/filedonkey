@@ -2,6 +2,7 @@
 #define VIRTDISK_H
 
 #include "connection.h"
+#include "fuseclient.h"
 
 #include <QString>
 
@@ -13,6 +14,7 @@ public:
 
     void mount(const QString &mountPoint);
 
+    FUSEClient *client;
 private:
     QString mountPoint;
     Connection conn;

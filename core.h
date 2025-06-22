@@ -21,6 +21,8 @@ typedef unsigned long long u64;
 typedef float  r32;
 typedef double r64;
 
+typedef unsigned char byte;
+
 typedef std::string  str;
 typedef std::wstring wstr;
 typedef const char*  cstr;

@@ -118,17 +118,14 @@ void MainWindow::broadcast()
 
     for (auto networkInterface : QNetworkInterface::allInterfaces())
     {
-        // qDebug() << "[MainWindow::broadcast] Network interface:" << networkInterface.humanReadableName();
         for (auto addressEntry : networkInterface.addressEntries())
         {
-            // qDebug() << "[MainWindow::broadcast] Address:" << addressEntry.broadcast().toString();
+            QHostAddress host = addressEntry.broadcast();
             bool isIPv4Protocol = addressEntry.ip().protocol() == QAbstractSocket::IPv4Protocol;
-            bool isBroadcastNotEmpty = addressEntry.broadcast().toString() != "";
-            if (isIPv4Protocol && isBroadcastNotEmpty)
+            bool isHostAddressValid = host.toString().isEmpty() == false;
+            if (isIPv4Protocol && isHostAddressValid)
             {
-                QHostAddress host = addressEntry.broadcast();
-                quint64 sentSize = broadcaster.writeDatagram(datagram, host, UDP_PORT);
-                // qDebug() << "[MainWindow::broadcast] Sent size: " << sentSize;
+                broadcaster.writeDatagram(datagram, host, UDP_PORT);
             }
         }
     }

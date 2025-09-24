@@ -7,7 +7,7 @@
 
 struct FindData
 {
-    i8 name[1024];
+    char name[1024];
     u64 st_ino;
     u16 st_mode;
 };

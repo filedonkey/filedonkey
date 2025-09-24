@@ -9,7 +9,7 @@
 // Typedefs
 //------------------------------------------------------------------------------------
 
-typedef char    i8; // int8_t defined as "signed char" that causes some issues
+typedef int8_t  i8;
 typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;

@@ -1,6 +1,7 @@
 #ifndef CORE_H
 #define CORE_H
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -8,20 +9,20 @@
 // Typedefs
 //------------------------------------------------------------------------------------
 
-typedef char      i8;
-typedef short     i16;
-typedef int       i32;
-typedef long long i64;
+typedef char    i8; // int8_t defined as "signed char" that causes some issues
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
 
-typedef unsigned char      u8;
-typedef unsigned short     u16;
-typedef unsigned int       u32;
-typedef unsigned long long u64;
+typedef uint8_t  u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
 
 typedef float  r32;
 typedef double r64;
 
-typedef unsigned char byte;
+typedef uint8_t byte;
 
 typedef std::string  str;
 typedef std::wstring wstr;

@@ -89,9 +89,6 @@ Ref<GetattrResult> FUSEClient::FD_getattr(const char *path)
 
 FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &payload)
 {
-    qDebug() << "[FUSEClient::Fetch] machineId: " << conn->machineId;
-    qDebug() << "[FUSEClient::Fetch] machineName: " << conn->machineName;
-
     //------------------------------------------------------------------------------------
     // Caching
     //------------------------------------------------------------------------------------
@@ -107,10 +104,10 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
             DatagramHeader *inHeader;
             DatagramHeader::ReadFrom(&inHeader, incoming.data());
 
-            qDebug() << "[FUSEClient::Fetch] cached message type:" << inHeader->messageType;
-            qDebug() << "[FUSEClient::Fetch] cached protocol version:" << inHeader->protocolVersion;
-            qDebug() << "[FUSEClient::Fetch] cached virt disk type:" << inHeader->virtDiskType;
-            qDebug() << "[FUSEClient::Fetch] cached operation name:" << inHeader->operationName;
+            // qDebug() << "[FUSEClient::Fetch] cached message type:" << inHeader->messageType;
+            // qDebug() << "[FUSEClient::Fetch] cached protocol version:" << inHeader->protocolVersion;
+            // qDebug() << "[FUSEClient::Fetch] cached virt disk type:" << inHeader->virtDiskType;
+            // qDebug() << "[FUSEClient::Fetch] cached operation name:" << inHeader->operationName;
 
             FetchResult result = {
                 .header = *inHeader,
@@ -125,6 +122,9 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
         }
     }
     //------------------------------------------------------------------------------------
+
+    qDebug() << "[FUSEClient::Fetch] machineId: " << conn->machineId;
+    qDebug() << "[FUSEClient::Fetch] machineName: " << conn->machineName;
 
     QTcpSocket *socket = conn->socket;
 

@@ -14,6 +14,8 @@ typedef long long off_t;
 #endif
 
 /**
+ * NOTE: It has issues. Do not use it until it fixed.
+ *
  * Windows implementation of the POSIX pread function
  *
  * @param fd     File descriptor (from open)

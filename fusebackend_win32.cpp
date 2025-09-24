@@ -122,7 +122,7 @@ Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
         return result;
     }
 
-    int res = pread(fd, result->data, size, offset);
+    int res = win_pread_efficient(fd, result->data, size, offset);
     if (res == -1)
     {
         close(fd);

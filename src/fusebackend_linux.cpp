@@ -138,7 +138,7 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
     std::string homePath = getenv("HOME");
     homePath += path;
 
-    int res = lstat(homePath.c_str(), &stbuf);
+    int res = lstat(path, &stbuf);
     if (res == -1)
     {
         result->status = -errno;

@@ -17,14 +17,19 @@ SOURCES +=  \
 INCLUDEPATH += ../src
 
 win32:CONFIG(release, debug|release): {
-    # Link against the static library
     LIBS += $$OUT_PWD/../src/release/libsrc.a
     # Make sure the library is built before the test
     PRE_TARGETDEPS += $$OUT_PWD/../src/release/libsrc.a
 } else:win32:CONFIG(debug, debug|release): {
-    # Link against the static library
     LIBS += $$OUT_PWD/../src/debug/libsrc.a
-    # Make sure the library is built before the test
     PRE_TARGETDEPS += $$OUT_PWD/../src/debug/libsrc.a
+} else:unix: {
+    LIBS += $$OUT_PWD/../src/libsrc.a
+    PRE_TARGETDEPS += $$OUT_PWD/../src/libsrc.a
 }
-# else:unix: LIBS += -L$$OUT_PWD/../src/ -lmylib
+
+copydata.commands = $(COPY_DIR) $$PWD/../assets $$OUT_PWD
+first.depends = $(first) copydata
+export(first.depends)
+export(copydata.commands)
+QMAKE_EXTRA_TARGETS += first copydata

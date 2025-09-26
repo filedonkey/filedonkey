@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/mount.h>
 
 Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 {
@@ -112,9 +113,21 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
         return result;
     }
 
+    struct statfs stfsbuf;
+
+    res = statfs(path, &stfsbuf);
+    if (res == -1)
+    {
+        result->f_bsize = stbuf.f_bsize;
+    }
+    else
+    {
+        result->f_bsize = stfsbuf.f_bsize;
+    }
+
     // memcpy(result.get() + sizeof(result->status), &stbuf, sizeof(stbuf));
 
-    result->f_bsize = stbuf.f_bsize;
+//    result->f_bsize = stbuf.f_bsize;
     result->f_frsize = stbuf.f_frsize;
     result->f_blocks = stbuf.f_blocks;
     result->f_bfree = stbuf.f_bfree;

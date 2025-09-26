@@ -9,12 +9,14 @@ class FUSEBackend_spec : public QObject
 {
     Q_OBJECT
 
+private:
+    QString appIconPath = QDir::currentPath() + "/assets/filedonkey_app_icon.ico";
+
 private slots:
     void Returns_correct_GetattrResult()
     {
         QLoggingCategory::defaultCategory()->setEnabled(QtDebugMsg, false);
 
-        QString appIconPath = QDir::currentPath() + "/assets/filedonkey_app_icon.ico";
         Ref<GetattrResult> result = FUSEBackend::FD_getattr(appIconPath.toStdString().c_str());
 
         QFile appIcon = QFile(appIconPath);
@@ -50,7 +52,6 @@ private slots:
     void Returns_correct_ReadResult()
     {
         const u32 BLOCK_SIZE = 65535;
-        QString appIconPath = QDir::currentPath() + "/assets/filedonkey_app_icon.ico";
         Ref<ReadResult> result = FUSEBackend::FD_read(appIconPath.toStdString().c_str(), BLOCK_SIZE, 0);
 
         QFile appIcon = QFile(appIconPath);

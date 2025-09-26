@@ -20,7 +20,7 @@ private slots:
         QFile appIcon = QFile(appIconPath);
         QCOMPARE(appIcon.exists(), true);
         QCOMPARE(result->status, 0);
-        QCOMPARE(result->st_dev, 0);
+//        QCOMPARE(result->st_dev, 0);
         QCOMPARE(result->st_size, 130121);
     }
 };

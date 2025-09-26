@@ -53,3 +53,6 @@ compile_commands.json
 *creator.user*
 
 *_qmlcache.qrc
+
+# MacOS
+.DS_Store

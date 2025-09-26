@@ -20,7 +20,7 @@ private slots:
         QFile appIcon = QFile(appIconPath);
         qint64 fileAccessTime = appIcon.fileTime(QFileDevice::FileAccessTime).toSecsSinceEpoch();
         qint64 fileModificationTime = appIcon.fileTime(QFileDevice::FileModificationTime).toSecsSinceEpoch();
-        qint64 fileStatusChangeTime = appIcon.fileTime(QFileDevice::FileMetadataChangeTime).toSecsSinceEpoch();
+        qint64 fileStatusChangeTime = appIcon.fileTime(QFileDevice::FileBirthTime).toSecsSinceEpoch();
 
         QCOMPARE(appIcon.exists(), true);
 

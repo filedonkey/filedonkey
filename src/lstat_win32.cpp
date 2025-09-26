@@ -151,7 +151,7 @@ int lstat(const char* path, struct FUSE_STAT* buf) {
     // Set timestamps
     FileTimeToTimestruc(fileData.ftLastAccessTime, buf->st_atim);
     FileTimeToTimestruc(fileData.ftLastWriteTime, buf->st_mtim);
-    FileTimeToTimestruc(fileData.ftCreationTime, buf->st_ctim);
+    FileTimeToTimestruc(fileData.ftLastWriteTime, buf->st_ctim);
     // In Windows, ftCreationTime is the birth time
     FileTimeToTimestruc(fileData.ftCreationTime, buf->st_birthtim);
 

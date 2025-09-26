@@ -46,4 +46,21 @@ private slots:
         // QCOMPARE(result->st_mtim.tv_nsec, 0);
         // QCOMPARE(result->st_ctim.tv_nsec, 0);
     }
+
+    void Returns_correct_ReadResult()
+    {
+        const u32 BLOCK_SIZE = 65535;
+        QString appIconPath = QDir::currentPath() + "/assets/filedonkey_app_icon.ico";
+        Ref<ReadResult> result = FUSEBackend::FD_read(appIconPath.toStdString().c_str(), BLOCK_SIZE, 0);
+
+        QFile appIcon = QFile(appIconPath);
+        appIcon.open(QIODeviceBase::ReadOnly);
+        char fileData[BLOCK_SIZE];
+        appIcon.read(fileData, BLOCK_SIZE);
+        appIcon.close();
+
+        QCOMPARE(result->status, BLOCK_SIZE);
+        QCOMPARE(result->size, BLOCK_SIZE);
+        QCOMPARE(memcmp(result->data, fileData, BLOCK_SIZE), 0);
+    }
 };

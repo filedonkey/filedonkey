@@ -50,7 +50,7 @@ CONFIG += embed_translations
 
 win32 {
     # magick icon.png -define icon:auto-resize=16,32,48,64,96,128,256 -compress zip icon.ico
-    RC_ICONS += assets/filedonkey_app_icon.ico
+    RC_ICONS += ../assets/filedonkey_app_icon.ico
     INCLUDEPATH += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/include"
     LIBS += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/lib/dokanfuse2.lib"
     QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
@@ -74,4 +74,4 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 RESOURCES += \
-    resources.qrc
+    ../resources.qrc

@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QLoggingCategory>
 #include <QFile>
+#include <QStorageInfo>
 
 class FUSEBackend_spec : public QObject
 {
@@ -63,5 +64,29 @@ private slots:
         QCOMPARE(result->status, BLOCK_SIZE);
         QCOMPARE(result->size, BLOCK_SIZE);
         QCOMPARE(memcmp(result->data, fileData, BLOCK_SIZE), 0);
+    }
+
+    void Returns_correct_StatfsResult()
+    {
+        Ref<StatfsResult> result = FUSEBackend::FD_statfs(QDir::currentPath().toStdString().c_str());
+        QStorageInfo storageInfo(QDir::currentPath());
+
+        QCOMPARE(result->status, 0);
+        QCOMPARE(result->f_bsize, storageInfo.blockSize());
+
+        QCOMPARE(result->f_blocks, storageInfo.bytesTotal() / storageInfo.blockSize());
+        QCOMPARE(result->f_bfree, storageInfo.bytesFree() / storageInfo.blockSize());
+        QCOMPARE(result->f_bavail, storageInfo.bytesAvailable() / storageInfo.blockSize());
+        QCOMPARE(result->f_namemax, 255);
+
+        // Not available on Windows
+        // QCOMPARE(result->f_files, 0);
+        // QCOMPARE(result->f_ffree, 0);
+        // QCOMPARE(result->f_favail, 0);
+
+        // Different on each machine
+        // QCOMPARE(result->f_frsize, 4096);
+        // QCOMPARE(result->f_fsid, 0);
+        // QCOMPARE(result->f_flag, 0);
     }
 };

@@ -163,6 +163,7 @@ int lstat(const char* path, struct FUSE_STAT* buf) {
     // Use some sensible defaults for block info
     buf->st_blksize = 4096;  // Common block size
     buf->st_blocks = (fileSize.QuadPart + 511) / 512;  // Round up to 512 byte blocks
+    buf->st_blocks += 1; // For some reason on linux and macos this value is 256, but on windows it's 255
 
     delete[] wpath;
     return 0;

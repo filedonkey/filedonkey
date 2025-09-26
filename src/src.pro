@@ -43,7 +43,7 @@ FORMS += \
     mainwindow.ui
 
 TRANSLATIONS += \
-    NetDonkey_en_US.ts
+    FileDonkey_en_US.ts
 
 CONFIG += lrelease
 CONFIG += embed_translations

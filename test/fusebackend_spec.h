@@ -89,4 +89,23 @@ private slots:
         // QCOMPARE(result->f_fsid, 0);
         // QCOMPARE(result->f_flag, 0);
     }
+
+    void Returns_correct_ReaddirResult()
+    {
+        QString assetsPath = QDir::currentPath() + "/assets/";
+        Ref<ReaddirResult> result = FUSEBackend::FD_readdir(assetsPath.toStdString().c_str());
+
+        FindData *fd = (FindData *)result->findData;
+
+        QCOMPARE(result->status, 0);
+        QCOMPARE(result->count, 3);
+        QCOMPARE(result->dataSize, sizeof(FindData) * 3);
+
+        QCOMPARE((fd + 0)->name, "filedonkey_app_icon.ico");
+        QCOMPARE((fd + 1)->name, "filedonkey_tray_icon_dark.ico");
+        QCOMPARE((fd + 2)->name, "filedonkey_tray_icon_light.ico");
+        QCOMPARE((fd + 0)->st_mode, 32768);
+        QCOMPARE((fd + 1)->st_mode, 32768);
+        QCOMPARE((fd + 2)->st_mode, 32768);
+    }
 };

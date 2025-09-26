@@ -1,5 +1,5 @@
 #include <QtTest>
-#include "first_test.h"
+#include "fusebackend_spec.h"
 
 int main(int argc, char *argv[])
 {
@@ -7,8 +7,8 @@ int main(int argc, char *argv[])
     int result = 0;
 
     {
-        FirstTest firstTest;
-        result |= QTest::qExec(&firstTest, argc, argv);
+        FUSEBackend_spec spec;
+        result |= QTest::qExec(&spec, argc, argv);
     }
     // {
     //     SecondTest secondTest;

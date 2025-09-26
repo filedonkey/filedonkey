@@ -2,6 +2,8 @@ QT       += core gui network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
+TEMPLATE=lib        # Only for test purpose
+CONFIG += staticlib # Only for test purpose
 CONFIG += c++17
 
 # You can make your code fail to compile if it uses deprecated APIs.

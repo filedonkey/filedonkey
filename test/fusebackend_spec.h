@@ -6,6 +6,8 @@
 #include <QFile>
 #include <QStorageInfo>
 
+#include <filesystem>
+
 class FUSEBackend_spec : public QObject
 {
     Q_OBJECT

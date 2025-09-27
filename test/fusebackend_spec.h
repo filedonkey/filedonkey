@@ -25,7 +25,7 @@ private slots:
         qint64 fileModificationTime = appIcon.fileTime(QFileDevice::FileModificationTime).toSecsSinceEpoch();
         qint64 fileStatusChangeTime = appIcon.fileTime(QFileDevice::FileMetadataChangeTime).toSecsSinceEpoch();
 
-        QCOMPARE(appIcon.exists(), true);
+        QVERIFY(appIcon.exists());
 
         QCOMPARE(result->status, 0);
         QCOMPARE(result->st_nlink, 1);
@@ -101,20 +101,25 @@ private slots:
         auto files = dir.entryList().filter(re); // We don't care about '.' and '..' files
 
         QCOMPARE(files.size(), 3);
-        QCOMPARE(files.contains("filedonkey_app_icon.ico"), true);
-        QCOMPARE(files.contains("filedonkey_tray_icon_dark.ico"), true);
-        QCOMPARE(files.contains("filedonkey_tray_icon_light.ico"), true);
+        QVERIFY(files.contains("filedonkey_app_icon.ico"));
+        QVERIFY(files.contains("filedonkey_tray_icon_dark.ico"));
+        QVERIFY(files.contains("filedonkey_tray_icon_light.ico"));
 
         QCOMPARE(result->status, 0);
         QCOMPARE(result->count, 3);
         QCOMPARE(result->dataSize, sizeof(FindData) * 3);
 
-        QCOMPARE(files.contains((fd + 0)->name), true);
-        QCOMPARE(files.contains((fd + 1)->name), true);
-        QCOMPARE(files.contains((fd + 2)->name), true);
+        QVERIFY(files.contains((fd + 0)->name));
+        QVERIFY(files.contains((fd + 1)->name));
+        QVERIFY(files.contains((fd + 2)->name));
 
         QCOMPARE((fd + 0)->st_mode, 32768);
         QCOMPARE((fd + 1)->st_mode, 32768);
         QCOMPARE((fd + 2)->st_mode, 32768);
+
+        // Different on each machine
+        // QCOMPARE((fd + 0)->st_ino, 0);
+        // QCOMPARE((fd + 1)->st_ino, 0);
+        // QCOMPARE((fd + 2)->st_ino, 0);
     }
 };

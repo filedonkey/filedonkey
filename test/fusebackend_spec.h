@@ -115,10 +115,17 @@ private slots:
         QVERIFY(files.contains((fd + 2)->name));
         QVERIFY(files.contains((fd + 3)->name));
 
-        QCOMPARE((fd + 0)->st_mode, 32768);
-        QCOMPARE((fd + 1)->st_mode, 40960);
-        QCOMPARE((fd + 2)->st_mode, 32768);
-        QCOMPARE((fd + 3)->st_mode, 32768);
+        // We do this because files order is different on different machines
+        // and we don't know which one is a symlink.
+        u16 entry0mode = strstr((fd + 0)->name, "_symlink") ? 40960 : 32768;
+        u16 entry1mode = strstr((fd + 1)->name, "_symlink") ? 40960 : 32768;
+        u16 entry2mode = strstr((fd + 2)->name, "_symlink") ? 40960 : 32768;
+        u16 entry3mode = strstr((fd + 3)->name, "_symlink") ? 40960 : 32768;
+
+        QCOMPARE((fd + 0)->st_mode, entry0mode);
+        QCOMPARE((fd + 1)->st_mode, entry1mode);
+        QCOMPARE((fd + 2)->st_mode, entry2mode);
+        QCOMPARE((fd + 3)->st_mode, entry3mode);
 
         // Different on each machine
         // QCOMPARE((fd + 0)->st_ino, 0);
@@ -132,9 +139,6 @@ private slots:
 
         const u32 BLOCK_SIZE = 65535;
         Ref<ReadlinkResult> result = FUSEBackend::FD_readlink(symLinkPath.toStdString().c_str(), BLOCK_SIZE);
-
-        qDebug() << "result->data:" << result->data;
-        qDebug() << "appIconPath:" << appIconPath.toStdString().c_str();
 
         std::filesystem::path appIconFSPath = appIconPath.toStdString();
         std::filesystem::path symLinkDataPath = QString(result->data).toStdString();

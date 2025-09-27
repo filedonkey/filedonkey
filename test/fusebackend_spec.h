@@ -94,16 +94,25 @@ private slots:
     {
         QString assetsPath = QDir::currentPath() + "/assets/";
         Ref<ReaddirResult> result = FUSEBackend::FD_readdir(assetsPath.toStdString().c_str());
-
         FindData *fd = (FindData *)result->findData;
+
+        QDir dir(assetsPath);
+        static QRegularExpression re("[^\\.]");
+        auto files = dir.entryList().filter(re); // We don't care about '.' and '..' files
+
+        QCOMPARE(files.size(), 3);
+        QCOMPARE(files.contains("filedonkey_app_icon.ico"), true);
+        QCOMPARE(files.contains("filedonkey_tray_icon_dark.ico"), true);
+        QCOMPARE(files.contains("filedonkey_tray_icon_light.ico"), true);
 
         QCOMPARE(result->status, 0);
         QCOMPARE(result->count, 3);
         QCOMPARE(result->dataSize, sizeof(FindData) * 3);
 
-        QCOMPARE((fd + 0)->name, "filedonkey_app_icon.ico");
-        QCOMPARE((fd + 1)->name, "filedonkey_tray_icon_dark.ico");
-        QCOMPARE((fd + 2)->name, "filedonkey_tray_icon_light.ico");
+        QCOMPARE(files.contains((fd + 0)->name), true);
+        QCOMPARE(files.contains((fd + 1)->name), true);
+        QCOMPARE(files.contains((fd + 2)->name), true);
+
         QCOMPARE((fd + 0)->st_mode, 32768);
         QCOMPARE((fd + 1)->st_mode, 32768);
         QCOMPARE((fd + 2)->st_mode, 32768);

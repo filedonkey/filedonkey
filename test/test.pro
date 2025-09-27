@@ -6,6 +6,8 @@ CONFIG += qt console warn_on depend_includepath testcase
 CONFIG -= app_bundle
 CONFIG += c++20
 
+QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15
+
 TEMPLATE = app
 
 HEADERS += \

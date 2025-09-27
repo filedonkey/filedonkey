@@ -1,6 +1,6 @@
 #define __FUSE__
 
-#if defined(__WIN32) && defined(__FUSE__)
+#if defined(_WIN32) && defined(__FUSE__)
 
 #include "virtdisk.h"
 #include "fuseclient.h"
@@ -14,7 +14,7 @@
 #include <config.h>
 #endif
 
-#if defined(__WIN32)
+#if defined(_WIN32)
 #include "statvfs_win32.h"
 #include "lstat_win32.h"
 #include "pread_win32.h"

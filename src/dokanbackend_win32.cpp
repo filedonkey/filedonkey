@@ -1,5 +1,5 @@
 #define __FUSE__
-#if defined(__WIN32) && !defined(__FUSE__)
+#if defined(_WIN32) && !defined(__FUSE__)
 
 #include "dokanbackend.h"
 

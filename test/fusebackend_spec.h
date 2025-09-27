@@ -1,6 +1,6 @@
 #include "fusebackend.h"
 
-#include <QtTest>
+#include <QTest>
 #include <QDir>
 #include <QLoggingCategory>
 #include <QFile>
@@ -16,8 +16,6 @@ private:
 private slots:
     void Returns_correct_GetattrResult()
     {
-        QLoggingCategory::defaultCategory()->setEnabled(QtDebugMsg, false);
-
         Ref<GetattrResult> result = FUSEBackend::FD_getattr(appIconPath.toStdString().c_str());
 
         QFile appIcon = QFile(appIconPath);
@@ -100,26 +98,47 @@ private slots:
         static QRegularExpression re("[^\\.]");
         auto files = dir.entryList().filter(re); // We don't care about '.' and '..' files
 
-        QCOMPARE(files.size(), 3);
+        QCOMPARE(files.size(), 4);
         QVERIFY(files.contains("filedonkey_app_icon.ico"));
         QVERIFY(files.contains("filedonkey_tray_icon_dark.ico"));
         QVERIFY(files.contains("filedonkey_tray_icon_light.ico"));
+        QVERIFY(files.contains("filedonkey_app_icon_symlink.ico"));
 
         QCOMPARE(result->status, 0);
-        QCOMPARE(result->count, 3);
-        QCOMPARE(result->dataSize, sizeof(FindData) * 3);
+        QCOMPARE(result->count, 4);
+        QCOMPARE(result->dataSize, sizeof(FindData) * 4);
 
         QVERIFY(files.contains((fd + 0)->name));
         QVERIFY(files.contains((fd + 1)->name));
         QVERIFY(files.contains((fd + 2)->name));
+        QVERIFY(files.contains((fd + 3)->name));
 
         QCOMPARE((fd + 0)->st_mode, 32768);
-        QCOMPARE((fd + 1)->st_mode, 32768);
+        QCOMPARE((fd + 1)->st_mode, 40960);
         QCOMPARE((fd + 2)->st_mode, 32768);
+        QCOMPARE((fd + 3)->st_mode, 32768);
 
         // Different on each machine
         // QCOMPARE((fd + 0)->st_ino, 0);
         // QCOMPARE((fd + 1)->st_ino, 0);
         // QCOMPARE((fd + 2)->st_ino, 0);
+    }
+
+    void Returns_correct_ReadlinkResult()
+    {
+        QString symLinkPath = QDir::currentPath() + "/assets/filedonkey_app_icon_symlink.ico";
+
+        const u32 BLOCK_SIZE = 65535;
+        Ref<ReadlinkResult> result = FUSEBackend::FD_readlink(symLinkPath.toStdString().c_str(), BLOCK_SIZE);
+
+        qDebug() << "result->data:" << result->data;
+        qDebug() << "appIconPath:" << appIconPath.toStdString().c_str();
+
+        std::filesystem::path appIconFSPath = appIconPath.toStdString();
+        std::filesystem::path symLinkDataPath = QString(result->data).toStdString();
+
+        QCOMPARE(result->status, 0);
+        QCOMPARE(result->size, BLOCK_SIZE);
+        QVERIFY(appIconFSPath == symLinkDataPath);
     }
 };

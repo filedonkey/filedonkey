@@ -1,6 +1,6 @@
 #define __FUSE__
 
-#if defined(__WIN32)
+#if defined(_WIN32)
 
 #include "fusebackend.h"
 #include "pread_win32.h"

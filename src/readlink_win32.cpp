@@ -1,4 +1,4 @@
-#if defined(__WIN32)
+#if defined(_WIN32)
 
 #include "readlink_win32.h"
 

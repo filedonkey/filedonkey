@@ -1,7 +1,7 @@
 #define __FUSE__
 // #define QT_NO_DEBUG_OUTPUT
 
-#if defined(__WIN32) && !defined(__FUSE__)
+#if defined(_WIN32) && !defined(__FUSE__)
 
 #include "virtdisk.h"
 #include "dokanbackend.h"

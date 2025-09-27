@@ -6,6 +6,8 @@ int main(int argc, char *argv[])
     QCoreApplication app(argc, argv);
     int result = 0;
 
+    QLoggingCategory::defaultCategory()->setEnabled(QtDebugMsg, false);
+
     {
         FUSEBackend_spec spec;
         result |= QTest::qExec(&spec, argc, argv);

@@ -178,4 +178,22 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
     return result;
 }
 
+i32 FUSEBackend::FD_write(const char *path, const char *buf, u64 size, i64 offset)
+{
+    int fd = open(path, O_WRONLY);
+    if (fd == -1)
+    {
+        return -errno;
+    }
+
+    int res = pwrite(fd, buf, size, offset);
+    if (res == -1)
+    {
+        res = -errno;
+    }
+
+    close(fd);
+    return res;
+}
+
 #endif

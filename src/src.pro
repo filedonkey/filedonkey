@@ -20,6 +20,7 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     pread_win32.cpp \
+    pwrite_win32.cpp \
     readlink_win32.cpp \
     statvfs_win32.cpp \
     virtdisk_linux.cpp \
@@ -37,6 +38,7 @@ HEADERS += \
     lstat_win32.h \
     mainwindow.h \
     pread_win32.h \
+    pwrite_win32.h \
     readlink_win32.h \
     statvfs_win32.h \
     virtdisk.h

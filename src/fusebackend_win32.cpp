@@ -4,6 +4,7 @@
 
 #include "fusebackend.h"
 #include "pread_win32.h"
+#include "pwrite_win32.h"
 #include "lstat_win32.h"
 #include "statvfs_win32.h"
 #include "readlink_win32.h"
@@ -212,6 +213,26 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
     qDebug() << "[FUSEBackend::FD_getattr] result->st_ino:" << result->st_ino;
 
     return result;
+}
+
+i32 FUSEBackend::FD_write(const char *path, const char *buf, u64 size, i64 offset)
+{
+    int fd = open(path, O_WRONLY);
+    if (fd == -1)
+    {
+        qDebug() << "[FUSEBackend::FD_write] can't open file to write";
+        return -errno;
+    }
+
+    int res = pwrite(fd, buf, size, offset);
+    if (res == -1)
+    {
+        qDebug() << "[FUSEBackend::FD_write] can't write to file";
+        res = -errno;
+    }
+
+    close(fd);
+    return res;
 }
 
 #endif

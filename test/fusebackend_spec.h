@@ -147,4 +147,34 @@ private slots:
         QCOMPARE(result->size, BLOCK_SIZE);
         QVERIFY(appIconFSPath == symLinkDataPath);
     }
+
+    void Writes_data_to_file()
+    {
+        QString filePath = QDir::currentPath() + "/assets/test.txt";
+
+        if (QFile::exists(filePath)) QFile::remove(filePath);
+
+        QFile tmp(filePath);
+        if (tmp.open(QIODevice::WriteOnly | QIODevice::Text))
+        {
+            tmp.close();
+        }
+
+        const char *data = "Hello, World!";
+        i32 result = FUSEBackend::FD_write(filePath.toStdString().c_str(), data, strlen(data), 0);
+
+        QFile file = QFile(filePath);
+        file.open(QIODeviceBase::ReadOnly);
+        char fileData[strlen(data)];
+        file.read(fileData, strlen(data));
+        file.close();
+        fileData[strlen(data)] = '\0';
+
+        QVERIFY(file.exists());
+
+        QCOMPARE(result, strlen(data));
+        QCOMPARE(strcmp(fileData, data), 0);
+
+        QFile::remove(filePath);
+    }
 };

@@ -178,6 +178,7 @@ private slots:
         char fileData[strlen(data)];
         file.read(fileData, strlen(data));
         file.close();
+        QFile::remove(filePath);
         fileData[strlen(data)] = '\0';
 
         QCOMPARE(result, strlen(data));

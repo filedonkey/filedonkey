@@ -38,13 +38,17 @@ private slots:
         QCOMPARE(result->st_mtim.tv_sec, fileModificationTime);
         QCOMPARE(result->st_ctim.tv_sec, fileStatusChangeTime);
 
+        //----------------------------------------------------------------------
         // Platfrom specific
+        //----------------------------------------------------------------------
         // QCOMPARE(result->st_dev, 0);
         // QCOMPARE(result->st_ino, 0);
         // QCOMPARE(result->st_uid, 0);
         // QCOMPARE(result->st_gid, 0);
 
+        //----------------------------------------------------------------------
         // Qt does not support ns, only ms
+        //----------------------------------------------------------------------
         // QCOMPARE(result->st_atim.tv_nsec, 0);
         // QCOMPARE(result->st_mtim.tv_nsec, 0);
         // QCOMPARE(result->st_ctim.tv_nsec, 0);
@@ -79,12 +83,16 @@ private slots:
         QCOMPARE(result->f_bavail, storageInfo.bytesAvailable() / storageInfo.blockSize());
         QCOMPARE(result->f_namemax, 255);
 
+        //----------------------------------------------------------------------
         // Not available on Windows
+        //----------------------------------------------------------------------
         // QCOMPARE(result->f_files, 0);
         // QCOMPARE(result->f_ffree, 0);
         // QCOMPARE(result->f_favail, 0);
 
+        //----------------------------------------------------------------------
         // Different on each machine
+        //----------------------------------------------------------------------
         // QCOMPARE(result->f_frsize, 4096);
         // QCOMPARE(result->f_fsid, 0);
         // QCOMPARE(result->f_flag, 0);
@@ -127,7 +135,9 @@ private slots:
         QCOMPARE((fd + 2)->st_mode, entry2mode);
         QCOMPARE((fd + 3)->st_mode, entry3mode);
 
+        //----------------------------------------------------------------------
         // Different on each machine
+        //----------------------------------------------------------------------
         // QCOMPARE((fd + 0)->st_ino, 0);
         // QCOMPARE((fd + 1)->st_ino, 0);
         // QCOMPARE((fd + 2)->st_ino, 0);

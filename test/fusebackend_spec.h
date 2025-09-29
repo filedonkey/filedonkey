@@ -162,13 +162,9 @@ private slots:
     {
         QString filePath = QDir::currentPath() + "/assets/test.txt";
 
-        if (QFile::exists(filePath)) QFile::remove(filePath);
-
         QFile tmp(filePath);
-        if (tmp.open(QIODevice::WriteOnly | QIODevice::Text))
-        {
-            tmp.close();
-        }
+        if (QFile::exists(filePath)) QFile::remove(filePath);
+        if (tmp.open(QIODevice::WriteOnly | QIODevice::Text)) tmp.close();
 
         const char *data = "Hello, World!";
         i32 result = FUSEBackend::FD_write(filePath.toStdString().c_str(), data, strlen(data), 0);

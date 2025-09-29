@@ -545,10 +545,25 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 {
     qDebug() << "[xmp_write] path: " << path;
 
+    (void) fi;
+
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_write] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+
+    i32 result = client->FD_write(path, buf, size, offset);
+
+    qDebug() << "[xmp_write] incoming result:" << result;
+
+    return result;
+    //------------------------------------------------------------------------------------
+
     int fd;
     int res;
 
-    (void) fi;
     if(fi == NULL)
         fd = open(path, O_WRONLY);
     else

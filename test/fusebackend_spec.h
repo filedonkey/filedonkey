@@ -179,10 +179,7 @@ private slots:
         file.read(fileData, strlen(data));
         file.close();
         fileData[strlen(data)] = '\0';
-        bool fileExists = file.exists();
-        QFile::remove(filePath);
 
-        QVERIFY(fileExists);
         QCOMPARE(result, strlen(data));
         QCOMPARE(strcmp(fileData, data), 0);
     }

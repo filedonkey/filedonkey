@@ -49,6 +49,7 @@ private:
 
     QByteArray readdirHandler(QByteArray payload);
     QByteArray readHandler(QByteArray payload);
+    QByteArray writeHandler(QByteArray payload);
     QByteArray readlinkHandler(QByteArray payload);
     QByteArray statfsHandler(QByteArray payload);
     QByteArray getattrHandler(QByteArray payload);

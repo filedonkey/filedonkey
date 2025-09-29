@@ -64,6 +64,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     fuseHandlers.insert("readdir", std::bind(&MainWindow::readdirHandler, this, _1));
     fuseHandlers.insert("read", std::bind(&MainWindow::readHandler, this, _1));
+    fuseHandlers.insert("write", std::bind(&MainWindow::writeHandler, this, _1));
     fuseHandlers.insert("readlink", std::bind(&MainWindow::readlinkHandler, this, _1));
     fuseHandlers.insert("statfs", std::bind(&MainWindow::statfsHandler, this, _1));
     fuseHandlers.insert("getattr", std::bind(&MainWindow::getattrHandler, this, _1));
@@ -253,6 +254,28 @@ QByteArray MainWindow::readHandler(QByteArray payload)
     QByteArray response((char *)&header, sizeof(DatagramHeader));
     response.append((char *)result.get(), sizeof(ReadResult));
     response.append((char *)result->data, result->size);
+
+    return response;
+}
+
+QByteArray MainWindow::writeHandler(QByteArray payload)
+{
+    u64 size = *(u64 *)(payload.data());
+    i64 offset = *(i64 *)(payload.sliced(sizeof(u64)).data());
+    QByteArray buf = payload.sliced(sizeof(u64) + sizeof(i64));
+    QByteArray path = payload.sliced(sizeof(u64) + sizeof(i64) + size);
+    qDebug() << "[MainWindow::readHandler] incoming size:" << size;
+    qDebug() << "[MainWindow::readHandler] incoming offset:" << offset;
+    qDebug() << "[MainWindow::readHandler] incoming path:" << path.data();
+
+    i32 result = FUSEBackend::FD_write(path.data(), buf.data(), size, offset);
+    qDebug() << "[MainWindow::readHandler] result:" << result;
+
+    DatagramHeader header("response", "fuse", "write");
+    header.datagramSize += sizeof(ReadResult) + sizeof(i32);
+
+    QByteArray response((char *)&header, sizeof(DatagramHeader));
+    response.append((char *)(&result), sizeof(i32));
 
     return response;
 }

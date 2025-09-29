@@ -42,6 +42,23 @@ Ref<ReadResult> FUSEClient::FD_read(const char *path, u64 size, i64 offset)
     return result;
 }
 
+i32 FUSEClient::FD_write(const char *path, const char *buf, u64 size, i64 offset)
+{
+    QByteArray payload;
+    payload.append((char *)(&size), sizeof(size));
+    payload.append((char *)(&offset), sizeof(offset));
+    payload.append((char *)buf, size);
+    payload.append((char *)path, strlen(path));
+
+    FetchResult incoming = Fetch("write", payload);
+
+    i32 result = *incoming.payload.data();
+
+    qDebug() << "[FUSEClient::FD_write] incoming result:" << result;
+
+    return result;
+}
+
 Ref<ReadlinkResult> FUSEClient::FD_readlink(const char *path, u64 size)
 {
     QByteArray payload((char *)&size, sizeof(u64));

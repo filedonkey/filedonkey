@@ -1,9 +1,7 @@
-QT       += core gui network
+QT       += core network
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
-
-TEMPLATE=lib        # Only for test purpose
-CONFIG += staticlib # Only for test purpose
+TEMPLATE=lib
+CONFIG += staticlib
 CONFIG += c++20
 
 # You can make your code fail to compile if it uses deprecated APIs.
@@ -17,8 +15,6 @@ SOURCES += \
     fusebackend_win32.cpp \
     fuseclient.cpp \
     lstat_win32.cpp \
-    main.cpp \
-    mainwindow.cpp \
     pread_win32.cpp \
     pwrite_win32.cpp \
     readlink_win32.cpp \
@@ -36,25 +32,15 @@ HEADERS += \
     fusebackend_types.h \
     fuseclient.h \
     lstat_win32.h \
-    mainwindow.h \
     pread_win32.h \
     pwrite_win32.h \
     readlink_win32.h \
     statvfs_win32.h \
     virtdisk.h
 
-FORMS += \
-    mainwindow.ui
-
-TRANSLATIONS += \
-    FileDonkey_en_US.ts
-
 CONFIG += lrelease
-CONFIG += embed_translations
 
 win32 {
-    # magick icon.png -define icon:auto-resize=16,32,48,64,96,128,256 -compress zip icon.ico
-    RC_ICONS += ../assets/filedonkey_app_icon.ico
     INCLUDEPATH += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/include"
     LIBS += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/lib/dokanfuse2.lib"
     QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
@@ -71,11 +57,3 @@ linux {
     LIBS += -L/usr/lib/x86_64-linux-gnu -lfuse3 -lpthread -ldl
     QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
 }
-
-# Default rules for deployment.
-qnx: target.path = /tmp/$${TARGET}/bin
-else: unix:!android: target.path = /opt/$${TARGET}/bin
-!isEmpty(target.path): INSTALLS += target
-
-RESOURCES += \
-    ../resources.qrc

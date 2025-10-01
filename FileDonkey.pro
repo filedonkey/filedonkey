@@ -1,6 +1,8 @@
 TEMPLATE=subdirs
 CONFIG += ordered
-SUBDIRS = src \
+SUBDIRS = app \
+    core \
     test
 
-test.depends = src
+app.depends = core
+test.depends = core

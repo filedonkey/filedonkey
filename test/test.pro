@@ -16,18 +16,18 @@ HEADERS += \
 SOURCES +=  \
     main.cpp
 
-INCLUDEPATH += ../src
+INCLUDEPATH += ../core
 
 win32:CONFIG(release, debug|release): {
-    LIBS += $$OUT_PWD/../src/release/libsrc.a
+    LIBS += $$OUT_PWD/../core/release/libcore.a
     # Make sure the library is built before the test
-    PRE_TARGETDEPS += $$OUT_PWD/../src/release/libsrc.a
+    PRE_TARGETDEPS += $$OUT_PWD/../core/release/libcore.a
 } else:win32:CONFIG(debug, debug|release): {
-    LIBS += $$OUT_PWD/../src/debug/libsrc.a
-    PRE_TARGETDEPS += $$OUT_PWD/../src/debug/libsrc.a
+    LIBS += $$OUT_PWD/../core/debug/libcore.a
+    PRE_TARGETDEPS += $$OUT_PWD/../core/debug/libcore.a
 } else:unix: {
-    LIBS += $$OUT_PWD/../src/libsrc.a
-    PRE_TARGETDEPS += $$OUT_PWD/../src/libsrc.a
+    LIBS += $$OUT_PWD/../core/libcore.a
+    PRE_TARGETDEPS += $$OUT_PWD/../core/libcore.a
 }
 
 COPIES += myFilesToCopy

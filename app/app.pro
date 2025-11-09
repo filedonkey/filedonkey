@@ -29,6 +29,8 @@ win32:CONFIG(release, debug|release): {
     PRE_TARGETDEPS += $$OUT_PWD/../core/libcore.a
 }
 
+include(../core/dependencies.pri)
+
 FORMS += \
     mainwindow.ui
 

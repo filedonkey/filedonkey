@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QLocale>
 #include <QTranslator>
+#include <QLoggingCategory>
 
 int main(int argc, char *argv[])
 {
@@ -17,6 +18,8 @@ int main(int argc, char *argv[])
             break;
         }
     }
+
+    // QLoggingCategory::defaultCategory()->setEnabled(QtDebugMsg, false);
 
     // QApplication::setQuitOnLastWindowClosed(false);
 

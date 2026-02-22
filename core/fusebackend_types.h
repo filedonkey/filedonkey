@@ -5,6 +5,24 @@
 
 #include <string.h>
 
+// typedef struct _WIN32_FIND_DATAW {
+//     DWORD dwFileAttributes;
+//     FILETIME ftCreationTime;
+//     FILETIME ftLastAccessTime;
+//     FILETIME ftLastWriteTime;
+//     DWORD nFileSizeHigh;
+//     DWORD nFileSizeLow;
+//     DWORD dwReserved0;
+//     DWORD dwReserved1;
+//     WCHAR cFileName[MAX_PATH];
+//     WCHAR cAlternateFileName[14];
+// #ifdef _MAC
+//     DWORD dwFileType;
+//     DWORD dwCreatorType;
+//     WORD  wFinderFlags;
+// #endif
+// } WIN32_FIND_DATAW
+
 struct FindData
 {
     char name[1024];

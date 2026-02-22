@@ -2,6 +2,8 @@
 
 #include <QDateTime>
 
+static u64 savedBytes = 0;
+
 struct CacheValue
 {
     QDateTime expirationDate;
@@ -131,6 +133,11 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
                 .payload = incoming.sliced(sizeof(DatagramHeader))
             };
 
+            savedBytes += incoming.size();
+
+            QLocale locale(QLocale::English, QLocale::UnitedStates);
+            qDebug() << "[FUSEClient::Fetch] cache bytes saved:" << locale.formattedDataSize(savedBytes).toStdString().c_str();
+
             return result;
         }
         else
@@ -212,6 +219,8 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
         qDebug() << "[FUSEClient::Fetch] incoming protocol version:" << inHeader->protocolVersion;
         qDebug() << "[FUSEClient::Fetch] incoming virt disk type:" << inHeader->virtDiskType;
         qDebug() << "[FUSEClient::Fetch] incoming operation name:" << inHeader->operationName;
+
+        assert(strcmp(header.operationName, inHeader->operationName) == 0);
 
         FetchResult result = {
             .header = *inHeader,

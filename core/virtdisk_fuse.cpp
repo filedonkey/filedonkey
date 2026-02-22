@@ -7,6 +7,8 @@
 #include "fusebackend_types.h"
 
 #include <thread>
+#include <iostream>
+#include <fileapi.h>
 
 #define FUSE_USE_VERSION 30
 
@@ -61,6 +63,14 @@ VirtDisk::~VirtDisk()
     fuse_unmount(mountpoint, ch);
 }
 
+static time_t filetimeToUnixTime(const FILETIME *ft) {
+    // if (!is_filetime_set(ft))
+    //     return 0;
+
+    ULONGLONG ll = (ULONGLONG(ft->dwHighDateTime) << 32) + ft->dwLowDateTime;
+    return time_t((ll - 116444736000000000LL) / 10000000LL);
+}
+
 static int xmp_getattr(const char *path, struct FUSE_STAT /*stat*/ *stbuf)
 {
     qDebug() << "[xmp_getattr] path: " << path;
@@ -69,29 +79,97 @@ static int xmp_getattr(const char *path, struct FUSE_STAT /*stat*/ *stbuf)
     // Network tests
     //------------------------------------------------------------------------------------
     struct fuse_context *context = fuse_get_context();
-    qDebug() << "[xmp_read] context:" << context << context->private_data;
+    qDebug() << "[xmp_getattr] context:" << context << context->private_data;
     FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
     Ref<GetattrResult> result = client->FD_getattr(path);
 
     if (result->status == 0)
     {
-        stbuf->st_dev = result->st_dev;
-        stbuf->st_ino = result->st_ino;
-        stbuf->st_nlink = result->st_nlink;
-        stbuf->st_mode = result->st_mode;
-        stbuf->st_uid = result->st_uid;
-        stbuf->st_gid = result->st_gid;
-        stbuf->st_rdev = result->st_rdev;
-        stbuf->st_size = result->st_size;
-        stbuf->st_blksize = result->st_blksize;
-        stbuf->st_blocks = result->st_blocks;
-        stbuf->st_atim.tv_sec = result->st_atim.tv_sec;
-        stbuf->st_atim.tv_nsec = result->st_atim.tv_nsec;
-        stbuf->st_mtim.tv_sec = result->st_mtim.tv_sec;
-        stbuf->st_mtim.tv_nsec = result->st_mtim.tv_nsec;
-        stbuf->st_ctim.tv_sec = result->st_ctim.tv_sec;
-        stbuf->st_ctim.tv_nsec = result->st_ctim.tv_nsec;
+
+        if (strstr(path, "cs2 console commands for ASMR.txt") != 0) {
+            WIN32_FIND_DATAW find;
+            ZeroMemory(&find, sizeof(WIN32_FIND_DATAW));
+            HANDLE findHandle = FindFirstFile(L"D:\\cs2 console commands for ASMR.txt", &find);
+            if (findHandle == INVALID_HANDLE_VALUE) {
+                DWORD error = GetLastError();
+                qDebug() << "\tFindFirstFile error code = " << error;
+            }
+            FindClose(findHandle);
+
+            stbuf->st_mode = 33188; // S_IFREG is vital for "Files"
+            stbuf->st_nlink = 1;
+            stbuf->st_dev = 0;
+            stbuf->st_ino = 2;
+            // stbuf->st_nlink = 19;
+            // stbuf->st_mode = 16877;
+            stbuf->st_uid = 0;
+            stbuf->st_gid = 0;
+            stbuf->st_rdev = 0;
+            stbuf->st_size = 146;
+            stbuf->st_blksize = 4096;
+            stbuf->st_blocks = 2;
+            stbuf->st_atim.tv_sec = 1763752599;
+            stbuf->st_atim.tv_nsec = 302761200;
+            stbuf->st_mtim.tv_sec = 1747514473;
+            stbuf->st_mtim.tv_nsec = 21076073;
+            stbuf->st_ctim.tv_sec = 1747514473;
+            stbuf->st_ctim.tv_nsec = 21076073;
+
+            stbuf->st_atim.tv_sec = filetimeToUnixTime(&find.ftLastAccessTime);
+            stbuf->st_mtim.tv_sec = filetimeToUnixTime(&find.ftLastWriteTime);
+            stbuf->st_ctim.tv_sec = filetimeToUnixTime(&find.ftCreationTime);
+
+            DWORD nFileSizeLow = static_cast<DWORD>(stbuf->st_size);
+            DWORD nFileSizeHigh = static_cast<DWORD>(stbuf->st_size >> 32);
+            qDebug() << "Low: " << nFileSizeLow << " High: " << nFileSizeHigh;
+            qDebug() << "find Low: " << find.nFileSizeLow << " High: " << find.nFileSizeHigh;
+
+            LONGLONG ll = (stbuf->st_ctim.tv_sec * 10000000LL) + 116444736000000000LL;
+            DWORD dwLowDateTime = static_cast<DWORD>(ll);
+            DWORD dwHighDateTime = static_cast<DWORD>(ll >> 32);
+
+            qDebug() << "LowDateTime: " << dwLowDateTime << " HighDateTime: " << dwHighDateTime;
+
+            qDebug() << "find CreationTime LowDateTime: " << find.ftCreationTime.dwLowDateTime << " HighDateTime: " << find.ftCreationTime.dwHighDateTime;
+            qDebug() << "find LastAccessTime LowDateTime: " << find.ftLastAccessTime.dwLowDateTime << " HighDateTime: " << find.ftLastAccessTime.dwHighDateTime;
+            qDebug() << "find LastWriteTime LowDateTime: " << find.ftLastWriteTime.dwLowDateTime << " HighDateTime: " << find.ftLastWriteTime.dwHighDateTime;
+        }
+        else {
+            stbuf->st_dev = result->st_dev;
+            stbuf->st_ino = result->st_ino;
+            stbuf->st_nlink = result->st_nlink;
+            stbuf->st_mode = result->st_mode;
+            stbuf->st_uid = result->st_uid;
+            stbuf->st_gid = result->st_gid;
+            stbuf->st_rdev = result->st_rdev;
+            stbuf->st_size = result->st_size;
+            stbuf->st_blksize = result->st_blksize;
+            stbuf->st_blocks = result->st_blocks;
+            stbuf->st_atim.tv_sec = result->st_atim.tv_sec;
+            stbuf->st_atim.tv_nsec = result->st_atim.tv_nsec;
+            stbuf->st_mtim.tv_sec = result->st_mtim.tv_sec;
+            stbuf->st_mtim.tv_nsec = result->st_mtim.tv_nsec;
+            stbuf->st_ctim.tv_sec = result->st_ctim.tv_sec;
+            stbuf->st_ctim.tv_nsec = result->st_ctim.tv_nsec;
+        }
+
+
+        qDebug() << "\tst_atimespec" << stbuf->st_atim.tv_sec << stbuf->st_atim.tv_nsec;
+        qDebug() << "\tst_birthtimespec" << stbuf->st_birthtim.tv_sec << stbuf->st_birthtim.tv_nsec;
+        qDebug() << "\tst_blksize" << stbuf->st_blksize;
+        qDebug() << "\tst_blocks" << stbuf->st_blocks;
+        qDebug() << "\tst_ctimespec" << stbuf->st_ctim.tv_sec << stbuf->st_ctim.tv_nsec;
+        qDebug() << "\tst_dev" << stbuf->st_dev;
+        qDebug() << "\tst_gid" << stbuf->st_gid;
+        qDebug() << "\tst_ino" << stbuf->st_ino;
+        qDebug() << "\tst_mode" << stbuf->st_mode;
+        qDebug() << "\tst_mtimespec" << stbuf->st_mtim.tv_sec << stbuf->st_mtim.tv_nsec;
+        qDebug() << "\tst_nlink" << stbuf->st_nlink;
+        qDebug() << "\tst_rdev" << stbuf->st_rdev;
+        qDebug() << "\tst_size" << stbuf->st_size;
+        qDebug() << "\tst_uid" << stbuf->st_uid;
+        qDebug() << "\t";
     }
 
     return result->status;
@@ -201,6 +279,15 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
         st.st_ino = fd->st_ino;
         st.st_mode = fd->st_mode;
+        st.st_size = 146;
+        st.st_blksize = 4096;
+        st.st_blocks = 2;
+        st.st_atim.tv_sec = 1763752599;
+        st.st_atim.tv_nsec = 302761200;
+        st.st_mtim.tv_sec = 1747514473;
+        st.st_mtim.tv_nsec = 21076073;
+        st.st_ctim.tv_sec = 1747514473;
+        st.st_ctim.tv_nsec = 21076073;
 
         filler(buf, fd->name, &st, /*nextoff*/0);
     }
@@ -422,6 +509,9 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
     qDebug() << "[xmp_read] context:" << context << context->private_data;
     FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
+    qDebug() << "[xmp_read] size:" << size;
+    qDebug() << "[xmp_read] offset:" << offset;
+
     Ref<ReadResult> result = client->FD_read(path, size, offset);
 
     qDebug() << "[xmp_read] incoming result status:" << result->status;
@@ -500,7 +590,7 @@ static int xmp_statfs(const char *path, struct statvfs *stbuf)
     // Network tests
     //------------------------------------------------------------------------------------
     struct fuse_context *context = fuse_get_context();
-    qDebug() << "[xmp_read] context:" << context << context->private_data;
+    qDebug() << "[xmp_statfs] context:" << context << context->private_data;
     FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
 
     Ref<StatfsResult> result = client->FD_statfs(path);

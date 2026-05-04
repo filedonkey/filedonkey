@@ -111,40 +111,40 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
     //------------------------------------------------------------------------------------
     // Caching
     //------------------------------------------------------------------------------------
-    QString cacheKey = QString("%1%2%3").arg(conn->machineId).arg(operationName).arg(payload);
+    // QString cacheKey = QString("%1%2%3").arg(conn->machineId).arg(operationName).arg(payload);
 
-    if (netCache.contains(cacheKey))
-    {
-        CacheValue value = netCache.value(cacheKey);
-        if (value.expirationDate > QDateTime::currentDateTimeUtc())
-        {
-            QByteArray incoming = value.response;
+    // if (netCache.contains(cacheKey))
+    // {
+    //     CacheValue value = netCache.value(cacheKey);
+    //     if (value.expirationDate > QDateTime::currentDateTimeUtc())
+    //     {
+    //         QByteArray incoming = value.response;
 
-            DatagramHeader *inHeader;
-            DatagramHeader::ReadFrom(&inHeader, incoming.data());
+    //         DatagramHeader *inHeader;
+    //         DatagramHeader::ReadFrom(&inHeader, incoming.data());
 
-            // qDebug() << "[FUSEClient::Fetch] cached message type:" << inHeader->messageType;
-            // qDebug() << "[FUSEClient::Fetch] cached protocol version:" << inHeader->protocolVersion;
-            // qDebug() << "[FUSEClient::Fetch] cached virt disk type:" << inHeader->virtDiskType;
-            // qDebug() << "[FUSEClient::Fetch] cached operation name:" << inHeader->operationName;
+    //         // qDebug() << "[FUSEClient::Fetch] cached message type:" << inHeader->messageType;
+    //         // qDebug() << "[FUSEClient::Fetch] cached protocol version:" << inHeader->protocolVersion;
+    //         // qDebug() << "[FUSEClient::Fetch] cached virt disk type:" << inHeader->virtDiskType;
+    //         // qDebug() << "[FUSEClient::Fetch] cached operation name:" << inHeader->operationName;
 
-            FetchResult result = {
-                .header = *inHeader,
-                .payload = incoming.sliced(sizeof(DatagramHeader))
-            };
+    //         FetchResult result = {
+    //             .header = *inHeader,
+    //             .payload = incoming.sliced(sizeof(DatagramHeader))
+    //         };
 
-            savedBytes += incoming.size();
+    //         savedBytes += incoming.size();
 
-            QLocale locale(QLocale::English, QLocale::UnitedStates);
-            qDebug() << "[FUSEClient::Fetch] cache bytes saved:" << locale.formattedDataSize(savedBytes).toStdString().c_str();
+    //         QLocale locale(QLocale::English, QLocale::UnitedStates);
+    //         qDebug() << "[FUSEClient::Fetch] cache bytes saved:" << locale.formattedDataSize(savedBytes).toStdString().c_str();
 
-            return result;
-        }
-        else
-        {
-            netCache.remove(cacheKey);
-        }
-    }
+    //         return result;
+    //     }
+    //     else
+    //     {
+    //         netCache.remove(cacheKey);
+    //     }
+    // }
     //------------------------------------------------------------------------------------
 
     qDebug() << "[FUSEClient::Fetch] machineId: " << conn->machineId;
@@ -201,11 +201,11 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
         //--------------------------------------------------------------------------------
         // Caching
         //--------------------------------------------------------------------------------
-        CacheValue value = {
-            .expirationDate = QDateTime::currentDateTimeUtc().addSecs(15),
-            .response = incoming
-        };
-        netCache.insert(cacheKey, value);
+        // CacheValue value = {
+        //     .expirationDate = QDateTime::currentDateTimeUtc().addSecs(15),
+        //     .response = incoming
+        // };
+        // netCache.insert(cacheKey, value);
         //--------------------------------------------------------------------------------
 
         qDebug() << "[FUSEClient::Fetch] count:" << count;

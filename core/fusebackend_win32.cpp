@@ -13,7 +13,7 @@
 #include <QRandomGenerator>
 
 #include <stdlib.h>
-#include <fuse/fuse_win.h>
+#include <fuse/winfsp_fuse.h>
 #include <stdlib.h>
 #include <dirent.h>
 #include <fileapi.h>
@@ -156,7 +156,7 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 {
     Ref<StatfsResult> result = MakeRef<StatfsResult>();
 
-    struct statvfs stbuf;
+    struct fuse_statvfs stbuf;
 
     int res = statvfs(path, &stbuf);
     if (res == -1)
@@ -184,7 +184,7 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 {
     Ref<GetattrResult> result = MakeRef<GetattrResult>();
 
-    struct FUSE_STAT stbuf;
+    struct fuse_stat stbuf;
 
     int res = lstat(path, &stbuf);
     if (res == -1)

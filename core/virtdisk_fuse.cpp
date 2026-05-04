@@ -27,7 +27,8 @@
 #define _XOPEN_SOURCE 700
 #endif
 
-#include <fuse.h>
+#include <fuse/fuse.h>
+#include <fuse/winfsp_fuse.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -71,7 +72,7 @@ static time_t filetimeToUnixTime(const FILETIME *ft) {
     return time_t((ll - 116444736000000000LL) / 10000000LL);
 }
 
-static int xmp_getattr(const char *path, struct FUSE_STAT /*stat*/ *stbuf)
+static int xmp_getattr(const char *path, struct fuse_stat /*stat*/ *stbuf)
 {
     qDebug() << "[xmp_getattr] path: " << path;
 
@@ -152,6 +153,12 @@ static int xmp_getattr(const char *path, struct FUSE_STAT /*stat*/ *stbuf)
             stbuf->st_mtim.tv_nsec = result->st_mtim.tv_nsec;
             stbuf->st_ctim.tv_sec = result->st_ctim.tv_sec;
             stbuf->st_ctim.tv_nsec = result->st_ctim.tv_nsec;
+
+            if (QString(path) == QString("/home/vboxuser"))
+            {
+                qDebug() << "custome mode for vboxuser";
+                stbuf->st_mode = 16877;
+            }
         }
 
 
@@ -265,7 +272,7 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
     Ref<ReaddirResult> result = client->FD_readdir(path);
 
-    struct FUSE_STAT st;
+    struct fuse_stat st;
     memset(&st, 0, sizeof(st));
 
     qDebug() << "before for";
@@ -350,7 +357,7 @@ static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)
     return 0;
 }
 
-static int xmp_mkdir(const char *path, mode_t mode)
+static int xmp_mkdir(const char *path, fuse_mode_t mode)
 {
     qDebug() << "[xmp_mkdir] path: " << path;
 
@@ -441,7 +448,7 @@ static int xmp_chmod(const char *path, mode_t mode)
     return 0;
 }
 
-static int xmp_chown(const char *path, uid_t uid, gid_t gid)
+static int xmp_chown(const char *path, fuse_uid_t uid, fuse_gid_t gid)
 {
     qDebug() << "[xmp_chown] path: " << path;
 
@@ -481,7 +488,7 @@ static int xmp_utimens(const char *path, const struct timespec ts[2])
 }
 #endif
 
-static int xmp_create(const char *path, mode_t mode, struct fuse_file_info *fi)
+static int xmp_create(const char *path, fuse_mode_t mode, struct fuse_file_info *fi)
 {
     qDebug() << "[xmp_create] path: " << path;
 
@@ -596,7 +603,7 @@ static int xmp_write(const char *path, const char *buf, size_t size,
     return 0;
 }
 
-static int xmp_statfs(const char *path, struct statvfs *stbuf)
+static int xmp_statfs(const char *path, struct fuse_statvfs *stbuf)
 {
     qDebug() << "[xmp_statfs] path: " << path;
 
@@ -776,6 +783,8 @@ static int xmp_removexattr(const char *path, const char *name)
   - utimens
   - bmap
  */
+
+// WinFsp FUSE: https://github.com/winfsp/winfsp/blob/master/tst/winfsp-tests/fuse-test.c
 
 static struct fuse_operations xmp_oper = {
     // Minimal v1 operation set.

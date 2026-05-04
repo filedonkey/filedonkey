@@ -1,7 +1,8 @@
 #if defined(_WIN32)
 
 #include <windows.h>
-#include <fuse.h>
+#include <fuse/fuse.h>
+#include <fuse/winfsp_fuse.h>
 #include <iostream>
 #include <string>
 
@@ -10,7 +11,7 @@
 #define WIN_ST_NOSUID      0x00000002  // No support for ST_ISUID and ST_ISGID file mode bits
 
 // Function to get statvfs-like information on Windows
-int statvfs(const char* path, struct statvfs* buf) {
+int statvfs(const char* path, struct fuse_statvfs* buf) {
     if (!path || !buf) {
         return -1;  // Invalid parameters
     }

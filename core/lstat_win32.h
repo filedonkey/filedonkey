@@ -3,9 +3,9 @@
 
 #if defined(_WIN32)
 
-#include <fuse.h>
+#include <fuse/fuse.h>
 
-int lstat(const char* path, struct FUSE_STAT* buf);
+int lstat(const char* path, struct fuse_stat* buf);
 
 #endif // _WIN32
 

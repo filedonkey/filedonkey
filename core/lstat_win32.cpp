@@ -1,7 +1,8 @@
 #if defined(_WIN32)
 
 #include <windows.h>
-#include <fuse.h>
+#include <fuse/fuse.h>
+#include <fuse/winfsp_fuse.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/timeb.h>
@@ -47,7 +48,7 @@
 #define WIN_S_ISSOCK(m) (((m) & WIN_S_IFMT) == WIN_S_IFSOCK)
 
 // Function to convert Windows FILETIME to timestruc_t
-void FileTimeToTimestruc(const FILETIME &ft, timestruc_t &ts) {
+void FileTimeToTimestruc(const FILETIME &ft, fuse_timespec &ts) {
     ULARGE_INTEGER uli;
     uli.LowPart = ft.dwLowDateTime;
     uli.HighPart = ft.dwHighDateTime;
@@ -65,14 +66,14 @@ void FileTimeToTimestruc(const FILETIME &ft, timestruc_t &ts) {
 }
 
 // Windows equivalent of lstat
-int lstat(const char* path, struct FUSE_STAT* buf) {
+int lstat(const char* path, struct fuse_stat* buf) {
     if (!path || !buf) {
         SetLastError(ERROR_INVALID_PARAMETER);
         return -1;
     }
 
     // Initialize the structure
-    memset(buf, 0, sizeof(struct FUSE_STAT));
+    memset(buf, 0, sizeof(struct fuse_stat));
 
     // Convert to wide string for Unicode API
     int wchars_needed = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);

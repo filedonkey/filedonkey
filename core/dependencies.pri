@@ -1,7 +1,18 @@
 win32 {
-    INCLUDEPATH += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/include"
-    LIBS += "$$(ProgramFiles)/Dokan/Dokan Library-2.2.1/lib/dokanfuse2.lib"
+    WinFsp = $$system(echo %ProgramFiles(x86)%)\WinFsp
+
+    INCLUDEPATH += "$${WinFsp}\inc"
+    LIBS += "$${WinFsp}\lib\winfsp-x64.lib"
     QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
+
+    WINFSP_DLL = $$shell_path($${WinFsp}/bin/winfsp-x64.dll)
+    CONFIG(debug, debug|release) {
+        OUT_DIR = $$shell_path($$OUT_PWD/debug)
+    } else {
+        OUT_DIR = $$shell_path($$OUT_PWD/release)
+    }
+
+    QMAKE_POST_LINK += xcopy /Y /Q \"$${WINFSP_DLL}\" \"$${OUT_DIR}\\\" &
 }
 
 macx {

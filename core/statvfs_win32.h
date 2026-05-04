@@ -3,9 +3,9 @@
 
 #if defined(_WIN32)
 
-#include <fuse/fuse_win.h>
+#include <fuse/winfsp_fuse.h>
 
-int statvfs(const char* path, struct statvfs* buf);
+int statvfs(const char* path, struct fuse_statvfs* buf);
 
 #endif // _WIN32
 

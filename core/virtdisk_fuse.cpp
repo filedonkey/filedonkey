@@ -481,6 +481,20 @@ static int xmp_utimens(const char *path, const struct timespec ts[2])
 }
 #endif
 
+static int xmp_create(const char *path, mode_t mode, struct fuse_file_info *fi)
+{
+    qDebug() << "[xmp_create] path: " << path;
+
+    int res;
+
+    res = open(path, fi->flags, mode);
+    if (res == -1)
+        return -errno;
+
+    fi->fh = res;
+    return 0;
+}
+
 static int xmp_open(const char *path, struct fuse_file_info *fi)
 {
     qDebug() << "[xmp_open] path: " << path;
@@ -764,38 +778,26 @@ static int xmp_removexattr(const char *path, const char *name)
  */
 
 static struct fuse_operations xmp_oper = {
+    // Minimal v1 operation set.
     .getattr	= xmp_getattr,
     .readlink	= xmp_readlink,
-    .mknod		= xmp_mknod,
     .mkdir		= xmp_mkdir,
     .unlink		= xmp_unlink,
     .rmdir		= xmp_rmdir,
-    .symlink	= xmp_symlink,
     .rename		= xmp_rename,
-    .link		= xmp_link,
-    .chmod		= xmp_chmod,
-    .chown		= xmp_chown,
     .truncate	= xmp_truncate,
-#ifdef HAVE_UTIMENSAT
-    .utimens	= xmp_utimens,
-#endif
     .open		= xmp_open,
     .read		= xmp_read,
     .write		= xmp_write,
     .statfs		= xmp_statfs,
     .release	= xmp_release,
     .fsync		= xmp_fsync,
+#ifdef HAVE_UTIMENSAT
+    .utimens	= xmp_utimens,
+#endif
     .readdir	= xmp_readdir,
-#ifdef HAVE_POSIX_FALLOCATE
-    .fallocate	= xmp_fallocate,
-#endif
-#ifdef HAVE_SETXATTR
-    .setxattr	= xmp_setxattr,
-    .getxattr	= xmp_getxattr,
-    .listxattr	= xmp_listxattr,
-    .removexattr	= xmp_removexattr,
-#endif
     .access		= xmp_access,
+    .create		= xmp_create,
 };
 
 // What was used during navigation:

@@ -789,44 +789,27 @@ static off_t xmp_lseek(const char *path, off_t off, int whence, struct fuse_file
 }
 
 static const struct fuse_operations xmp_oper = {
+    // Minimal v1 operation set.
     .getattr	= xmp_getattr,
+    .readdir	= xmp_readdir,
     .readlink	= xmp_readlink,
-    .mknod		= xmp_mknod,
     .mkdir		= xmp_mkdir,
     .unlink		= xmp_unlink,
     .rmdir		= xmp_rmdir,
-    .symlink	= xmp_symlink,
     .rename		= xmp_rename,
-    .link		= xmp_link,
-    .chmod		= xmp_chmod,
-    .chown		= xmp_chown,
     .truncate	= xmp_truncate,
     .open		= xmp_open,
     .read		= xmp_read,
     .write		= xmp_write,
-    .statfs		= xmp_statfs,
+    .create 	= xmp_create,
     .release	= xmp_release,
     .fsync		= xmp_fsync,
-#ifdef HAVE_SETXATTR
-    .setxattr	= xmp_setxattr,
-    .getxattr	= xmp_getxattr,
-    .listxattr	= xmp_listxattr,
-    .removexattr	= xmp_removexattr,
-#endif
-    .readdir	= xmp_readdir,
+    .statfs		= xmp_statfs,
     .init       = xmp_init,
     .access		= xmp_access,
 #ifdef HAVE_UTIMENSAT
     .utimens	= xmp_utimens,
 #endif
-    .create 	= xmp_create,
-#ifdef HAVE_POSIX_FALLOCATE
-    .fallocate	= xmp_fallocate,
-#endif
-#ifdef HAVE_COPY_FILE_RANGE
-    .copy_file_range = xmp_copy_file_range,
-#endif
-    .lseek		= xmp_lseek,
 };
 
 // What was used during navigation:

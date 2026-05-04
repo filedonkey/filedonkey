@@ -1182,6 +1182,7 @@ static int xmp_flock(const char *path, struct fuse_file_info *fi, int op)
 #endif
 
 static struct fuse_operations xmp_oper = {
+    // Minimal v1 operation set.
     .init	   	= xmp_init,
     .destroy	= xmp_destroy,
     .getattr	= xmp_getattr,
@@ -1190,57 +1191,24 @@ static struct fuse_operations xmp_oper = {
     .access		= xmp_access,
 #endif
     .readlink	= xmp_readlink,
-//    .opendir	= xmp_opendir,
     .readdir	= xmp_readdir,
-//    .releasedir	= xmp_releasedir,
-    .mknod		= xmp_mknod,
     .mkdir		= xmp_mkdir,
-    .symlink	= xmp_symlink,
     .unlink		= xmp_unlink,
     .rmdir		= xmp_rmdir,
     .rename		= xmp_rename,
-    .link		= xmp_link,
-    .chmod		= xmp_chmod,
-    .chown		= xmp_chown,
     .truncate	= xmp_truncate,
     .ftruncate	= xmp_ftruncate,
 #ifdef HAVE_UTIMENSAT
     .utimens	= xmp_utimens,
 #endif
     .create		= xmp_create,
-//    .open		= xmp_open,
+    .open		= xmp_open,
     .read		= xmp_read,
-//    .read_buf	= xmp_read_buf,
     .write		= xmp_write,
-//    .write_buf	= xmp_write_buf,
     .statfs		= xmp_statfs,
     .flush		= xmp_flush,
-//    .release	= xmp_release,
+    .release	= xmp_release,
     .fsync		= xmp_fsync,
-#if defined(HAVE_POSIX_FALLOCATE) || defined(__APPLE__)
-    .fallocate	= xmp_fallocate,
-#endif
-#ifdef HAVE_SETXATTR
-    .setxattr	= xmp_setxattr,
-    .getxattr	= xmp_getxattr,
-    .listxattr	= xmp_listxattr,
-    .removexattr	= xmp_removexattr,
-#endif
-#ifndef __APPLE__
-    .lock		= xmp_lock,
-    .flock		= xmp_flock,
-#endif
-#ifdef __APPLE__
-    .setvolname	= xmp_setvolname,
-    .exchange	= xmp_exchange,
-    .getxtimes	= xmp_getxtimes,
-    .setbkuptime	= xmp_setbkuptime,
-    .setchgtime	= xmp_setchgtime,
-    .setcrtime	= xmp_setcrtime,
-    .chflags	= xmp_chflags,
-    .setattr_x	= xmp_setattr_x,
-    .fsetattr_x	= xmp_fsetattr_x,
-#endif
 
     .flag_nullpath_ok = 1,
 #if HAVE_UTIMENSAT

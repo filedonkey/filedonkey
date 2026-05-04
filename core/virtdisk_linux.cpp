@@ -791,7 +791,6 @@ static off_t xmp_lseek(const char *path, off_t off, int whence, struct fuse_file
 static const struct fuse_operations xmp_oper = {
     // Minimal v1 operation set.
     .getattr	= xmp_getattr,
-    .readdir	= xmp_readdir,
     .readlink	= xmp_readlink,
     .mkdir		= xmp_mkdir,
     .unlink		= xmp_unlink,
@@ -801,12 +800,13 @@ static const struct fuse_operations xmp_oper = {
     .open		= xmp_open,
     .read		= xmp_read,
     .write		= xmp_write,
-    .create 	= xmp_create,
+    .statfs		= xmp_statfs,
     .release	= xmp_release,
     .fsync		= xmp_fsync,
-    .statfs		= xmp_statfs,
+    .readdir	= xmp_readdir,
     .init       = xmp_init,
     .access		= xmp_access,
+    .create 	= xmp_create,
 #ifdef HAVE_UTIMENSAT
     .utimens	= xmp_utimens,
 #endif

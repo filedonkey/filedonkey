@@ -17,9 +17,6 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
     DIR *dp;
     struct dirent *de;
 
-//    std::string homePath = getenv("HOME");
-//    homePath += path;
-
     dp = opendir(path);
     if (dp == NULL)
     {
@@ -81,8 +78,6 @@ Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
 {
     Ref<ReadlinkResult> result = MakeRef<ReadlinkResult>(size);
 
-//    std::string homePath = getenv("HOME");
-//    homePath += path;
 
     int res = readlink(path, result->data, size - 1);
     if (res == -1)
@@ -102,8 +97,7 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 
     struct statvfs stbuf;
 
-//    std::string homePath = getenv("HOME");
-//    homePath += path;
+
 
     int res = statvfs(path, &stbuf);
     if (res == -1)
@@ -112,7 +106,6 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
         return result;
     }
 
-//    memcpy(result.get() + sizeof(result->status), &stbuf, sizeof(stbuf));
 
     result->f_bsize = stbuf.f_bsize;
     result->f_frsize = stbuf.f_frsize;
@@ -135,9 +128,6 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 
     struct stat stbuf;
 
-//    std::string homePath = getenv("HOME");
-//    homePath += path;
-
     int res = lstat(path, &stbuf);
     if (res == -1)
     {
@@ -145,7 +135,6 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
         return result;
     }
 
-//    memcpy(result.get() + sizeof(result->status), &stbuf, sizeof(stbuf));
 
     result->st_dev = stbuf.st_dev;
     result->st_ino = stbuf.st_ino;

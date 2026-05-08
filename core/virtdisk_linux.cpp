@@ -170,25 +170,13 @@ static int xmp_getattr(const char *path, struct stat *stbuf,
 
     //------------------------------------------------------------------------------------
 
-    // (void) fi;
-    // int res;
-
-    // res = lstat(path, stbuf);
-    // if (res == -1)
-    //     return -errno;
-
-    // return 0;
 }
 
 static int xmp_access(const char *path, int mask)
 {
     qDebug() << "[xmp_access] path: " << path;
 
-//    int res;
 
-//    res = access(path, mask);
-//    if (res == -1)
-//        return -errno;
 
     return 0;
 }
@@ -214,14 +202,7 @@ static int xmp_readlink(const char *path, char *buf, size_t size)
     return result->status;
     //------------------------------------------------------------------------------------
 
-    // int res;
 
-    // res = readlink(path, buf, size - 1);
-    // if (res == -1)
-    //     return -errno;
-
-    // buf[res] = '\0';
-    // return 0;
 }
 
 
@@ -471,21 +452,7 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 {
     qDebug() << "[xmp_open] path: " << path;
 
-//    int res;
 
-//    res = open(path, fi->flags);
-//    if (res == -1)
-//        return -errno;
-
-//    /* Enable direct_io when open has flags O_DIRECT to enjoy the feature
-//        parallel_direct_writes (i.e., to get a shared lock, not exclusive lock,
-//        for writes to the same file). */
-//    if (fi->flags & O_DIRECT) {
-//        fi->direct_io = 1;
-////        fi->parallel_direct_writes = 1;
-//    }
-
-//    fi->fh = res;
     return 0;
 }
 
@@ -508,7 +475,7 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
     qDebug() << "[xmp_read] incoming result status:" << result->status;
     qDebug() << "[xmp_read] incoming result size:" << result->size;
     qDebug() << "[xmp_read] incoming result length:" << strlen(result->data);
-//    qDebug() << "[xmp_read] incoming result data:" << result->data;
+
 
     memset(buf, 0, size);
 
@@ -626,8 +593,7 @@ static int xmp_release(const char *path, struct fuse_file_info *fi)
 {
     qDebug() << "[xmp_release] path: " << path;
 
-//    (void) path;
-//    close(fi->fh);
+
     return 0;
 }
 
@@ -862,19 +828,7 @@ static void Start(VirtDisk *self, Connection *conn)
             fuse_unmount(f);
             fuse_destroy(f);
 
-    // int ret = fuse_main_real(args.argc, args.argv, &xmp_oper,
-    //                          sizeof(xmp_oper), (void *)conn);
 
-//    umask(0);
-//        loopback.blocksize = 4096;
-//        loopback.case_insensitive = 0;
-//        if (fuse_opt_parse(&args, &loopback, loopback_opts, NULL) == -1) {
-//            exit(1);
-//        }
-//    qDebug() << "before fuse_main call";
-//     int res = fuse_main(argc, argv, &xmp_oper, conn);
-//     qDebug() << "fuse_main result: " << res;
-//     fuse_opt_free_args(&args);
 }
 
 void VirtDisk::mount(const QString &mountPoint)
@@ -883,36 +837,11 @@ void VirtDisk::mount(const QString &mountPoint)
     char *argv[] = {"FileDonkey", "/Users/Guest/Public/fuse/", "-o", "volname=Windows PC"};
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
-//    loopback.blocksize = 4096;
-//    loopback.case_insensitive = 0;
-//    if (fuse_opt_parse(&args, &loopback, loopback_opts, NULL) == -1) {
-//        exit(1);
-//    }
 
-//    umask(0);
-//    int res = fuse_main(args.argc, args.argv, &loopback_oper, NULL);
-
-//    qDebug() << "fuse_main result: " << res;
 
     thread = std::thread(Start, this, &conn);
 }
 
-//int main(int argc, char *argv[])
-//{
-//    enum { MAX_ARGS = 10 };
-//    int i,new_argc;
-//    char *new_argv[MAX_ARGS];
 
-//    umask(0);
-//    /* Process the "--plus" option apart */
-//    for (i=0, new_argc=0; (i<argc) && (new_argc<MAX_ARGS); i++) {
-//        if (!strcmp(argv[i], "--plus")) {
-//            fill_dir_plus = FUSE_FILL_DIR_PLUS;
-//        } else {
-//            new_argv[new_argc++] = argv[i];
-//        }
-//    }
-//    return fuse_main(new_argc, new_argv, &xmp_oper, NULL);
-//}
 
 #endif

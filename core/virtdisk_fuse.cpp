@@ -87,80 +87,27 @@ static int xmp_getattr(const char *path, struct fuse_stat /*stat*/ *stbuf)
 
     if (result->status == 0)
     {
+        stbuf->st_dev = result->st_dev;
+        stbuf->st_ino = result->st_ino;
+        stbuf->st_nlink = result->st_nlink;
+        stbuf->st_mode = result->st_mode;
+        stbuf->st_uid = result->st_uid;
+        stbuf->st_gid = result->st_gid;
+        stbuf->st_rdev = result->st_rdev;
+        stbuf->st_size = result->st_size;
+        stbuf->st_blksize = result->st_blksize;
+        stbuf->st_blocks = result->st_blocks;
+        stbuf->st_atim.tv_sec = result->st_atim.tv_sec;
+        stbuf->st_atim.tv_nsec = result->st_atim.tv_nsec;
+        stbuf->st_mtim.tv_sec = result->st_mtim.tv_sec;
+        stbuf->st_mtim.tv_nsec = result->st_mtim.tv_nsec;
+        stbuf->st_ctim.tv_sec = result->st_ctim.tv_sec;
+        stbuf->st_ctim.tv_nsec = result->st_ctim.tv_nsec;
 
-        if (strstr(path, "cs2 console commands for ASMR.txt") != 0) {
-            WIN32_FIND_DATAW find;
-            ZeroMemory(&find, sizeof(WIN32_FIND_DATAW));
-            HANDLE findHandle = FindFirstFile(L"D:\\cs2 console commands for ASMR.txt", &find);
-            if (findHandle == INVALID_HANDLE_VALUE) {
-                DWORD error = GetLastError();
-                qDebug() << "\tFindFirstFile error code = " << error;
-            }
-            FindClose(findHandle);
-
-            stbuf->st_mode = 33188; // S_IFREG is vital for "Files"
-            stbuf->st_nlink = 1;
-            stbuf->st_dev = 0;
-            stbuf->st_ino = 2;
-            // stbuf->st_nlink = 19;
-            // stbuf->st_mode = 16877;
-            stbuf->st_uid = 0;
-            stbuf->st_gid = 0;
-            stbuf->st_rdev = 0;
-            stbuf->st_size = 146;
-            stbuf->st_blksize = 4096;
-            stbuf->st_blocks = 2;
-            stbuf->st_atim.tv_sec = 1763752599;
-            stbuf->st_atim.tv_nsec = 302761200;
-            stbuf->st_mtim.tv_sec = 1747514473;
-            stbuf->st_mtim.tv_nsec = 21076073;
-            stbuf->st_ctim.tv_sec = 1747514473;
-            stbuf->st_ctim.tv_nsec = 21076073;
-
-            stbuf->st_atim.tv_sec = filetimeToUnixTime(&find.ftLastAccessTime);
-            stbuf->st_mtim.tv_sec = filetimeToUnixTime(&find.ftLastWriteTime);
-            stbuf->st_ctim.tv_sec = filetimeToUnixTime(&find.ftCreationTime);
-
-            DWORD nFileSizeLow = static_cast<DWORD>(stbuf->st_size);
-            DWORD nFileSizeHigh = static_cast<DWORD>(stbuf->st_size >> 32);
-            qDebug() << "Low: " << nFileSizeLow << " High: " << nFileSizeHigh;
-            qDebug() << "find Low: " << find.nFileSizeLow << " High: " << find.nFileSizeHigh;
-
-            LONGLONG ll = (stbuf->st_ctim.tv_sec * 10000000LL) + 116444736000000000LL;
-            DWORD dwLowDateTime = static_cast<DWORD>(ll);
-            DWORD dwHighDateTime = static_cast<DWORD>(ll >> 32);
-
-            qDebug() << "LowDateTime: " << dwLowDateTime << " HighDateTime: " << dwHighDateTime;
-
-            qDebug() << "find CreationTime LowDateTime: " << find.ftCreationTime.dwLowDateTime << " HighDateTime: " << find.ftCreationTime.dwHighDateTime;
-            qDebug() << "find LastAccessTime LowDateTime: " << find.ftLastAccessTime.dwLowDateTime << " HighDateTime: " << find.ftLastAccessTime.dwHighDateTime;
-            qDebug() << "find LastWriteTime LowDateTime: " << find.ftLastWriteTime.dwLowDateTime << " HighDateTime: " << find.ftLastWriteTime.dwHighDateTime;
+        if (QString(path) == QString("/home/vboxuser")) {
+            qDebug() << "custome mode for vboxuser";
+            stbuf->st_mode = 16877;
         }
-        else {
-            stbuf->st_dev = result->st_dev;
-            stbuf->st_ino = result->st_ino;
-            stbuf->st_nlink = result->st_nlink;
-            stbuf->st_mode = result->st_mode;
-            stbuf->st_uid = result->st_uid;
-            stbuf->st_gid = result->st_gid;
-            stbuf->st_rdev = result->st_rdev;
-            stbuf->st_size = result->st_size;
-            stbuf->st_blksize = result->st_blksize;
-            stbuf->st_blocks = result->st_blocks;
-            stbuf->st_atim.tv_sec = result->st_atim.tv_sec;
-            stbuf->st_atim.tv_nsec = result->st_atim.tv_nsec;
-            stbuf->st_mtim.tv_sec = result->st_mtim.tv_sec;
-            stbuf->st_mtim.tv_nsec = result->st_mtim.tv_nsec;
-            stbuf->st_ctim.tv_sec = result->st_ctim.tv_sec;
-            stbuf->st_ctim.tv_nsec = result->st_ctim.tv_nsec;
-
-            if (QString(path) == QString("/home/vboxuser"))
-            {
-                qDebug() << "custome mode for vboxuser";
-                stbuf->st_mode = 16877;
-            }
-        }
-
 
         qDebug() << "\tst_atimespec" << stbuf->st_atim.tv_sec << stbuf->st_atim.tv_nsec;
         qDebug() << "\tst_birthtimespec" << stbuf->st_birthtim.tv_sec << stbuf->st_birthtim.tv_nsec;

@@ -39,7 +39,7 @@ Ref<ReadResult> FUSEClient::FD_read(const char *path, u64 size, i64 offset)
 
     qDebug() << "[FUSEClient::FD_read] incoming result status:" << result->status;
     qDebug() << "[FUSEClient::FD_read] incoming result size:" << result->size;
-//    qDebug() << "[FUSEClient::FD_read] incoming result data:" << result->data;
+
 
     return result;
 }
@@ -123,10 +123,6 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
             DatagramHeader *inHeader;
             DatagramHeader::ReadFrom(&inHeader, incoming.data());
 
-            // qDebug() << "[FUSEClient::Fetch] cached message type:" << inHeader->messageType;
-            // qDebug() << "[FUSEClient::Fetch] cached protocol version:" << inHeader->protocolVersion;
-            // qDebug() << "[FUSEClient::Fetch] cached virt disk type:" << inHeader->virtDiskType;
-            // qDebug() << "[FUSEClient::Fetch] cached operation name:" << inHeader->operationName;
 
             FetchResult result = {
                 .header = *inHeader,

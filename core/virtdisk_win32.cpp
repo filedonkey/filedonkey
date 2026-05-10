@@ -1,1054 +1,847 @@
-#define __FUSE__
-// #define QT_NO_DEBUG_OUTPUT
-
-#if defined(_WIN32) && !defined(__FUSE__)
+#if defined(_WIN32)
 
 #include "virtdisk.h"
-#include "dokanbackend.h"
+#include "fuseclient.h"
+#include "fusebackend_types.h"
 
-#include <QDebug>
-#include <QJsonObject>
-#include <QJsonDocument>
-#include <QByteArray>
-#include <dokan/dokan.h>
-#include <dokan/fileinfo.h>
 #include <thread>
-#include <sys/timeb.h>
+#include <iostream>
+#include <fileapi.h>
 
-BOOL g_DebugMode;
-BOOL g_CaseSensitive;
-BOOL g_HasSeSecurityPrivilege;
-BOOL g_ImpersonateCallerUser;
-static WCHAR gRootDirectory[128] = L"D:";
-static WCHAR gVolumeName[MAX_PATH + 1] = L"MacBook Pro";
+#define FUSE_USE_VERSION 30
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#if defined(_WIN32)
+#include "statvfs_win32.h"
+#include "lstat_win32.h"
+#include "pread_win32.h"
+#endif
+
+#ifdef linux
+/* For pread()/pwrite()/utimensat() */
+#define _XOPEN_SOURCE 700
+#endif
+
+#include <fuse/fuse.h>
+#include <fuse/winfsp_fuse.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <errno.h>
+#include <sys/time.h>
+#ifdef HAVE_SETXATTR
+#include <sys/xattr.h>
+#endif
+#include <direct.h>
+
+#define mkdir(path, mode)    _mkdir(path)
+
 static std::thread thread;
+static struct fuse *f;
+static struct fuse_chan *ch;
+static struct fuse_session *se;
+static char *mountpoint = "D:\\";
 
-#define DOKAN_MAX_PATH 32768
+static FUSEClient *g_Client;
 
-VirtDisk::VirtDisk(const Connection& conn) : conn(conn)
+VirtDisk::VirtDisk(const Connection& conn) : conn(conn), client(new FUSEClient(&this->conn))
 {
 }
 
 VirtDisk::~VirtDisk()
 {
-    DokanRemoveMountPoint(L"M:\\"); //this->mountPoint.toStdWString().c_str());
-    if (thread.joinable())
+    qDebug() << "~VirtDisk";
+    fuse_exit(f);
+    fuse_remove_signal_handlers(se);
+    fuse_unmount(mountpoint, ch);
+}
+
+static time_t filetimeToUnixTime(const FILETIME *ft) {
+    // if (!is_filetime_set(ft))
+    //     return 0;
+
+    ULONGLONG ll = (ULONGLONG(ft->dwHighDateTime) << 32) + ft->dwLowDateTime;
+    return time_t((ll - 116444736000000000LL) / 10000000LL);
+}
+
+static int xmp_getattr(const char *path, struct fuse_stat /*stat*/ *stbuf)
+{
+    qDebug() << "[xmp_getattr] path: " << path;
+
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_getattr] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+
+    Ref<GetattrResult> result = client->FD_getattr(path);
+
+    if (result->status == 0)
     {
-        thread.join();
+        stbuf->st_dev = result->st_dev;
+        stbuf->st_ino = result->st_ino;
+        stbuf->st_nlink = result->st_nlink;
+        stbuf->st_mode = result->st_mode;
+        stbuf->st_uid = result->st_uid;
+        stbuf->st_gid = result->st_gid;
+        stbuf->st_rdev = result->st_rdev;
+        stbuf->st_size = result->st_size;
+        stbuf->st_blksize = result->st_blksize;
+        stbuf->st_blocks = result->st_blocks;
+        stbuf->st_atim.tv_sec = result->st_atim.tv_sec;
+        stbuf->st_atim.tv_nsec = result->st_atim.tv_nsec;
+        stbuf->st_mtim.tv_sec = result->st_mtim.tv_sec;
+        stbuf->st_mtim.tv_nsec = result->st_mtim.tv_nsec;
+        stbuf->st_ctim.tv_sec = result->st_ctim.tv_sec;
+        stbuf->st_ctim.tv_nsec = result->st_ctim.tv_nsec;
+
+        if (QString(path) == QString("/home/vboxuser")) {
+            qDebug() << "custome mode for vboxuser";
+            stbuf->st_mode = 16877;
+        }
+
+        qDebug() << "\tst_atimespec" << stbuf->st_atim.tv_sec << stbuf->st_atim.tv_nsec;
+        qDebug() << "\tst_birthtimespec" << stbuf->st_birthtim.tv_sec << stbuf->st_birthtim.tv_nsec;
+        qDebug() << "\tst_blksize" << stbuf->st_blksize;
+        qDebug() << "\tst_blocks" << stbuf->st_blocks;
+        qDebug() << "\tst_ctimespec" << stbuf->st_ctim.tv_sec << stbuf->st_ctim.tv_nsec;
+        qDebug() << "\tst_dev" << stbuf->st_dev;
+        qDebug() << "\tst_gid" << stbuf->st_gid;
+        qDebug() << "\tst_ino" << stbuf->st_ino;
+        qDebug() << "\tst_mode" << stbuf->st_mode;
+        qDebug() << "\tst_mtimespec" << stbuf->st_mtim.tv_sec << stbuf->st_mtim.tv_nsec;
+        qDebug() << "\tst_nlink" << stbuf->st_nlink;
+        qDebug() << "\tst_rdev" << stbuf->st_rdev;
+        qDebug() << "\tst_size" << stbuf->st_size;
+        qDebug() << "\tst_uid" << stbuf->st_uid;
+        qDebug() << "\t";
     }
+
+    return result->status;
+
+    //------------------------------------------------------------------------------------
+
+    // int res;
+
+    // res = lstat(path, stbuf);
+    // if (res == -1)
+    //     return -errno;
+
+    // qDebug() << "\tst_atimespec" << stbuf->st_atim.tv_sec << stbuf->st_atim.tv_nsec;
+    // qDebug() << "\tst_birthtimespec" << stbuf->st_birthtim.tv_sec << stbuf->st_birthtim.tv_nsec;
+    // qDebug() << "\tst_blksize" << stbuf->st_blksize;
+    // qDebug() << "\tst_blocks" << stbuf->st_blocks;
+    // qDebug() << "\tst_ctimespec" << stbuf->st_ctim.tv_sec << stbuf->st_ctim.tv_nsec;
+    // qDebug() << "\tst_dev" << stbuf->st_dev;
+    // qDebug() << "\tst_gid" << stbuf->st_gid;
+    // qDebug() << "\tst_ino" << stbuf->st_ino;
+    // qDebug() << "\tst_mode" << stbuf->st_mode;
+    // qDebug() << "\tst_mtimespec" << stbuf->st_mtim.tv_sec << stbuf->st_mtim.tv_nsec;
+    // qDebug() << "\tst_nlink" << stbuf->st_nlink;
+    // qDebug() << "\tst_rdev" << stbuf->st_rdev;
+    // qDebug() << "\tst_size" << stbuf->st_size;
+    // qDebug() << "\tst_uid" << stbuf->st_uid;
+    // qDebug() << "\t";
+
+    // return 0;
 }
 
-static void GetFilePath(PWCHAR filePath, ULONG numberOfElements,
-                        LPCWSTR FileName) {
-    wcsncpy_s(filePath, numberOfElements, gRootDirectory, wcslen(gRootDirectory));
-    wcsncat_s(filePath, numberOfElements, FileName, wcslen(FileName));
-}
-
-static BOOL AddSeSecurityNamePrivilege() {
-    HANDLE token = 0;
-    wprintf(
-        L"## Attempting to add SE_SECURITY_NAME privilege to process token ##\n");
-    DWORD err;
-    LUID luid;
-    if (!LookupPrivilegeValue(0, SE_SECURITY_NAME, &luid)) {
-        err = GetLastError();
-        if (err != ERROR_SUCCESS) {
-            wprintf(L"  failed: Unable to lookup privilege value. error = %u\n",
-                     err);
-            return FALSE;
-        }
-    }
-
-    LUID_AND_ATTRIBUTES attr;
-    attr.Attributes = SE_PRIVILEGE_ENABLED;
-    attr.Luid = luid;
-
-    TOKEN_PRIVILEGES priv;
-    priv.PrivilegeCount = 1;
-    priv.Privileges[0] = attr;
-
-    if (!OpenProcessToken(GetCurrentProcess(),
-                          TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)) {
-        err = GetLastError();
-        if (err != ERROR_SUCCESS) {
-            wprintf(L"  failed: Unable obtain process token. error = %u\n", err);
-            return FALSE;
-        }
-    }
-
-    TOKEN_PRIVILEGES oldPriv;
-    DWORD retSize;
-    AdjustTokenPrivileges(token, FALSE, &priv, sizeof(TOKEN_PRIVILEGES), &oldPriv,
-                          &retSize);
-    err = GetLastError();
-    if (err != ERROR_SUCCESS) {
-        wprintf(L"  failed: Unable to adjust token privileges: %u\n", err);
-        CloseHandle(token);
-        return FALSE;
-    }
-
-    BOOL privAlreadyPresent = FALSE;
-    for (unsigned int i = 0; i < oldPriv.PrivilegeCount; i++) {
-        if (oldPriv.Privileges[i].Luid.HighPart == luid.HighPart &&
-            oldPriv.Privileges[i].Luid.LowPart == luid.LowPart) {
-            privAlreadyPresent = TRUE;
-            break;
-        }
-    }
-    wprintf(privAlreadyPresent ? L"  success: privilege already present\n"
-                                : L"  success: privilege added\n");
-    if (token)
-        CloseHandle(token);
-    return TRUE;
-}
-
-#define MirrorCheckFlag(val, flag) if (val & flag) { qDebug() << "[MirrorCheckFlag] flag: " << #flag; }
-
-static NTSTATUS DOKAN_CALLBACK MirrorCreateFile(LPCWSTR FileName, PDOKAN_IO_SECURITY_CONTEXT SecurityContext,
-                 ACCESS_MASK DesiredAccess, ULONG FileAttributes,
-                 ULONG ShareAccess, ULONG CreateDisposition,
-                 ULONG CreateOptions, PDOKAN_FILE_INFO DokanFileInfo)
+static int xmp_access(const char *path, int mask)
 {
-    NTSTATUS result = DokanBackend::FD_CreateFile(FileName, (HANDLE)SecurityContext, DesiredAccess, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, (HANDLE)DokanFileInfo);
+    qDebug() << "[xmp_access] path: " << path;
 
-    if (result != STATUS_SUCCESS) {
-        return DokanNtStatusFromWin32(result);
-    }
+    // int res;
 
-    return STATUS_SUCCESS;
+    // res = access(path, mask);
+    // if (res == -1)
+    //     return -errno;
+
+    return 0;
 }
 
-#pragma warning(push)
-#pragma warning(disable : 4305)
-
-static void DOKAN_CALLBACK MirrorCloseFile(LPCWSTR FileName,
-                                           PDOKAN_FILE_INFO DokanFileInfo)
+static int xmp_readlink(const char *path, char *buf, size_t size)
 {
+    qDebug() << "[xmp_readlink] path: " << path;
 
-    DokanBackend::FD_CloseFile(FileName, (HANDLE)DokanFileInfo);
+
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_readlink] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+
+    Ref<ReadlinkResult> result = client->FD_readlink(path, size);
+
+    if (result->status == 0)
+    {
+        memcpy(buf, result->data, result->size);
+    }
+
+    return result->status;
+
+    //------------------------------------------------------------------------------------
+
+    // int res;
+
+    // res = readlink(path, buf, size - 1);
+    // if (res == -1)
+    //     return -errno;
+
+    // buf[res] = '\0';
+    // return 0;
 }
 
-static void DOKAN_CALLBACK MirrorCleanup(LPCWSTR FileName,
-                                         PDOKAN_FILE_INFO DokanFileInfo)
+
+static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+                       off_t offset, struct fuse_file_info *fi)
 {
-    DokanBackend::FD_Cleanup(FileName, (HANDLE)DokanFileInfo);
+    qDebug() << "[xmp_readdir] path: " << path;
+
+    (void) offset;
+    (void) fi;
+
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_readdir] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+
+    Ref<ReaddirResult> result = client->FD_readdir(path);
+
+    struct fuse_stat st;
+    memset(&st, 0, sizeof(st));
+
+    qDebug() << "before for";
+    for (unsigned int i = 0; i < result->count; ++i)
+    {
+        qDebug() << "for i" << i;
+        FindData *fd = (FindData *)result->findData + i;
+        qDebug() << "[xmp_readdir] incoming findData name:" << fd->name;
+        qDebug() << "[xmp_readdir] incoming findData st_ino:" << fd->st_ino;
+        qDebug() << "[xmp_readdir] incoming findData st_mode:" << fd->st_mode;
+
+        st.st_ino = fd->st_ino;
+        st.st_mode = fd->st_mode;
+        st.st_size = 146;
+        st.st_blksize = 4096;
+        st.st_blocks = 2;
+        st.st_atim.tv_sec = 1763752599;
+        st.st_atim.tv_nsec = 302761200;
+        st.st_mtim.tv_sec = 1747514473;
+        st.st_mtim.tv_nsec = 21076073;
+        st.st_ctim.tv_sec = 1747514473;
+        st.st_ctim.tv_nsec = 21076073;
+
+        filler(buf, fd->name, &st, /*nextoff*/0);
+    }
+    qDebug() << "after for";
+
+    int status = result->status;
+
+    return status;
+    //------------------------------------------------------------------------------------
+
+    // ReaddirResult *result = FUSEBackend::FD_readdir(path);
+
+    // if (result->status != 0)
+    // {
+    //     qDebug() << "[xmp_readdir] error result->status" << result->status;
+    //     return result->status;
+    // }
+
+    // struct FindData
+    // {
+    //     char name[1024];
+    //     unsigned long long st_ino;
+    //     unsigned short st_mode;
+    // };
+
+    // struct FUSE_STAT stat;
+    // memset(&stat, 0, sizeof(FUSE_STAT));
+
+    // for (unsigned int i = 0; i < result->count; ++i)
+    // {
+    //     auto findData = (FindData *)result->findData + i;
+    //     qDebug() << "[xmp_readdir] findData.name: " << findData->name;
+    //     stat.st_ino = findData->st_ino;
+    //     stat.st_mode = findData->st_mode;
+    //     filler(buf, findData->name, &stat, 0);
+    // }
+
+    // return result->status;
 }
 
-static NTSTATUS DOKAN_CALLBACK MirrorReadFile(LPCWSTR FileName, LPVOID Buffer,
-                                              DWORD BufferLength,
-                                              LPDWORD ReadLength,
-                                              LONGLONG Offset,
-                                              PDOKAN_FILE_INFO DokanFileInfo) {
-    WCHAR filePath[DOKAN_MAX_PATH];
-    HANDLE handle = (HANDLE)DokanFileInfo->Context;
-    ULONG offset = (ULONG)Offset;
-    BOOL opened = FALSE;
+static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)
+{
+    qDebug() << "[xmp_mknod] path: " << path;
 
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
+    int res;
 
-    wprintf(L"ReadFile : %s\n", filePath);
+    /* On Linux this could just be 'mknod(path, mode, rdev)' but this
+       is more portable */
+    // if (S_ISREG(mode)) {
+    //     res = open(path, O_CREAT | O_EXCL | O_WRONLY, mode);
+    //     if (res >= 0)
+    //         res = close(res);
+    // } else if (S_ISFIFO(mode))
+    //     res = mkfifo(path, mode);
+    // else
+    //     res = mknod(path, mode, rdev);
+    // if (res == -1)
+    //     return -errno;
 
-    if (!handle || handle == INVALID_HANDLE_VALUE) {
-        wprintf(L"\tinvalid handle, cleanuped?\n");
-        handle = CreateFile(filePath, GENERIC_READ, FILE_SHARE_READ, NULL,
-                            OPEN_EXISTING, 0, NULL);
-        if (handle == INVALID_HANDLE_VALUE) {
-            DWORD error = GetLastError();
-            wprintf(L"\tCreateFile error : %d\n\n", error);
-            return DokanNtStatusFromWin32(error);
-        }
-        opened = TRUE;
-    }
-
-    OVERLAPPED overlap;
-    memset(&overlap, 0, sizeof(OVERLAPPED));
-    overlap.Offset = Offset & 0xFFFFFFFF;
-    overlap.OffsetHigh = (Offset >> 32) & 0xFFFFFFFF;
-    if (!ReadFile(handle, Buffer, BufferLength, ReadLength, &overlap)) {
-        DWORD error = GetLastError();
-        wprintf(L"\tread error = %u, buffer length = %d, read length = %d\n\n",
-                 error, BufferLength, *ReadLength);
-        if (opened)
-            CloseHandle(handle);
-        return DokanNtStatusFromWin32(error);
-
-    } else {
-        wprintf(L"\tByte to read: %d, Byte read %d, offset %d\n\n", BufferLength,
-                 *ReadLength, offset);
-    }
-
-    if (opened)
-        CloseHandle(handle);
-
-    return STATUS_SUCCESS;
+    return 0;
 }
 
-static NTSTATUS DOKAN_CALLBACK MirrorWriteFile(LPCWSTR FileName, LPCVOID Buffer,
-                                               DWORD NumberOfBytesToWrite,
-                                               LPDWORD NumberOfBytesWritten,
-                                               LONGLONG Offset,
-                                               PDOKAN_FILE_INFO DokanFileInfo) {
-    WCHAR filePath[DOKAN_MAX_PATH];
-    HANDLE handle = (HANDLE)DokanFileInfo->Context;
-    BOOL opened = FALSE;
+static int xmp_mkdir(const char *path, fuse_mode_t mode)
+{
+    qDebug() << "[xmp_mkdir] path: " << path;
 
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
+    int res;
 
-    wprintf(L"WriteFile : %s, offset %I64d, length %d\n", filePath, Offset,
-             NumberOfBytesToWrite);
+    res = mkdir(path, mode);
+    if (res == -1)
+        return -errno;
 
-    // reopen the file
-    if (!handle || handle == INVALID_HANDLE_VALUE) {
-        wprintf(L"\tinvalid handle, cleanuped?\n");
-        handle = CreateFile(filePath, GENERIC_WRITE, FILE_SHARE_WRITE, NULL,
-                            OPEN_EXISTING, 0, NULL);
-        if (handle == INVALID_HANDLE_VALUE) {
-            DWORD error = GetLastError();
-            wprintf(L"\tCreateFile error : %d\n\n", error);
-            return DokanNtStatusFromWin32(error);
-        }
-        opened = TRUE;
-    }
-
-    UINT64 fileSize = 0;
-    DWORD fileSizeLow = 0;
-    DWORD fileSizeHigh = 0;
-    fileSizeLow = GetFileSize(handle, &fileSizeHigh);
-    if (fileSizeLow == INVALID_FILE_SIZE) {
-        DWORD error = GetLastError();
-        wprintf(L"\tcan not get a file size error = %d\n", error);
-        if (opened)
-            CloseHandle(handle);
-        return DokanNtStatusFromWin32(error);
-    }
-
-    fileSize = ((UINT64)fileSizeHigh << 32) | fileSizeLow;
-
-    OVERLAPPED overlap;
-    memset(&overlap, 0, sizeof(OVERLAPPED));
-    if (DokanFileInfo->WriteToEndOfFile) {
-        overlap.Offset = 0xFFFFFFFF;
-        overlap.OffsetHigh = 0xFFFFFFFF;
-    } else {
-        // Paging IO cannot write after allocate file size.
-        if (DokanFileInfo->PagingIo) {
-            if ((UINT64)Offset >= fileSize) {
-                *NumberOfBytesWritten = 0;
-                if (opened)
-                    CloseHandle(handle);
-                return STATUS_SUCCESS;
-            }
-
-            if (((UINT64)Offset + NumberOfBytesToWrite) > fileSize) {
-                UINT64 bytes = fileSize - Offset;
-                if (bytes >> 32) {
-                    NumberOfBytesToWrite = (DWORD)(bytes & 0xFFFFFFFFUL);
-                } else {
-                    NumberOfBytesToWrite = (DWORD)bytes;
-                }
-            }
-        }
-
-        if ((UINT64)Offset > fileSize) {
-            // In the mirror sample helperZeroFileData is not necessary. NTFS will
-            // zero a hole.
-            // But if user's file system is different from NTFS( or other Windows's
-            // file systems ) then  users will have to zero the hole themselves.
-        }
-
-        overlap.Offset = Offset & 0xFFFFFFFF;
-        overlap.OffsetHigh = (Offset >> 32) & 0xFFFFFFFF;
-    }
-
-    if (!WriteFile(handle, Buffer, NumberOfBytesToWrite, NumberOfBytesWritten,
-                   &overlap)) {
-        DWORD error = GetLastError();
-        wprintf(L"\twrite error = %u, buffer length = %d, write length = %d\n",
-                 error, NumberOfBytesToWrite, *NumberOfBytesWritten);
-        if (opened)
-            CloseHandle(handle);
-        return DokanNtStatusFromWin32(error);
-
-    } else {
-        wprintf(L"\twrite %d, offset %I64d\n\n", *NumberOfBytesWritten, Offset);
-    }
-
-    // close the file when it is reopened
-    if (opened)
-        CloseHandle(handle);
-
-    return STATUS_SUCCESS;
+    return 0;
 }
 
-static NTSTATUS DOKAN_CALLBACK MirrorFlushFileBuffers(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
-    WCHAR filePath[DOKAN_MAX_PATH];
-    HANDLE handle = (HANDLE)DokanFileInfo->Context;
+static int xmp_unlink(const char *path)
+{
+    qDebug() << "[xmp_unlink] path: " << path;
 
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
+    int res;
 
-    wprintf(L"FlushFileBuffers : %s\n", filePath);
+    res = unlink(path);
+    if (res == -1)
+        return -errno;
 
-    if (!handle || handle == INVALID_HANDLE_VALUE) {
-        wprintf(L"\tinvalid handle\n\n");
-        return STATUS_SUCCESS;
-    }
-
-    if (FlushFileBuffers(handle)) {
-        return STATUS_SUCCESS;
-    } else {
-        DWORD error = GetLastError();
-        wprintf(L"\tflush error code = %d\n", error);
-        return DokanNtStatusFromWin32(error);
-    }
+    return 0;
 }
 
-static NTSTATUS DOKAN_CALLBACK MirrorGetFileInformation(
-    LPCWSTR FileName, LPBY_HANDLE_FILE_INFORMATION HandleFileInformation,
-    PDOKAN_FILE_INFO DokanFileInfo) {
+static int xmp_rmdir(const char *path)
+{
+    qDebug() << "[xmp_rmdir] path: " << path;
 
-    NTSTATUS result = DokanBackend::FD_GetFileInformation(FileName, (HANDLE)HandleFileInformation, (HANDLE)DokanFileInfo->Context);
+    int res;
 
-    if (result != STATUS_SUCCESS) {
-        return DokanNtStatusFromWin32(result);
-    }
+    res = rmdir(path);
+    if (res == -1)
+        return -errno;
 
-    return STATUS_SUCCESS;
+    return 0;
 }
 
-static char *wchar_to_utf8(const wchar_t *src) {
-    if (src == nullptr)
-        return nullptr;
+static int xmp_symlink(const char *from, const char *to)
+{
+    qDebug() << "[xmp_symlink] from: " << from;
 
-    int ln = WideCharToMultiByte(CP_UTF8, 0, src, -1, nullptr, 0, nullptr, nullptr);
-    auto res = static_cast<char *>(malloc(sizeof(char) * ln));
-    WideCharToMultiByte(CP_UTF8, 0, src, -1, res, ln, nullptr, nullptr);
+    int res;
+
+    // res = symlink(from, to);
+    // if (res == -1)
+    //     return -errno;
+
+    return 0;
+}
+
+static int xmp_rename(const char *from, const char *to)
+{
+    qDebug() << "[xmp_rename] from: " << from;
+
+    int res;
+
+    res = rename(from, to);
+    if (res == -1)
+        return -errno;
+
+    return 0;
+}
+
+static int xmp_link(const char *from, const char *to)
+{
+    qDebug() << "[xmp_link] path: " << from;
+
+    int res;
+
+    // res = link(from, to);
+    // if (res == -1)
+    //     return -errno;
+
+    return 0;
+}
+
+static int xmp_chmod(const char *path, mode_t mode)
+{
+    qDebug() << "[xmp_chmod] path: " << path;
+
+    int res;
+
+    res = chmod(path, mode);
+    if (res == -1)
+        return -errno;
+
+    return 0;
+}
+
+static int xmp_chown(const char *path, fuse_uid_t uid, fuse_gid_t gid)
+{
+    qDebug() << "[xmp_chown] path: " << path;
+
+    int res;
+
+    // res = lchown(path, uid, gid);
+    // if (res == -1)
+    //     return -errno;
+
+    return 0;
+}
+
+static int xmp_truncate(const char *path, off_t size)
+{
+    qDebug() << "[xmp_truncate] path: " << path;
+
+    int res;
+
+    res = truncate(path, size);
+    if (res == -1)
+        return -errno;
+
+    return 0;
+}
+
+#ifdef HAVE_UTIMENSAT
+static int xmp_utimens(const char *path, const struct timespec ts[2])
+{
+    int res;
+
+    /* don't use utime/utimes since they follow symlinks */
+    res = utimensat(0, path, ts, AT_SYMLINK_NOFOLLOW);
+    if (res == -1)
+        return -errno;
+
+    return 0;
+}
+#endif
+
+static int xmp_create(const char *path, fuse_mode_t mode, struct fuse_file_info *fi)
+{
+    qDebug() << "[xmp_create] path: " << path;
+
+    int res;
+
+    res = open(path, fi->flags, mode);
+    if (res == -1)
+        return -errno;
+
+    fi->fh = res;
+    return 0;
+}
+
+static int xmp_open(const char *path, struct fuse_file_info *fi)
+{
+    qDebug() << "[xmp_open] path: " << path;
+
+    // int res;
+
+    // res = open(path, fi->flags);
+    // if (res == -1)
+    //     return -errno;
+
+    // close(res);
+    return 0;
+}
+
+static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
+                    struct fuse_file_info *fi)
+{
+    qDebug() << "[xmp_read] path: " << path;
+
+    (void) fi;
+
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_read] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+
+    qDebug() << "[xmp_read] size:" << size;
+    qDebug() << "[xmp_read] offset:" << offset;
+
+    Ref<ReadResult> result = client->FD_read(path, size, offset);
+
+    qDebug() << "[xmp_read] incoming result status:" << result->status;
+    qDebug() << "[xmp_read] incoming result size:" << result->size;
+    qDebug() << "[xmp_read] incoming result length:" << strlen(result->data);
+    //    qDebug() << "[xmp_read] incoming result data:" << result->data;
+
+    memset(buf, 0, size);
+
+    if (result->status > 0)
+    {
+        memcpy(buf, result->data, result->status);
+    }
+
+    return result->status;
+
+    //------------------------------------------------------------------------------------
+
+    // int fd;
+    // int res;
+
+    // fd = open(path, O_RDONLY);
+    // if (fd == -1)
+    //     return -errno;
+
+    // res = pread(fd, buf, size, offset);
+    // if (res == -1)
+    //     res = -errno;
+
+    // close(fd);
+    // return res;
+}
+
+static int xmp_write(const char *path, const char *buf, size_t size,
+                     off_t offset, struct fuse_file_info *fi)
+{
+    qDebug() << "[xmp_write] path: " << path;
+
+    (void) fi;
+
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_write] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+
+    i32 result = client->FD_write(path, buf, size, offset);
+
+    qDebug() << "[xmp_write] incoming result:" << result;
+
+    return result;
+    //------------------------------------------------------------------------------------
+
+    // int fd;
+    // int res;
+
+    // fd = open(path, O_WRONLY);
+    // if (fd == -1)
+    //     return -errno;
+
+    // res = pwrite(fd, buf, size, offset);
+    // if (res == -1)
+    //     res = -errno;
+
+    // close(fd);
+    // return res;
+    return 0;
+}
+
+static int xmp_statfs(const char *path, struct fuse_statvfs *stbuf)
+{
+    qDebug() << "[xmp_statfs] path: " << path;
+
+    //------------------------------------------------------------------------------------
+    // Network tests
+    //------------------------------------------------------------------------------------
+    struct fuse_context *context = fuse_get_context();
+    qDebug() << "[xmp_statfs] context:" << context << context->private_data;
+    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+
+    Ref<StatfsResult> result = client->FD_statfs(path);
+
+    if (result->status == 0)
+    {
+        stbuf->f_bsize = result->f_bsize;
+        stbuf->f_frsize = result->f_frsize;
+        stbuf->f_blocks = result->f_blocks;
+        stbuf->f_bfree = result->f_bfree;
+        stbuf->f_bavail = result->f_bavail;
+        stbuf->f_files = result->f_files;
+        stbuf->f_ffree = result->f_ffree;
+        stbuf->f_favail = result->f_favail;
+        stbuf->f_fsid = result->f_fsid;
+        stbuf->f_flag = result->f_flag;
+        stbuf->f_namemax = result->f_namemax;
+    }
+
+    return result->status;
+
+    //------------------------------------------------------------------------------------
+
+    // int res;
+
+    // res = statvfs(path, stbuf);
+    // if (res == -1)
+    //     return -errno;
+
+    // qDebug() << "\tf_bavail" << stbuf->f_bavail;
+    // qDebug() << "\tf_bfree" << stbuf->f_bfree;
+    // qDebug() << "\tf_blocks" << stbuf->f_blocks;
+    // qDebug() << "\tf_bsize" << stbuf->f_bsize;
+    // qDebug() << "\tf_ffree" << stbuf->f_ffree;
+    // qDebug() << "\tf_files" << stbuf->f_files;
+    // qDebug() << "\tf_favail" << stbuf->f_favail;
+    // qDebug() << "\tf_flag" << stbuf->f_flag;
+    // qDebug() << "\tf_frsize" << stbuf->f_frsize;
+    // qDebug() << "\tf_fsid" << stbuf->f_fsid;
+    // qDebug() << "\tf_namemax" << stbuf->f_namemax;
+    // qDebug() << "\n";
+
+    // return 0;
+}
+
+static int xmp_release(const char *path, struct fuse_file_info *fi)
+{
+    qDebug() << "[xmp_release] path: " << path;
+
+    /* Just a stub.	 This method is optional and can safely be left
+       unimplemented */
+
+    (void) path;
+    (void) fi;
+    return 0;
+}
+
+static int xmp_fsync(const char *path, int isdatasync,
+                     struct fuse_file_info *fi)
+{
+    qDebug() << "[xmp_fsync] path: " << path;
+
+    /* Just a stub.	 This method is optional and can safely be left
+       unimplemented */
+
+    (void) path;
+    (void) isdatasync;
+    (void) fi;
+    return 0;
+}
+
+#ifdef HAVE_POSIX_FALLOCATE
+static int xmp_fallocate(const char *path, int mode,
+                         off_t offset, off_t length, struct fuse_file_info *fi)
+{
+    int fd;
+    int res;
+
+    (void) fi;
+
+    if (mode)
+        return -EOPNOTSUPP;
+
+    fd = open(path, O_WRONLY);
+    if (fd == -1)
+        return -errno;
+
+    res = -posix_fallocate(fd, offset, length);
+
+    close(fd);
+    return res;
+}
+#endif
+
+#ifdef HAVE_SETXATTR
+/* xattr operations are optional and can safely be left unimplemented */
+static int xmp_setxattr(const char *path, const char *name, const char *value,
+                        size_t size, int flags)
+{
+    int res = lsetxattr(path, name, value, size, flags);
+    if (res == -1)
+        return -errno;
+    return 0;
+}
+
+static int xmp_getxattr(const char *path, const char *name, char *value,
+                        size_t size)
+{
+    int res = lgetxattr(path, name, value, size);
+    if (res == -1)
+        return -errno;
     return res;
 }
 
-static NTSTATUS DOKAN_CALLBACK MirrorFindFiles(LPCWSTR FileName,
-                PFillFindData FillFindData, // function pointer
-                PDOKAN_FILE_INFO DokanFileInfo)
+static int xmp_listxattr(const char *path, char *list, size_t size)
 {
-    qDebug() << "[MirrorFindFiles] FileName: " << wchar_to_utf8(FileName);
-
-    FindFilesResult *result = DokanBackend::FD_FindFiles(FileName);
-
-    if (result->ntStatus != STATUS_SUCCESS)
-    {
-        qDebug() << "[MirrorFindFiles] error result->ntStatus" << result->ntStatus;
-        return result->ntStatus;
-    }
-
-    qDebug() << "[MirrorFindFiles] result->ntStatus OK";
-    qDebug() << "[MirrorFindFiles] result->count" << result->count;
-    qDebug() << "[MirrorFindFiles] result->dataSize" << result->dataSize << "bytes";
-
-    for (unsigned int i = 0; i < result->count; ++i)
-    {
-        auto findData = (WIN32_FIND_DATAW *)result->findData + i;
-        qDebug() << "[MirrorFindFiles] findData.cFileName: " << wchar_to_utf8(findData->cFileName);
-        FillFindData(findData, DokanFileInfo);
-    }
-
-    return result->ntStatus;
+    int res = llistxattr(path, list, size);
+    if (res == -1)
+        return -errno;
+    return res;
 }
 
-static NTSTATUS DOKAN_CALLBACK MirrorDeleteFile(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
-    WCHAR filePath[DOKAN_MAX_PATH];
-    HANDLE handle = (HANDLE)DokanFileInfo->Context;
-
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
-    wprintf(L"DeleteFile %s - %d\n", filePath, DokanFileInfo->DeleteOnClose);
-
-    DWORD dwAttrib = GetFileAttributes(filePath);
-
-    if (dwAttrib != INVALID_FILE_ATTRIBUTES &&
-        (dwAttrib & FILE_ATTRIBUTE_DIRECTORY))
-        return STATUS_ACCESS_DENIED;
-
-    if (handle && handle != INVALID_HANDLE_VALUE) {
-        FILE_DISPOSITION_INFO fdi;
-        fdi.DeleteFile = DokanFileInfo->DeleteOnClose;
-        if (!SetFileInformationByHandle(handle, FileDispositionInfo, &fdi,
-                                        sizeof(FILE_DISPOSITION_INFO)))
-            return DokanNtStatusFromWin32(GetLastError());
-    }
-
-    return STATUS_SUCCESS;
-}
-
-static NTSTATUS DOKAN_CALLBACK MirrorDeleteDirectory(LPCWSTR FileName, PDOKAN_FILE_INFO DokanFileInfo) {
-    WCHAR filePath[DOKAN_MAX_PATH];
-    // HANDLE	handle = (HANDLE)DokanFileInfo->Context;
-    HANDLE hFind;
-    WIN32_FIND_DATAW findData;
-    size_t fileLen;
-
-    ZeroMemory(filePath, sizeof(filePath));
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
-
-    wprintf(L"DeleteDirectory %s - %d\n", filePath,
-             DokanFileInfo->DeleteOnClose);
-
-    if (!DokanFileInfo->DeleteOnClose)
-        //Dokan notify that the file is requested not to be deleted.
-        return STATUS_SUCCESS;
-
-    fileLen = wcslen(filePath);
-    if (filePath[fileLen - 1] != L'\\') {
-        filePath[fileLen++] = L'\\';
-    }
-    if (fileLen + 1 >= DOKAN_MAX_PATH)
-        return STATUS_BUFFER_OVERFLOW;
-    filePath[fileLen] = L'*';
-    filePath[fileLen + 1] = L'\0';
-
-    hFind = FindFirstFile(filePath, &findData);
-
-    if (hFind == INVALID_HANDLE_VALUE) {
-        DWORD error = GetLastError();
-        wprintf(L"\tDeleteDirectory error code = %d\n\n", error);
-        return DokanNtStatusFromWin32(error);
-    }
-
-    do {
-        if (wcscmp(findData.cFileName, L"..") != 0 &&
-            wcscmp(findData.cFileName, L".") != 0) {
-            FindClose(hFind);
-            wprintf(L"\tDirectory is not empty: %s\n", findData.cFileName);
-            return STATUS_DIRECTORY_NOT_EMPTY;
-        }
-    } while (FindNextFile(hFind, &findData) != 0);
-
-    DWORD error = GetLastError();
-
-    FindClose(hFind);
-
-    if (error != ERROR_NO_MORE_FILES) {
-        wprintf(L"\tDeleteDirectory error code = %d\n\n", error);
-        return DokanNtStatusFromWin32(error);
-    }
-
-    return STATUS_SUCCESS;
-}
-
-static NTSTATUS DOKAN_CALLBACK MirrorMoveFile(LPCWSTR FileName, // existing file name
-               LPCWSTR NewFileName, BOOL ReplaceIfExisting,
-               PDOKAN_FILE_INFO DokanFileInfo) {
-    WCHAR filePath[DOKAN_MAX_PATH];
-    WCHAR newFilePath[DOKAN_MAX_PATH];
-    HANDLE handle;
-    DWORD bufferSize;
-    BOOL result;
-    size_t newFilePathLen;
-
-    PFILE_RENAME_INFO renameInfo = NULL;
-
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
-    if (wcslen(NewFileName) && NewFileName[0] != ':') {
-        GetFilePath(newFilePath, DOKAN_MAX_PATH, NewFileName);
-    } else {
-        // For a stream rename, FileRenameInfo expect the FileName param without the filename
-        // like :<stream name>:<stream type>
-        wcsncpy_s(newFilePath, DOKAN_MAX_PATH, NewFileName, wcslen(NewFileName));
-    }
-
-    wprintf(L"MoveFile %s -> %s\n\n", filePath, newFilePath);
-    handle = (HANDLE)DokanFileInfo->Context;
-    if (!handle || handle == INVALID_HANDLE_VALUE) {
-        wprintf(L"\tinvalid handle\n\n");
-        return STATUS_INVALID_HANDLE;
-    }
-
-    newFilePathLen = wcslen(newFilePath);
-
-    // the PFILE_RENAME_INFO struct has space for one WCHAR for the name at
-    // the end, so that
-    // accounts for the null terminator
-
-    bufferSize = (DWORD)(sizeof(FILE_RENAME_INFO) +
-                          newFilePathLen * sizeof(newFilePath[0]));
-
-    renameInfo = (PFILE_RENAME_INFO)malloc(bufferSize);
-    if (!renameInfo) {
-        return STATUS_BUFFER_OVERFLOW;
-    }
-    ZeroMemory(renameInfo, bufferSize);
-
-    renameInfo->ReplaceIfExists =
-        ReplaceIfExisting
-            ? TRUE
-            : FALSE; // some warning about converting BOOL to BOOLEAN
-    renameInfo->RootDirectory = NULL; // hope it is never needed, shouldn't be
-    renameInfo->FileNameLength =
-        (DWORD)newFilePathLen *
-        sizeof(newFilePath[0]); // they want length in bytes
-
-    wcscpy_s(renameInfo->FileName, newFilePathLen + 1, newFilePath);
-
-    result = SetFileInformationByHandle(handle, FileRenameInfo, renameInfo,
-                                        bufferSize);
-
-    free(renameInfo);
-
-    if (result) {
-        return STATUS_SUCCESS;
-    } else {
-        DWORD error = GetLastError();
-        wprintf(L"\tMoveFile error = %u\n", error);
-        return DokanNtStatusFromWin32(error);
-    }
-}
-
-static NTSTATUS DOKAN_CALLBACK MirrorLockFile(LPCWSTR FileName,
-                                              LONGLONG ByteOffset,
-                                              LONGLONG Length,
-                                              PDOKAN_FILE_INFO DokanFileInfo) {
-    WCHAR filePath[DOKAN_MAX_PATH];
-    HANDLE handle;
-    LARGE_INTEGER offset;
-    LARGE_INTEGER length;
-
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
-
-    wprintf(L"LockFile %s\n", filePath);
-
-    handle = (HANDLE)DokanFileInfo->Context;
-    if (!handle || handle == INVALID_HANDLE_VALUE) {
-        wprintf(L"\tinvalid handle\n\n");
-        return STATUS_INVALID_HANDLE;
-    }
-
-    length.QuadPart = Length;
-    offset.QuadPart = ByteOffset;
-
-    if (!LockFile(handle, offset.LowPart, offset.HighPart, length.LowPart,
-                  length.HighPart)) {
-        DWORD error = GetLastError();
-        wprintf(L"\terror code = %d\n\n", error);
-        return DokanNtStatusFromWin32(error);
-    }
-
-    wprintf(L"\tsuccess\n\n");
-    return STATUS_SUCCESS;
-}
-
-static NTSTATUS DOKAN_CALLBACK MirrorSetEndOfFile(
-    LPCWSTR FileName, LONGLONG ByteOffset, PDOKAN_FILE_INFO DokanFileInfo) {
-    WCHAR filePath[DOKAN_MAX_PATH];
-    HANDLE handle;
-    LARGE_INTEGER offset;
-
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
-
-    wprintf(L"SetEndOfFile %s, %I64d\n", filePath, ByteOffset);
-
-    handle = (HANDLE)DokanFileInfo->Context;
-    if (!handle || handle == INVALID_HANDLE_VALUE) {
-        wprintf(L"\tinvalid handle\n\n");
-        return STATUS_INVALID_HANDLE;
-    }
-
-    offset.QuadPart = ByteOffset;
-    if (!SetFilePointerEx(handle, offset, NULL, FILE_BEGIN)) {
-        DWORD error = GetLastError();
-        wprintf(L"\tSetFilePointer error: %d, offset = %I64d\n\n", error,
-                 ByteOffset);
-        return DokanNtStatusFromWin32(error);
-    }
-
-    if (!SetEndOfFile(handle)) {
-        DWORD error = GetLastError();
-        wprintf(L"\tSetEndOfFile error code = %d\n\n", error);
-        return DokanNtStatusFromWin32(error);
-    }
-
-    return STATUS_SUCCESS;
-}
-
-static NTSTATUS DOKAN_CALLBACK MirrorSetAllocationSize(
-    LPCWSTR FileName, LONGLONG AllocSize, PDOKAN_FILE_INFO DokanFileInfo) {
-    WCHAR filePath[DOKAN_MAX_PATH];
-    HANDLE handle;
-    LARGE_INTEGER fileSize;
-
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
-
-    wprintf(L"SetAllocationSize %s, %I64d\n", filePath, AllocSize);
-
-    handle = (HANDLE)DokanFileInfo->Context;
-    if (!handle || handle == INVALID_HANDLE_VALUE) {
-        wprintf(L"\tinvalid handle\n\n");
-        return STATUS_INVALID_HANDLE;
-    }
-
-    if (GetFileSizeEx(handle, &fileSize)) {
-        if (AllocSize < fileSize.QuadPart) {
-            fileSize.QuadPart = AllocSize;
-            if (!SetFilePointerEx(handle, fileSize, NULL, FILE_BEGIN)) {
-                DWORD error = GetLastError();
-                wprintf(L"\tSetAllocationSize: SetFilePointer eror: %d, "
-                         L"offset = %I64d\n\n",
-                         error, AllocSize);
-                return DokanNtStatusFromWin32(error);
-            }
-            if (!SetEndOfFile(handle)) {
-                DWORD error = GetLastError();
-                wprintf(L"\tSetEndOfFile error code = %d\n\n", error);
-                return DokanNtStatusFromWin32(error);
-            }
-        }
-    } else {
-        DWORD error = GetLastError();
-        wprintf(L"\terror code = %d\n\n", error);
-        return DokanNtStatusFromWin32(error);
-    }
-    return STATUS_SUCCESS;
-}
-
-static NTSTATUS DOKAN_CALLBACK MirrorSetFileAttributes(
-    LPCWSTR FileName, DWORD FileAttributes, PDOKAN_FILE_INFO DokanFileInfo) {
-    UNREFERENCED_PARAMETER(DokanFileInfo);
-
-    WCHAR filePath[DOKAN_MAX_PATH];
-
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
-
-    wprintf(L"SetFileAttributes %s 0x%x\n", filePath, FileAttributes);
-
-    if (FileAttributes != 0) {
-        if (!SetFileAttributes(filePath, FileAttributes)) {
-            DWORD error = GetLastError();
-            wprintf(L"\terror code = %d\n\n", error);
-            return DokanNtStatusFromWin32(error);
-        }
-    } else {
-        // case FileAttributes == 0 :
-        // MS-FSCC 2.6 File Attributes : There is no file attribute with the value 0x00000000
-        // because a value of 0x00000000 in the FileAttributes field means that the file attributes for this file MUST NOT be changed when setting basic information for the file
-        wprintf(L"Set 0 to FileAttributes means MUST NOT be changed. Didn't call "
-                 L"SetFileAttributes function. \n");
-    }
-
-    wprintf(L"\n");
-    return STATUS_SUCCESS;
-}
-
-static NTSTATUS DOKAN_CALLBACK MirrorSetFileTime(LPCWSTR FileName, CONST FILETIME *CreationTime,
-                  CONST FILETIME *LastAccessTime, CONST FILETIME *LastWriteTime,
-                  PDOKAN_FILE_INFO DokanFileInfo) {
-    WCHAR filePath[DOKAN_MAX_PATH];
-    HANDLE handle;
-
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
-
-    wprintf(L"SetFileTime %s\n", filePath);
-
-    handle = (HANDLE)DokanFileInfo->Context;
-
-    if (!handle || handle == INVALID_HANDLE_VALUE) {
-        wprintf(L"\tinvalid handle\n\n");
-        return STATUS_INVALID_HANDLE;
-    }
-
-    if (!SetFileTime(handle, CreationTime, LastAccessTime, LastWriteTime)) {
-        DWORD error = GetLastError();
-        wprintf(L"\terror code = %d\n\n", error);
-        return DokanNtStatusFromWin32(error);
-    }
-
-    wprintf(L"\n");
-    return STATUS_SUCCESS;
-}
-
-static NTSTATUS DOKAN_CALLBACK MirrorUnlockFile(LPCWSTR FileName, LONGLONG ByteOffset, LONGLONG Length,
-                 PDOKAN_FILE_INFO DokanFileInfo) {
-    WCHAR filePath[DOKAN_MAX_PATH];
-    HANDLE handle;
-    LARGE_INTEGER length;
-    LARGE_INTEGER offset;
-
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
-
-    wprintf(L"UnlockFile %s\n", filePath);
-
-    handle = (HANDLE)DokanFileInfo->Context;
-    if (!handle || handle == INVALID_HANDLE_VALUE) {
-        wprintf(L"\tinvalid handle\n\n");
-        return STATUS_INVALID_HANDLE;
-    }
-
-    length.QuadPart = Length;
-    offset.QuadPart = ByteOffset;
-
-    if (!UnlockFile(handle, offset.LowPart, offset.HighPart, length.LowPart,
-                    length.HighPart)) {
-        DWORD error = GetLastError();
-        wprintf(L"\terror code = %d\n\n", error);
-        return DokanNtStatusFromWin32(error);
-    }
-
-    wprintf(L"\tsuccess\n\n");
-    return STATUS_SUCCESS;
-}
-
-static NTSTATUS DOKAN_CALLBACK MirrorGetFileSecurity(
-    LPCWSTR FileName, PSECURITY_INFORMATION SecurityInformation,
-    PSECURITY_DESCRIPTOR SecurityDescriptor, ULONG BufferLength,
-    PULONG LengthNeeded, PDOKAN_FILE_INFO DokanFileInfo) {
-    WCHAR filePath[DOKAN_MAX_PATH];
-    BOOLEAN requestingSaclInfo;
-
-    UNREFERENCED_PARAMETER(DokanFileInfo);
-
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
-
-    wprintf(L"GetFileSecurity %s\n", filePath);
-
-    MirrorCheckFlag(*SecurityInformation, FILE_SHARE_READ);
-    MirrorCheckFlag(*SecurityInformation, OWNER_SECURITY_INFORMATION);
-    MirrorCheckFlag(*SecurityInformation, GROUP_SECURITY_INFORMATION);
-    MirrorCheckFlag(*SecurityInformation, DACL_SECURITY_INFORMATION);
-    MirrorCheckFlag(*SecurityInformation, SACL_SECURITY_INFORMATION);
-    MirrorCheckFlag(*SecurityInformation, LABEL_SECURITY_INFORMATION);
-    MirrorCheckFlag(*SecurityInformation, ATTRIBUTE_SECURITY_INFORMATION);
-    MirrorCheckFlag(*SecurityInformation, SCOPE_SECURITY_INFORMATION);
-    MirrorCheckFlag(*SecurityInformation,
-                    PROCESS_TRUST_LABEL_SECURITY_INFORMATION);
-    MirrorCheckFlag(*SecurityInformation, BACKUP_SECURITY_INFORMATION);
-    MirrorCheckFlag(*SecurityInformation, PROTECTED_DACL_SECURITY_INFORMATION);
-    MirrorCheckFlag(*SecurityInformation, PROTECTED_SACL_SECURITY_INFORMATION);
-    MirrorCheckFlag(*SecurityInformation, UNPROTECTED_DACL_SECURITY_INFORMATION);
-    MirrorCheckFlag(*SecurityInformation, UNPROTECTED_SACL_SECURITY_INFORMATION);
-
-    requestingSaclInfo = ((*SecurityInformation & SACL_SECURITY_INFORMATION) ||
-                          (*SecurityInformation & BACKUP_SECURITY_INFORMATION));
-
-    if (!g_HasSeSecurityPrivilege) {
-        *SecurityInformation &= ~SACL_SECURITY_INFORMATION;
-        *SecurityInformation &= ~BACKUP_SECURITY_INFORMATION;
-    }
-
-    wprintf(L"  Opening new handle with READ_CONTROL access\n");
-    HANDLE handle = CreateFile(
-        filePath,
-        READ_CONTROL | ((requestingSaclInfo && g_HasSeSecurityPrivilege)
-                            ? ACCESS_SYSTEM_SECURITY
-                            : 0),
-        FILE_SHARE_WRITE | FILE_SHARE_READ | FILE_SHARE_DELETE,
-        NULL, // security attribute
-        OPEN_EXISTING,
-        FILE_FLAG_BACKUP_SEMANTICS, // |FILE_FLAG_NO_BUFFERING,
-        NULL);
-
-    if (!handle || handle == INVALID_HANDLE_VALUE) {
-        wprintf(L"\tinvalid handle\n\n");
-        int error = GetLastError();
-        return DokanNtStatusFromWin32(error);
-    }
-
-    if (!GetUserObjectSecurity(handle, SecurityInformation, SecurityDescriptor,
-                               BufferLength, LengthNeeded)) {
-        int error = GetLastError();
-        if (error == ERROR_INSUFFICIENT_BUFFER) {
-            wprintf(L"  GetUserObjectSecurity error: ERROR_INSUFFICIENT_BUFFER\n");
-            CloseHandle(handle);
-            return STATUS_BUFFER_OVERFLOW;
-        } else {
-            wprintf(L"  GetUserObjectSecurity error: %d\n", error);
-            CloseHandle(handle);
-            return DokanNtStatusFromWin32(error);
-        }
-    }
-
-    // Ensure the Security Descriptor Length is set
-    DWORD securityDescriptorLength =
-        GetSecurityDescriptorLength(SecurityDescriptor);
-    wprintf(L"  GetUserObjectSecurity return true,  *LengthNeeded = "
-             L"securityDescriptorLength \n");
-    *LengthNeeded = securityDescriptorLength;
-
-    CloseHandle(handle);
-
-    return STATUS_SUCCESS;
-}
-
-static NTSTATUS DOKAN_CALLBACK MirrorSetFileSecurity(
-    LPCWSTR FileName, PSECURITY_INFORMATION SecurityInformation,
-    PSECURITY_DESCRIPTOR SecurityDescriptor, ULONG SecurityDescriptorLength,
-    PDOKAN_FILE_INFO DokanFileInfo) {
-    HANDLE handle;
-    WCHAR filePath[DOKAN_MAX_PATH];
-
-    UNREFERENCED_PARAMETER(SecurityDescriptorLength);
-
-    GetFilePath(filePath, DOKAN_MAX_PATH, FileName);
-
-    wprintf(L"SetFileSecurity %s\n", filePath);
-
-    handle = (HANDLE)DokanFileInfo->Context;
-    if (!handle || handle == INVALID_HANDLE_VALUE) {
-        wprintf(L"\tinvalid handle\n\n");
-        return STATUS_INVALID_HANDLE;
-    }
-
-    if (!SetUserObjectSecurity(handle, SecurityInformation, SecurityDescriptor)) {
-        int error = GetLastError();
-        wprintf(L"  SetUserObjectSecurity error: %d\n", error);
-        return DokanNtStatusFromWin32(error);
-    }
-    return STATUS_SUCCESS;
-}
-
-static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
-    PULONGLONG FreeBytesAvailable,
-    PULONGLONG TotalNumberOfBytes,
-    PULONGLONG TotalNumberOfFreeBytes,
-    PDOKAN_FILE_INFO DokanFileInfo)
+static int xmp_removexattr(const char *path, const char *name)
 {
-    // clock_t start = clock();
-    timeb tstart;
-    timeb tend;
-    ftime(&tstart);
-
-    const QString OPERATION_NAME = "getDiskFreeSpace";
-    Connection *conn = (Connection*)DokanFileInfo->DokanOptions->GlobalContext;
-
-    if (!conn)
-    {
-        qDebug() << "[MirrorDokanGetDiskFreeSpace] global context is empty";
-        return STATUS_DEVICE_OFF_LINE;
-    }
-
-    QTcpSocket *socket = conn->socket;
-
-    if (!socket)
-    {
-        qDebug() << "[MirrorDokanGetDiskFreeSpace] connection is invalid";
-        return STATUS_DEVICE_OFF_LINE;
-    }
-
-    qDebug() << "[MirrorDokanGetDiskFreeSpace] machineId: " << conn->machineId;
-
-    QJsonObject request;
-    request["messageType"] = "request";
-    request["operationName"] = OPERATION_NAME;
-    QByteArray data = QJsonDocument(request).toJson(QJsonDocument::Compact);
-    socket->write(data);
-
-    qDebug() << "[MirrorDokanGetDiskFreeSpace] After write";
-
-    socket->waitForReadyRead();
-
-    qDebug() << "[MirrorDokanGetDiskFreeSpace] Before readAll";
-
-    QByteArray buff = socket->readAll();
-    QJsonDocument response = QJsonDocument::fromJson(buff);
-    QString messageType = response["messageType"].toString();
-    QString operationName = response["operationName"].toString();
-
-    qDebug() << "[MirrorDokanGetDiskFreeSpace] response messageType: " << messageType;
-    qDebug() << "[MirrorDokanGetDiskFreeSpace] response operationName: " << operationName;
-
-    if (messageType != "response")
-    {
-        qDebug() << "[MirrorDokanGetDiskFreeSpace] response message type is invalid";
-        return STATUS_DEVICE_OFF_LINE; // TODO: return correct status.
-    }
-    if (operationName != OPERATION_NAME)
-    {
-        qDebug() << "[MirrorDokanGetDiskFreeSpace] response operation is invalid";
-        return STATUS_DEVICE_OFF_LINE; // TODO: return correct status.
-    }
-
-    // clock_t end = clock();
-    // double diff = static_cast<double>((end - start)) / static_cast<double>((CLOCKS_PER_SEC)) * 1000;
-    ftime(&tend);
-    double diff = (tend.time * 1000 + tend.millitm) - (tstart.time * 1000 + tstart.millitm);
-
-    qDebug() << "[MirrorDokanGetDiskFreeSpace] operation took:" << diff << "ms";
-
-    qDebug() << "[MirrorDokanGetDiskFreeSpace] response freeBytesAvailable: " << response["freeBytesAvailable"].toInteger();
-    qDebug() << "[MirrorDokanGetDiskFreeSpace] response totalNumberOfBytes: " << response["totalNumberOfBytes"].toInteger();
-    qDebug() << "[MirrorDokanGetDiskFreeSpace] response totalNumberOfFreeBytes: " << response["totalNumberOfFreeBytes"].toInteger();
-
-    *FreeBytesAvailable = response["freeBytesAvailable"].toInteger();         //(ULONGLONG)(18450636288);
-    *TotalNumberOfBytes = response["totalNumberOfBytes"].toInteger();         //(ULONGLONG)(122747575603);
-    *TotalNumberOfFreeBytes = response["totalNumberOfFreeBytes"].toInteger(); //(ULONGLONG)(18450636288);
-
-    return STATUS_SUCCESS;
+    int res = lremovexattr(path, name);
+    if (res == -1)
+        return -errno;
+    return 0;
 }
+#endif /* HAVE_SETXATTR */
 
-// static NTSTATUS DOKAN_CALLBACK MirrorDokanGetDiskFreeSpace(
-//     PULONGLONG FreeBytesAvailable, PULONGLONG TotalNumberOfBytes,
-//     PULONGLONG TotalNumberOfFreeBytes, PDOKAN_FILE_INFO DokanFileInfo)
-// {
-//     // clock_t start = clock();
-//     timeb tstart;
-//     timeb tend;
-//     ftime(&tstart);
+/*
+ * List of fuse operations that are the same for macFUSE and Dokan FUSE
+ *
+    getattr
+    readlink
+    getdir
+    mknod
+    mkdir
+    unlink
+    rmdir
+    symlink
+    rename
+    link
+    chmod
+    chown
+    truncate
+  ? utime
+    open
+    read
+    write
+    statfs
+  - flush
+    release
+    fsync
+  ? setxattr
+  ? getxattr
+  ? listxattr
+  ? removexattr
+  - opendir
+    readdir
+  - releasedir
+  - fsyncdir
+    access
+  - create
+  - ftruncate
+  - fgetattr
+  - lock
+  - utimens
+  - bmap
+ */
 
-//     UNREFERENCED_PARAMETER(DokanFileInfo);
+// WinFsp FUSE: https://github.com/winfsp/winfsp/blob/master/tst/winfsp-tests/fuse-test.c
 
-//     NTSTATUS result = FileSystem::FD_GetDiskFreeSpace(FreeBytesAvailable, TotalNumberOfBytes, TotalNumberOfFreeBytes);
+static struct fuse_operations xmp_oper = {
+    // Minimal v1 operation set.
+    .getattr	= xmp_getattr,
+    .readlink	= xmp_readlink,
+    .mkdir		= xmp_mkdir,
+    .unlink		= xmp_unlink,
+    .rmdir		= xmp_rmdir,
+    .rename		= xmp_rename,
+    .truncate	= xmp_truncate,
+    .open		= xmp_open,
+    .read		= xmp_read,
+    .write		= xmp_write,
+    .statfs		= xmp_statfs,
+    .release	= xmp_release,
+    .fsync		= xmp_fsync,
+#ifdef HAVE_UTIMENSAT
+    .utimens	= xmp_utimens,
+#endif
+    .readdir	= xmp_readdir,
+    .access		= xmp_access,
+    .create		= xmp_create,
+};
 
-//     if (result != STATUS_SUCCESS) {
-//         return DokanNtStatusFromWin32(result);
-//     }
+// What was used during navigation:
+// + xmp_getattr
+// + xmp_open
+// + xmp_release // This method is optional and can safely be left unimplemented
+// + xmp_read
+// + xmp_readdir
+// + xmp_statfs
 
-//     // clock_t end = clock();
-//     // double diff = static_cast<double>((end - start)) / static_cast<double>((CLOCKS_PER_SEC)) * 1000;
-//     ftime(&tend);
-//     double diff = (tend.time * 1000 + tend.millitm) - (tstart.time * 1000 + tstart.millitm);
-
-//     qDebug() << "[MirrorDokanGetDiskFreeSpace] operation took:" << diff << "ms";
-
-//     qDebug() << "[MirrorDokanGetDiskFreeSpace] FreeBytesAvailable: " << *FreeBytesAvailable;
-//     qDebug() << "[MirrorDokanGetDiskFreeSpace] TotalNumberOfBytes: " << *TotalNumberOfBytes;
-//     qDebug() << "[MirrorDokanGetDiskFreeSpace] TotalNumberOfFreeBytes: " << *TotalNumberOfFreeBytes;
-
-//     return STATUS_SUCCESS;
-// }
-
-static NTSTATUS DOKAN_CALLBACK MirrorGetVolumeInformation(
-    LPWSTR VolumeNameBuffer, DWORD VolumeNameSize, LPDWORD VolumeSerialNumber,
-    LPDWORD MaximumComponentLength, LPDWORD FileSystemFlags,
-    LPWSTR FileSystemNameBuffer, DWORD FileSystemNameSize,
-    PDOKAN_FILE_INFO DokanFileInfo)
+static void Start(VirtDisk *self, Connection *conn)
 {
-    UNREFERENCED_PARAMETER(DokanFileInfo);
-
-    qDebug() << "[MirrorGetVolumeInformation] VolumeNameBuffer: " << VolumeNameBuffer;
-
-    NTSTATUS result = DokanBackend::FD_GetVolumeInformation(VolumeNameBuffer, VolumeNameSize, VolumeSerialNumber, MaximumComponentLength, FileSystemFlags, FileSystemNameBuffer, FileSystemNameSize);
-
-    if (result != STATUS_SUCCESS) {
-        return DokanNtStatusFromWin32(result);
+    conn->socket = new QTcpSocket();
+    qDebug() << "[Start] try to connect";
+    conn->socket->connectToHost(QHostAddress(conn->machineAddress), conn->machinePort);
+    if (!conn->socket->waitForConnected())
+    {
+        qDebug()
+        << "[Start] socket connection error: "
+        << conn->socket->errorString();
+        return;
     }
 
-    return STATUS_SUCCESS;
-}
+    qDebug() << "[Start] socket connected";
 
-NTSTATUS DOKAN_CALLBACK MirrorFindStreams(LPCWSTR FileName, PFillFindStreamData FillFindStreamData,
-                  PVOID FindStreamContext,
-                  PDOKAN_FILE_INFO DokanFileInfo)
-{
-    UNREFERENCED_PARAMETER(DokanFileInfo);
+    g_Client = self->client;
 
-    qDebug() << "[MirrorFindStreams] FileName: " << FileName;
+    int argc = 4;
+    char *argv[] = {"FileDonkey", "M:", "-o", "volname=MacBook Pro"};
+    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+    int err = -1;
 
-    return DokanBackend::FD_FindStreams(FileName, (HANDLE)FillFindStreamData, FindStreamContext);
-}
+    if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
+        (ch = fuse_mount(mountpoint, &args)) != NULL) {
 
-static NTSTATUS DOKAN_CALLBACK MirrorMounted(LPCWSTR MountPoint,
-                                             PDOKAN_FILE_INFO DokanFileInfo) {
-    UNREFERENCED_PARAMETER(DokanFileInfo);
+        f = fuse_new(ch, &args, &xmp_oper,
+                     sizeof(xmp_oper), conn);
 
-    wprintf(L"Mounted as %s\n", MountPoint);
-    return STATUS_SUCCESS;
-}
 
-static NTSTATUS DOKAN_CALLBACK MirrorUnmounted(PDOKAN_FILE_INFO DokanFileInfo) {
-    UNREFERENCED_PARAMETER(DokanFileInfo);
+        se = fuse_get_session(f);
+        fuse_set_signal_handlers(se);
 
-    wprintf(L"Unmounted\n");
-    return STATUS_SUCCESS;
-}
 
-static void Start(DOKAN_OPTIONS options, DOKAN_OPERATIONS operations)
-{
-    // Connection *newConn = (Connection*)options.GlobalContext;
-    // newConn->socket = new QTcpSocket();
-    // qDebug() << "[establishConnection] try to connect";
-    // newConn->socket->connectToHost(QHostAddress(newConn->machineAddress), newConn->machinePort);
-    // if (!newConn->socket->waitForConnected())
-    // {
-    //     qDebug()
-    //         << "[establishConnection] socket connection error: "
-    //         << newConn->socket->errorString();
-    //     return;
-    // }
+        qDebug() << "before fuse_loop call";
+        fuse_loop(f);
+        qDebug() << "after fuse_loop call";
 
-    // qDebug() << "[establishConnection] socket connected";
 
-    DokanInit();
-    int status = DokanMain(&options, &operations);
-    DokanShutdown();
-
-    switch (status) {
-    case DOKAN_SUCCESS:
-        fprintf(stderr, "Success\n");
-        break;
-    case DOKAN_ERROR:
-        fprintf(stderr, "Error\n");
-        break;
-    case DOKAN_DRIVE_LETTER_ERROR:
-        fprintf(stderr, "Bad Drive letter\n");
-        break;
-    case DOKAN_DRIVER_INSTALL_ERROR:
-        fprintf(stderr, "Can't install driver\n");
-        break;
-    case DOKAN_START_ERROR:
-        fprintf(stderr, "Driver something wrong\n");
-        break;
-    case DOKAN_MOUNT_ERROR:
-        fprintf(stderr, "Can't assign a drive letter\n");
-        break;
-    case DOKAN_MOUNT_POINT_ERROR:
-        fprintf(stderr, "Mount point error\n");
-        break;
-    case DOKAN_VERSION_ERROR:
-        fprintf(stderr, "Version error\n");
-        break;
-    default:
-        fprintf(stderr, "Unknown error: %d\n", status);
-        break;
+        //            if (se != NULL) {
+        //                if (fuse_set_signal_handlers(se) != -1) {
+        //                    fuse_session_add_chan(se, ch);
+        //                    err = fuse_session_loop(se);
+        //                    fuse_remove_signal_handlers(se);
+        //                    fuse_session_remove_chan(ch);
+        //                }
+        //                fuse_session_destroy(se);
+        //            }
+        fuse_exit(f);
+        fuse_unmount(mountpoint, ch);
     }
+
+    fuse_opt_free_args(&args);
 }
 
 void VirtDisk::mount(const QString &mountPoint)
 {
-    this->mountPoint = mountPoint;
+    // int argc = 4;
+    // char *argv[] = {"FileDonkey", "M:", "-o", "volname=MacBook Pro"};
+    // struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
-    DOKAN_OPERATIONS operations;
-    DOKAN_OPTIONS options;
+    // loopback.blocksize = 4096;
+    // loopback.case_insensitive = 0;
+    // if (fuse_opt_parse(&args, &loopback, loopback_opts, NULL) == -1) {
+    //     exit(1);
+    // }
 
-    ZeroMemory(&options, sizeof(DOKAN_OPTIONS));
-    ZeroMemory(&operations, sizeof(DOKAN_OPERATIONS));
+    // umask(0);
+    // int res = fuse_main(args.argc, args.argv, &xmp_oper, NULL);
 
-    options.Version = DOKAN_VERSION;
-    options.MountPoint = L"M:\\"; //this->mountPoint.toStdWString().c_str();
-    options.Options |= DOKAN_OPTION_ALT_STREAM;
-    options.Options |= DOKAN_OPTION_REMOVABLE;
-    options.GlobalContext = (ULONG64)&conn;
+    // qDebug() << "fuse_main result: " << res;
 
-    operations.ZwCreateFile = MirrorCreateFile; // +
-    operations.Cleanup = MirrorCleanup; // +
-    operations.CloseFile = MirrorCloseFile; // +
-    operations.ReadFile = MirrorReadFile;
-    operations.WriteFile = MirrorWriteFile;
-    operations.FlushFileBuffers = MirrorFlushFileBuffers;
-    operations.GetFileInformation = MirrorGetFileInformation; // +
-    operations.FindFiles = MirrorFindFiles;
-    operations.FindFilesWithPattern = NULL;
-    operations.SetFileAttributes = MirrorSetFileAttributes;
-    operations.SetFileTime = MirrorSetFileTime;
-    operations.DeleteFile = MirrorDeleteFile;
-    operations.DeleteDirectory = MirrorDeleteDirectory;
-    operations.MoveFile = MirrorMoveFile;
-    operations.SetEndOfFile = MirrorSetEndOfFile;
-    operations.SetAllocationSize = MirrorSetAllocationSize;
-    operations.LockFile = MirrorLockFile;
-    operations.UnlockFile = MirrorUnlockFile;
-    operations.GetFileSecurity = MirrorGetFileSecurity;
-    operations.SetFileSecurity = MirrorSetFileSecurity;
-    operations.GetDiskFreeSpace = MirrorDokanGetDiskFreeSpace; // +
-    operations.GetVolumeInformation = MirrorGetVolumeInformation; // +
-    operations.Unmounted = MirrorUnmounted;
-    operations.FindStreams = MirrorFindStreams; // +
-    operations.Mounted = MirrorMounted;
+    // fuse_opt_free_args(&args);
 
-    thread = std::thread(Start, options, operations);
+    thread = std::thread(Start, this, &conn);
 }
+
+// int main(int argc, char *argv[])
+// {
+//     umask(0);
+//     return fuse_main(argc, argv, &xmp_oper, NULL);
+// }
 
 #endif

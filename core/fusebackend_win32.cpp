@@ -1,5 +1,3 @@
-#define __FUSE__
-
 #if defined(_WIN32)
 
 #include "fusebackend.h"

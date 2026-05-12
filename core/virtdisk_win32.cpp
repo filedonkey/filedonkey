@@ -4,6 +4,7 @@
 #include "fuseclient.h"
 #include "fusebackend_types.h"
 
+#include <cassert>
 #include <thread>
 #include <iostream>
 #include <fileapi.h>
@@ -462,53 +463,22 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 }
 
 static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
-                    struct fuse_file_info *fi)
-{
-    qDebug() << "[xmp_read] path: " << path;
+                    struct fuse_file_info *fi) {
+    (void)fi;
 
-    (void) fi;
-
-    //------------------------------------------------------------------------------------
-    // Network tests
-    //------------------------------------------------------------------------------------
     struct fuse_context *context = fuse_get_context();
-    qDebug() << "[xmp_read] context:" << context << context->private_data;
-    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
-
-    qDebug() << "[xmp_read] size:" << size;
-    qDebug() << "[xmp_read] offset:" << offset;
+    FUSEClient *client = (FUSEClient *)context->private_data;
+    assert(client && "[xmp_read] FUSEClient not found");
 
     Ref<ReadResult> result = client->FD_read(path, size, offset);
 
-    qDebug() << "[xmp_read] incoming result status:" << result->status;
-    qDebug() << "[xmp_read] incoming result size:" << result->size;
-    qDebug() << "[xmp_read] incoming result length:" << strlen(result->data);
-    //    qDebug() << "[xmp_read] incoming result data:" << result->data;
-
     memset(buf, 0, size);
 
-    if (result->status > 0)
-    {
+    if (result->status > 0) {
         memcpy(buf, result->data, result->status);
     }
 
     return result->status;
-
-    //------------------------------------------------------------------------------------
-
-    // int fd;
-    // int res;
-
-    // fd = open(path, O_RDONLY);
-    // if (fd == -1)
-    //     return -errno;
-
-    // res = pread(fd, buf, size, offset);
-    // if (res == -1)
-    //     res = -errno;
-
-    // close(fd);
-    // return res;
 }
 
 static int xmp_write(const char *path, const char *buf, size_t size,
@@ -786,9 +756,8 @@ static void Start(VirtDisk *self, Connection *conn)
 
     if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
         (ch = fuse_mount(mountpoint, &args)) != NULL) {
-
         f = fuse_new(ch, &args, &xmp_oper,
-                     sizeof(xmp_oper), conn);
+                     sizeof(xmp_oper), self->client);
 
 
         se = fuse_get_session(f);

@@ -12,7 +12,8 @@
 
 Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 {
-    std::filesystem::path absolutePath = publicDir / path;
+    auto relativePath = std::filesystem::path(path).relative_path();
+    auto absolutePath = publicDir / relativePath;
 
     Ref<ReaddirResult> result = MakeRef<ReaddirResult>();
 
@@ -53,7 +54,8 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 
 Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
 {
-    std::filesystem::path absolutePath = publicDir / path;
+    auto relativePath = std::filesystem::path(path).relative_path();
+    auto absolutePath = publicDir / relativePath;
 
     Ref<ReadResult> result = MakeRef<ReadResult>(size);
 
@@ -79,7 +81,8 @@ Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
 
 Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
 {
-    std::filesystem::path absolutePath = publicDir / path;
+    auto relativePath = std::filesystem::path(path).relative_path();
+    auto absolutePath = publicDir / relativePath;
 
     Ref<ReadlinkResult> result = MakeRef<ReadlinkResult>(size);
 
@@ -97,7 +100,8 @@ Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
 
 Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 {
-    std::filesystem::path absolutePath = publicDir / path;
+    auto relativePath = std::filesystem::path(path).relative_path();
+    auto absolutePath = publicDir / relativePath;
 
     Ref<StatfsResult> result = MakeRef<StatfsResult>();
 
@@ -141,7 +145,8 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 
 Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 {
-    std::filesystem::path absolutePath = publicDir / path;
+    auto relativePath = std::filesystem::path(path).relative_path();
+    auto absolutePath = publicDir / relativePath;
 
     Ref<GetattrResult> result = MakeRef<GetattrResult>();
 
@@ -176,7 +181,8 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 
 i32 FUSEBackend::FD_write(const char *path, const char *buf, u64 size, i64 offset)
 {
-    std::filesystem::path absolutePath = publicDir / path;
+    auto relativePath = std::filesystem::path(path).relative_path();
+    auto absolutePath = publicDir / relativePath;
 
     int fd = open(absolutePath.string().c_str(), O_WRONLY);
     if (fd == -1)

@@ -6,6 +6,7 @@
 #include "virtdisk.h"
 #include "fuseclient.h"
 
+#include <cassert>
 #include <thread>
 
 #define FUSE_USE_VERSION 31
@@ -490,54 +491,23 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 }
 
 static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
-                    struct fuse_file_info *fi)
-{
-    qDebug() << "[xmp_read] path: " << path << size << offset;
+                    struct fuse_file_info *fi) {
 
-    (void) fi;
+  (void)fi;
 
-    //------------------------------------------------------------------------------------
-    // Network tests
-    //------------------------------------------------------------------------------------
-    struct fuse_context *context = fuse_get_context();
-    qDebug() << "[xmp_read] context:" << context << context->private_data;
-    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+  struct fuse_context *context = fuse_get_context();
+  FUSEClient *client = (FUSEClient *)context->private_data;
+  assert(client && "[xmp_read] FUSEClient not found");
 
-    Ref<ReadResult> result = client->FD_read(path, size, offset);
+  Ref<ReadResult> result = client->FD_read(path, size, offset);
 
-    qDebug() << "[xmp_read] incoming result status:" << result->status;
-    qDebug() << "[xmp_read] incoming result size:" << result->size;
-    qDebug() << "[xmp_read] incoming result length:" << strlen(result->data);
-//    qDebug() << "[xmp_read] incoming result data:" << result->data;
+  memset(buf, 0, size);
 
-    memset(buf, 0, size);
+  if (result->status > 0) {
+    memcpy(buf, result->data, result->status);
+  }
 
-    if (result->status > 0)
-    {
-        memcpy(buf, result->data, result->status);
-    }
-
-    return result->status;
-    //------------------------------------------------------------------------------------
-
-    int fd;
-    int res;
-
-    if(fi == NULL)
-        fd = open(path, O_RDONLY);
-    else
-        fd = fi->fh;
-
-    if (fd == -1)
-        return -errno;
-
-    res = pread(fd, buf, size, offset);
-    if (res == -1)
-        res = -errno;
-
-    if(fi == NULL)
-        close(fd);
-    return res;
+  return result->status;
 }
 
 static int xmp_write(const char *path, const char *buf, size_t size,
@@ -804,7 +774,7 @@ static const struct fuse_operations xmp_oper = {
     .release	= xmp_release,
     .fsync		= xmp_fsync,
     .readdir	= xmp_readdir,
-    .init       = xmp_init,
+//    .init       = xmp_init,
     .access		= xmp_access,
     .create 	= xmp_create,
 #ifdef HAVE_UTIMENSAT
@@ -845,7 +815,7 @@ static void Start(VirtDisk *self, Connection *conn)
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
     int err = -1;
 
-            f = fuse_new(&args, &xmp_oper, sizeof(xmp_oper), conn);
+            f = fuse_new(&args, &xmp_oper, sizeof(xmp_oper), self->client);
             fuse_mount(f, mountpoint);
             qDebug() << "before fuse_set_signal_handlers call";
             if (fuse_set_signal_handlers(fuse_get_session(f)) != 0) {

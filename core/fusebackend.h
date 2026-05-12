@@ -4,15 +4,46 @@
 #include "core.h"
 #include "fusebackend_types.h"
 
+#include <QString>
+#include <QDir>
+#include <QStorageInfo>
+
+#include <filesystem>
+
 class FUSEBackend
 {
 public:
-    static Ref<ReaddirResult>  FD_readdir(const char *path);
-    static Ref<ReadResult>     FD_read(const char *path, u64 size, i64 offset);
-    static i32                 FD_write(const char *path, const char *buf, u64 size, i64 offset);
-    static Ref<ReadlinkResult> FD_readlink(const char *path, u64 size);
-    static Ref<StatfsResult>   FD_statfs(const char *path);
-    static Ref<GetattrResult>  FD_getattr(const char *path);
+    FUSEBackend() : publicDir(FUSEBackend::defualtPublicDir()) {};
+
+    Ref<ReaddirResult>  FD_readdir(const char *path);
+    Ref<ReadResult>     FD_read(const char *path, u64 size, i64 offset);
+    i32                 FD_write(const char *path, const char *buf, u64 size, i64 offset);
+    Ref<ReadlinkResult> FD_readlink(const char *path, u64 size);
+    Ref<StatfsResult>   FD_statfs(const char *path);
+    Ref<GetattrResult>  FD_getattr(const char *path);
+
+    static std::filesystem::path defualtPublicDir()
+    {
+        QByteArray homePath = qgetenv("HOME");
+        if (homePath.length()) return std::filesystem::path(homePath.toStdString());
+
+        const QList<QStorageInfo> volumes = QStorageInfo::mountedVolumes();
+
+        for (const QStorageInfo &storage : volumes) {
+            if (!storage.isValid() || !storage.isReady())
+                continue;
+
+            if (volumes.length() > 1 && storage.isRoot())
+                continue;
+
+            return std::filesystem::path(storage.rootPath().toStdString());
+        }
+
+        return std::filesystem::path(QDir::homePath().toStdString());
+    }
+
+private:
+    std::filesystem::path publicDir;
 };
 
 #endif // FUSEBACKEND_H

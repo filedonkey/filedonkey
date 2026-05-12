@@ -3,6 +3,7 @@
 
 #include "connection.h"
 #include "virtdisk.h"
+#include "fusebackend.h"
 
 #include <functional>
 
@@ -68,5 +69,6 @@ private:
     QMap<QString, RequestHandler> fuseHandlers;
 
     VirtDisk *virtDisk = nullptr;
+    FUSEBackend *fuseBackend = nullptr;
 };
 #endif // MAINWINDOW_H

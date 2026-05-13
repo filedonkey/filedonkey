@@ -120,6 +120,14 @@ Ref<CreateResult> FUSEClient::FD_create(const char *path, u32 mode, i32 flags)
 
     qDebug() << "[FUSEClient::FD_create] incoming result status:" << result->status;
 
+    // Before calling "create" operation FUSE calls "getattr" in order
+    // to check whether file alredy exists. FUSE calls "getattr" operation
+    // after "create" one more time. We need to remove prev "getattr" result
+    // from cache to let FUSE know that file was successfully created.
+    QByteArray getattrPayload((char *)path, strlen(path));
+    QString cacheKey = QString("%1%2%3").arg(conn->machineId).arg("getattr").arg(getattrPayload);
+    netCache.remove(cacheKey);
+
     return result;
 }
 

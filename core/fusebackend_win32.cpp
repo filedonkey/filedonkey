@@ -267,7 +267,7 @@ Ref<CreateResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
 
     Ref<CreateResult> result = MakeRef<CreateResult>();
 
-    int fd = open(path, O_CREAT | O_WRONLY, mode);
+    int fd = open(absolutePath.string().c_str(), O_CREAT | O_WRONLY, mode);
     if (fd == -1)
     {
         result->status = -errno;

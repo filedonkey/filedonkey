@@ -47,11 +47,21 @@ Ref<ReadResult> FUSEClient::FD_read(const char *path, u64 size, i64 offset)
 
 i32 FUSEClient::FD_write(const char *path, const char *buf, u64 size, i64 offset)
 {
+    const char *nullTerminal = "\0";
+    size_t pathLength = strlen(path) + 1;
     QByteArray payload;
     payload.append((char *)(&size), sizeof(size));
     payload.append((char *)(&offset), sizeof(offset));
-    payload.append((char *)buf, size);
+    payload.append((char *)(&pathLength), sizeof(pathLength));
     payload.append((char *)path, strlen(path));
+    payload.append((char *)nullTerminal, 1);
+    payload.append((char *)buf, size);
+
+    qDebug() << "[FUSEClient::FD_write] size:" << size;
+    qDebug() << "[FUSEClient::FD_write] offset:" << offset;
+    qDebug() << "[FUSEClient::FD_write] path length:" << pathLength;
+    qDebug() << "[FUSEClient::FD_write] path:" << path;
+    qDebug() << "[FUSEClient::FD_write] payload length:" << payload.length();
 
     FetchResult incoming = Fetch("write", payload);
 

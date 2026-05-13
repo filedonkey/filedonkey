@@ -263,16 +263,20 @@ QByteArray MainWindow::readHandler(QByteArray payload)
 
 QByteArray MainWindow::writeHandler(QByteArray payload)
 {
+    qDebug() << "[MainWindow::writeHandler] incoming payload length:" << payload.length();
     u64 size = *(u64 *)(payload.data());
+    qDebug() << "[MainWindow::writeHandler] incoming size:" << size;
     i64 offset = *(i64 *)(payload.sliced(sizeof(u64)).data());
-    QByteArray buf = payload.sliced(sizeof(u64) + sizeof(i64));
-    QByteArray path = payload.sliced(sizeof(u64) + sizeof(i64) + size);
-    qDebug() << "[MainWindow::readHandler] incoming size:" << size;
-    qDebug() << "[MainWindow::readHandler] incoming offset:" << offset;
-    qDebug() << "[MainWindow::readHandler] incoming path:" << path.data();
+    qDebug() << "[MainWindow::writeHandler] incoming offset:" << offset;
+    u64 pathLength = *(u64 *)(payload.sliced(sizeof(u64) + sizeof(i64)).data());
+    qDebug() << "[MainWindow::writeHandler] incoming path length:" << pathLength;
+    QByteArray path = payload.sliced(sizeof(u64) + sizeof(i64) + sizeof(u64));
+    qDebug() << "[MainWindow::writeHandler] incoming path:" << path.data();
+    QByteArray buf = payload.sliced(sizeof(u64) + sizeof(i64) + sizeof(u64) + pathLength);
+    qDebug() << "[MainWindow::writeHandler] incoming buff length:" << buf.length();
 
     i32 result = fuseBackend->FD_write(path.data(), buf.data(), size, offset);
-    qDebug() << "[MainWindow::readHandler] result:" << result;
+    qDebug() << "[MainWindow::writeHandler] result:" << result;
 
     DatagramHeader header("response", "fuse", "write");
     header.datagramSize += sizeof(ReadResult) + sizeof(i32);

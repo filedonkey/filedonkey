@@ -69,6 +69,7 @@ void FileTimeToTimestruc(const FILETIME &ft, fuse_timespec &ts) {
 int lstat(const char* path, struct fuse_stat* buf) {
     if (!path || !buf) {
         SetLastError(ERROR_INVALID_PARAMETER);
+        errno = EFAULT;
         return -1;
     }
 
@@ -78,12 +79,14 @@ int lstat(const char* path, struct fuse_stat* buf) {
     // Convert to wide string for Unicode API
     int wchars_needed = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
     if (wchars_needed <= 0) {
+        errno = ENOENT;
         return -1;
     }
 
     wchar_t* wpath = new wchar_t[wchars_needed];
     if (MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, wchars_needed) <= 0) {
         delete[] wpath;
+        errno = ENOENT;
         return -1;
     }
 
@@ -93,6 +96,7 @@ int lstat(const char* path, struct fuse_stat* buf) {
     // Check if file exists and get its attributes
     if (!success) {
         delete[] wpath;
+        errno = ENOENT;
         return -1;
     }
 
@@ -130,6 +134,10 @@ int lstat(const char* path, struct fuse_stat* buf) {
     // buf->st_mode |= WIN_S_IRWXU;  // Owner can read/write/execute
     buf->st_mode |= WIN_S_IRUSR; // Owner can read
     buf->st_mode |= WIN_S_IWUSR; // Owner can write
+    buf->st_mode |= WIN_S_IRGRP; // Group can read
+    buf->st_mode |= WIN_S_IWGRP; // Group can write
+    buf->st_mode |= WIN_S_IROTH; // Group can read
+    buf->st_mode |= WIN_S_IWOTH; // Group can write
 
     if (!(fileData.dwFileAttributes & FILE_ATTRIBUTE_READONLY)) {
         buf->st_mode |= WIN_S_IRGRP | WIN_S_IROTH;  // Group and others can read

@@ -78,6 +78,13 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 #define WIN_S_IFDIR  0040000  // directory
 #define WIN_S_IFREG  0100000  // regular file
 
+#define WIN_S_IRUSR  0000400  // owner has read permission
+#define WIN_S_IWUSR  0000200  // owner has write permission
+#define WIN_S_IRGRP  0000040  // group has read permission
+#define WIN_S_IWGRP  0000020  // group has write permission
+#define WIN_S_IROTH  0000004  // others have read permission
+#define WIN_S_IWOTH  0000002  // others have write permission
+
             bool isSymLink = (fileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
             if (isSymLink)
             {
@@ -91,6 +98,13 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
             {
                 findData.st_mode |= WIN_S_IFREG;
             }
+
+            findData.st_mode |= WIN_S_IRUSR; // Owner can read
+            findData.st_mode |= WIN_S_IWUSR; // Owner can write
+            findData.st_mode |= WIN_S_IRGRP; // Group can read
+            findData.st_mode |= WIN_S_IWGRP; // Group can write
+            findData.st_mode |= WIN_S_IROTH; // Group can read
+            findData.st_mode |= WIN_S_IWOTH; // Group can write
         }
 
         qDebug() << "[FD_readdir] dd_name" << dp->dd_name << strlen(dp->dd_name);

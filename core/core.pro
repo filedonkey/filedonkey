@@ -8,6 +8,10 @@ CONFIG += c++20
 # In order to do so, uncomment the following line.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
+macx {
+    QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15
+}
+
 SOURCES += \
     fusebackend_linux.cpp \
     fusebackend_macos.cpp \

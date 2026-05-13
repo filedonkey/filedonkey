@@ -18,7 +18,8 @@ private:
 private slots:
     void Returns_correct_GetattrResult()
     {
-        Ref<GetattrResult> result = FUSEBackend::FD_getattr(appIconPath.toStdString().c_str());
+        FUSEBackend fuseBackend;
+        Ref<GetattrResult> result = fuseBackend.FD_getattr(appIconPath.toStdString().c_str());
 
         QFile appIcon = QFile(appIconPath);
         qint64 fileAccessTime = appIcon.fileTime(QFileDevice::FileAccessTime).toSecsSinceEpoch();
@@ -57,7 +58,8 @@ private slots:
     void Returns_correct_ReadResult()
     {
         const u32 BLOCK_SIZE = 65535;
-        Ref<ReadResult> result = FUSEBackend::FD_read(appIconPath.toStdString().c_str(), BLOCK_SIZE, 0);
+        FUSEBackend fuseBackend;
+        Ref<ReadResult> result = fuseBackend.FD_read(appIconPath.toStdString().c_str(), BLOCK_SIZE, 0);
 
         QFile appIcon = QFile(appIconPath);
         appIcon.open(QIODeviceBase::ReadOnly);
@@ -72,7 +74,8 @@ private slots:
 
     void Returns_correct_StatfsResult()
     {
-        Ref<StatfsResult> result = FUSEBackend::FD_statfs(QDir::currentPath().toStdString().c_str());
+        FUSEBackend fuseBackend;
+        Ref<StatfsResult> result = fuseBackend.FD_statfs(QDir::currentPath().toStdString().c_str());
         QStorageInfo storageInfo(QDir::currentPath());
 
         QCOMPARE(result->status, 0);
@@ -101,7 +104,8 @@ private slots:
     void Returns_correct_ReaddirResult()
     {
         QString assetsPath = QDir::currentPath() + "/assets/";
-        Ref<ReaddirResult> result = FUSEBackend::FD_readdir(assetsPath.toStdString().c_str());
+        FUSEBackend fuseBackend;
+        Ref<ReaddirResult> result = fuseBackend.FD_readdir(assetsPath.toStdString().c_str());
         FindData *fd = (FindData *)result->findData;
 
         QDir dir(assetsPath);
@@ -148,7 +152,8 @@ private slots:
         QString symLinkPath = QDir::currentPath() + "/assets/filedonkey_app_icon_symlink.ico";
 
         const u32 BLOCK_SIZE = 65535;
-        Ref<ReadlinkResult> result = FUSEBackend::FD_readlink(symLinkPath.toStdString().c_str(), BLOCK_SIZE);
+        FUSEBackend fuseBackend;
+        Ref<ReadlinkResult> result = fuseBackend.FD_readlink(symLinkPath.toStdString().c_str(), BLOCK_SIZE);
 
         std::filesystem::path appIconFSPath = appIconPath.toStdString();
         std::filesystem::path symLinkDataPath = QString(result->data).toStdString();
@@ -167,7 +172,8 @@ private slots:
         if (tmp.open(QIODevice::WriteOnly | QIODevice::Text)) tmp.close();
 
         const char *data = "Hello, World!";
-        i32 result = FUSEBackend::FD_write(filePath.toStdString().c_str(), data, strlen(data), 0);
+        FUSEBackend fuseBackend;
+        i32 result = fuseBackend.FD_write(filePath.toStdString().c_str(), data, strlen(data), 0);
 
         QFile file = QFile(filePath);
         file.open(QIODeviceBase::ReadOnly);

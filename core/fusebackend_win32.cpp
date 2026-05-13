@@ -23,13 +23,15 @@
 
 Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 {
+    auto absolutePath = normalizePath(path);
+
     Ref<ReaddirResult> result = MakeRef<ReaddirResult>();
 
     std::vector<FindData> findDataList;
     DIR *dp;
     struct dirent *de;
 
-    dp = opendir(path);
+    dp = opendir(absolutePath.string().c_str());
     if (dp == NULL)
     {
         result->status = -errno;
@@ -75,6 +77,13 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 #define WIN_S_IFDIR  0040000  // directory
 #define WIN_S_IFREG  0100000  // regular file
 
+#define WIN_S_IRUSR  0000400  // owner has read permission
+#define WIN_S_IWUSR  0000200  // owner has write permission
+#define WIN_S_IRGRP  0000040  // group has read permission
+#define WIN_S_IWGRP  0000020  // group has write permission
+#define WIN_S_IROTH  0000004  // others have read permission
+#define WIN_S_IWOTH  0000002  // others have write permission
+
             bool isSymLink = (fileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
             if (isSymLink)
             {
@@ -88,6 +97,13 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
             {
                 findData.st_mode |= WIN_S_IFREG;
             }
+
+            findData.st_mode |= WIN_S_IRUSR; // Owner can read
+            findData.st_mode |= WIN_S_IWUSR; // Owner can write
+            findData.st_mode |= WIN_S_IRGRP; // Group can read
+            findData.st_mode |= WIN_S_IWGRP; // Group can write
+            findData.st_mode |= WIN_S_IROTH; // Group can read
+            findData.st_mode |= WIN_S_IWOTH; // Group can write
         }
 
         qDebug() << "[FD_readdir] dd_name" << dp->dd_name << strlen(dp->dd_name);
@@ -112,9 +128,11 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 
 Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
 {
+    auto absolutePath = normalizePath(path);
+
     Ref<ReadResult> result = MakeRef<ReadResult>(size);
 
-    int fd = open(path, O_RDONLY);
+    int fd = open(absolutePath.string().c_str(), O_RDONLY);
     if (fd == -1)
     {
         result->status = -errno;
@@ -136,9 +154,11 @@ Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
 
 Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
 {
+    auto absolutePath = normalizePath(path);
+
     Ref<ReadlinkResult> result = MakeRef<ReadlinkResult>(size);
 
-    int res = readlink(path, result->data, size - 1);
+    int res = readlink(absolutePath.string().c_str(), result->data, size - 1);
     if (res == -1)
     {
         result->status = -errno;
@@ -152,11 +172,13 @@ Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
 
 Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 {
+    auto absolutePath = normalizePath(path);
+
     Ref<StatfsResult> result = MakeRef<StatfsResult>();
 
     struct fuse_statvfs stbuf;
 
-    int res = statvfs(path, &stbuf);
+    int res = statvfs(absolutePath.string().c_str(), &stbuf);
     if (res == -1)
     {
         result->status = -errno;
@@ -180,11 +202,13 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 
 Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 {
+    auto absolutePath = normalizePath(path);
+
     Ref<GetattrResult> result = MakeRef<GetattrResult>();
 
     struct fuse_stat stbuf;
 
-    int res = lstat(path, &stbuf);
+    int res = lstat(absolutePath.string().c_str(), &stbuf);
     if (res == -1)
     {
         result->status = -errno;
@@ -215,7 +239,9 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 
 i32 FUSEBackend::FD_write(const char *path, const char *buf, u64 size, i64 offset)
 {
-    int fd = open(path, O_WRONLY);
+    auto absolutePath = normalizePath(path);
+
+    int fd = open(absolutePath.string().c_str(), O_WRONLY);
     if (fd == -1)
     {
         qDebug() << "[FUSEBackend::FD_write] can't open file to write";
@@ -231,6 +257,25 @@ i32 FUSEBackend::FD_write(const char *path, const char *buf, u64 size, i64 offse
 
     close(fd);
     return res;
+}
+
+Ref<CreateResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
+{
+    auto absolutePath = normalizePath(path);
+
+    (void)flags;
+
+    Ref<CreateResult> result = MakeRef<CreateResult>();
+
+    int fd = open(absolutePath.string().c_str(), O_CREAT | O_WRONLY, mode);
+    if (fd == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    close(fd);
+    return result;
 }
 
 #endif

@@ -12,6 +12,8 @@
 
 Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 {
+    auto absolutePath = normalizePath(path);
+
     Ref<ReaddirResult> result = MakeRef<ReaddirResult>();
 
     std::vector<FindData> findDataList;
@@ -19,7 +21,7 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
     struct dirent *de;
 
 
-    dp = opendir(path);
+    dp = opendir(absolutePath.string().c_str());
     if (dp == NULL)
     {
         result->status = -errno;
@@ -51,10 +53,11 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 
 Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
 {
+    auto absolutePath = normalizePath(path);
+
     Ref<ReadResult> result = MakeRef<ReadResult>(size);
 
-
-    int fd = open(path, O_RDONLY);
+    int fd = open(absolutePath.string().c_str(), O_RDONLY);
     if (fd == -1)
     {
         result->status = -errno;
@@ -76,12 +79,11 @@ Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
 
 Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
 {
+    auto absolutePath = normalizePath(path);
+
     Ref<ReadlinkResult> result = MakeRef<ReadlinkResult>(size);
 
-/*    std::string homePath = getenv("HOME");
-    homePath += path*/;
-
-    int res = readlink(path, result->data, size - 1);
+    int res = readlink(absolutePath.string().c_str(), result->data, size - 1);
     if (res == -1)
     {
         result->status = -errno;
@@ -95,12 +97,13 @@ Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
 
 Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 {
+    auto absolutePath = normalizePath(path);
+
     Ref<StatfsResult> result = MakeRef<StatfsResult>();
 
     struct statvfs stbuf;
 
-
-    int res = statvfs(path, &stbuf);
+    int res = statvfs(absolutePath.string().c_str(), &stbuf);
     if (res == -1)
     {
         result->status = -errno;
@@ -109,7 +112,7 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 
     struct statfs stfsbuf;
 
-    res = statfs(path, &stfsbuf);
+    res = statfs(absolutePath.string().c_str(), &stfsbuf);
     if (res == -1)
     {
         result->f_bsize = stbuf.f_bsize;
@@ -138,14 +141,13 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 
 Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 {
+    auto absolutePath = normalizePath(path);
+
     Ref<GetattrResult> result = MakeRef<GetattrResult>();
 
     struct stat stbuf;
 
-    // std::string homePath = getenv("HOME");
-    // homePath += path;
-
-    int res = lstat(path, &stbuf);
+    int res = lstat(absolutePath.string().c_str(), &stbuf);
     if (res == -1)
     {
         result->status = -errno;
@@ -174,7 +176,9 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 
 i32 FUSEBackend::FD_write(const char *path, const char *buf, u64 size, i64 offset)
 {
-    int fd = open(path, O_WRONLY);
+    auto absolutePath = normalizePath(path);
+
+    int fd = open(absolutePath.string().c_str(), O_WRONLY);
     if (fd == -1)
     {
         return -errno;
@@ -188,6 +192,23 @@ i32 FUSEBackend::FD_write(const char *path, const char *buf, u64 size, i64 offse
 
     close(fd);
     return res;
+}
+
+Ref<CreateResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
+{
+    auto absolutePath = normalizePath(path);
+
+    Ref<CreateResult> result = MakeRef<CreateResult>();
+
+    int fd = open(path, flags, mode);
+    if (fd == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    close(fd);
+    return result;
 }
 
 #endif

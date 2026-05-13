@@ -3,6 +3,7 @@
 
 #include "connection.h"
 #include "virtdisk.h"
+#include "fusebackend.h"
 
 #include <functional>
 
@@ -53,6 +54,7 @@ private:
     QByteArray readlinkHandler(QByteArray payload);
     QByteArray statfsHandler(QByteArray payload);
     QByteArray getattrHandler(QByteArray payload);
+    QByteArray createHandler(QByteArray payload);
 
     Ui::MainWindow  *ui = nullptr;
     QAction         *restoreAction;
@@ -68,5 +70,6 @@ private:
     QMap<QString, RequestHandler> fuseHandlers;
 
     VirtDisk *virtDisk = nullptr;
+    FUSEBackend *fuseBackend = nullptr;
 };
 #endif // MAINWINDOW_H

@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include <QStringList>
-#include <QDir>
+#include <QByteArray>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -15,7 +15,6 @@
 #include <QNetworkDatagram>
 #include <QHostAddress>
 #include <QSysInfo>
-#include <QStorageInfo>
 #include <QDesktopServices>
 #include <QNetworkInterface>
 #include <QNetworkAddressEntry>
@@ -46,6 +45,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     createTrayIcon();
 
+    fuseBackend = new FUSEBackend();
+
     //------------------------------------------------------------------------------------
     // For local testing
     //------------------------------------------------------------------------------------
@@ -68,6 +69,7 @@ MainWindow::MainWindow(QWidget *parent)
     fuseHandlers.insert("readlink", std::bind(&MainWindow::readlinkHandler, this, _1));
     fuseHandlers.insert("statfs", std::bind(&MainWindow::statfsHandler, this, _1));
     fuseHandlers.insert("getattr", std::bind(&MainWindow::getattrHandler, this, _1));
+    fuseHandlers.insert("create", std::bind(&MainWindow::createHandler, this, _1));
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
     if (!server->listen(QHostAddress::Any, TCP_PORT))
@@ -93,6 +95,7 @@ MainWindow::~MainWindow()
     delete server;
     delete broadcaster;
     delete virtDisk;
+    delete fuseBackend;
 
     for (auto& conn : connections)
     {
@@ -224,7 +227,7 @@ QByteArray MainWindow::readdirHandler(QByteArray payload)
 {
     const char *path = payload.data();
     qDebug() << "[MainWindow::readdirHandler] fuse readdir path:" << path;
-    Ref<ReaddirResult> result = FUSEBackend::FD_readdir(path);
+    Ref<ReaddirResult> result = fuseBackend->FD_readdir(path);
     qDebug() << "[MainWindow::readdirHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "readdir");
@@ -245,7 +248,7 @@ QByteArray MainWindow::readHandler(QByteArray payload)
     qDebug() << "[MainWindow::readHandler] incoming size:" << size;
     qDebug() << "[MainWindow::readHandler] incoming offset:" << offset;
     qDebug() << "[MainWindow::readHandler] incoming path:" << path.data();
-    Ref<ReadResult> result = FUSEBackend::FD_read(path.data(), size, offset);
+    Ref<ReadResult> result = fuseBackend->FD_read(path.data(), size, offset);
     qDebug() << "[MainWindow::readHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "read");
@@ -260,16 +263,20 @@ QByteArray MainWindow::readHandler(QByteArray payload)
 
 QByteArray MainWindow::writeHandler(QByteArray payload)
 {
+    qDebug() << "[MainWindow::writeHandler] incoming payload length:" << payload.length();
     u64 size = *(u64 *)(payload.data());
+    qDebug() << "[MainWindow::writeHandler] incoming size:" << size;
     i64 offset = *(i64 *)(payload.sliced(sizeof(u64)).data());
-    QByteArray buf = payload.sliced(sizeof(u64) + sizeof(i64));
-    QByteArray path = payload.sliced(sizeof(u64) + sizeof(i64) + size);
-    qDebug() << "[MainWindow::readHandler] incoming size:" << size;
-    qDebug() << "[MainWindow::readHandler] incoming offset:" << offset;
-    qDebug() << "[MainWindow::readHandler] incoming path:" << path.data();
+    qDebug() << "[MainWindow::writeHandler] incoming offset:" << offset;
+    u64 pathLength = *(u64 *)(payload.sliced(sizeof(u64) + sizeof(i64)).data());
+    qDebug() << "[MainWindow::writeHandler] incoming path length:" << pathLength;
+    QByteArray path = payload.sliced(sizeof(u64) + sizeof(i64) + sizeof(u64));
+    qDebug() << "[MainWindow::writeHandler] incoming path:" << path.data();
+    QByteArray buf = payload.sliced(sizeof(u64) + sizeof(i64) + sizeof(u64) + pathLength);
+    qDebug() << "[MainWindow::writeHandler] incoming buff length:" << buf.length();
 
-    i32 result = FUSEBackend::FD_write(path.data(), buf.data(), size, offset);
-    qDebug() << "[MainWindow::readHandler] result:" << result;
+    i32 result = fuseBackend->FD_write(path.data(), buf.data(), size, offset);
+    qDebug() << "[MainWindow::writeHandler] result:" << result;
 
     DatagramHeader header("response", "fuse", "write");
     header.datagramSize += sizeof(ReadResult) + sizeof(i32);
@@ -286,7 +293,7 @@ QByteArray MainWindow::readlinkHandler(QByteArray payload)
     QByteArray path = payload.sliced(sizeof(u64));
     qDebug() << "[MainWindow::readlinkHandler] incoming size:" << size;
     qDebug() << "[MainWindow::readlinkHandler] incoming path:" << path.data();
-    Ref<ReadlinkResult> result = FUSEBackend::FD_readlink(path.data(), size);
+    Ref<ReadlinkResult> result = fuseBackend->FD_readlink(path.data(), size);
     qDebug() << "[MainWindow::readlinkHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "readlink");
@@ -303,7 +310,7 @@ QByteArray MainWindow::statfsHandler(QByteArray payload)
 {
     const char *path = payload.data();
     qDebug() << "[MainWindow::statfsHandler] fuse statfs path:" << path;
-    Ref<StatfsResult> result = FUSEBackend::FD_statfs(path);
+    Ref<StatfsResult> result = fuseBackend->FD_statfs(path);
     qDebug() << "[MainWindow::statfsHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "statfs");
@@ -319,7 +326,7 @@ QByteArray MainWindow::getattrHandler(QByteArray payload)
 {
     const char *path = payload.data();
     qDebug() << "[MainWindow::getattrHandler] fuse getattr path:" << path;
-    Ref<GetattrResult> result = FUSEBackend::FD_getattr(path);
+    Ref<GetattrResult> result = fuseBackend->FD_getattr(path);
     qDebug() << "[MainWindow::getattrHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "getattr");
@@ -327,6 +334,26 @@ QByteArray MainWindow::getattrHandler(QByteArray payload)
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
     response.append((char *)result.get(), sizeof(GetattrResult));
+
+    return response;
+}
+
+QByteArray MainWindow::createHandler(QByteArray payload)
+{
+    u32 mode = *(u32 *)(payload.data());
+    i32 flags = *(i32 *)(payload.sliced(sizeof(u32)).data());
+    QByteArray path = payload.sliced(sizeof(u32) + sizeof(i32));
+    qDebug() << "[MainWindow::createHandler] incoming mode:" << mode;
+    qDebug() << "[MainWindow::createHandler] incoming flags:" << flags;
+    qDebug() << "[MainWindow::createHandler] incoming path:" << path.data();
+    Ref<CreateResult> result = fuseBackend->FD_create(path.data(), mode, flags);
+    qDebug() << "[MainWindow::createHandler] result status:" << result->status;
+
+    DatagramHeader header("response", "fuse", "create");
+    header.datagramSize += sizeof(CreateResult);
+
+    QByteArray response((char *)&header, sizeof(DatagramHeader));
+    response.append((char *)result.get(), sizeof(CreateResult));
 
     return response;
 }

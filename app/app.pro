@@ -47,6 +47,7 @@ win32 {
 
 macx {
     # ICON
+    QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15
 }
 
 linux {

@@ -1,6 +1,7 @@
 #include "fuseclient.h"
 
 #include <QDateTime>
+#include <QList>
 
 static u64 savedBytes = 0;
 
@@ -46,11 +47,21 @@ Ref<ReadResult> FUSEClient::FD_read(const char *path, u64 size, i64 offset)
 
 i32 FUSEClient::FD_write(const char *path, const char *buf, u64 size, i64 offset)
 {
+    const char *nullTerminal = "\0";
+    size_t pathLength = strlen(path) + 1;
     QByteArray payload;
     payload.append((char *)(&size), sizeof(size));
     payload.append((char *)(&offset), sizeof(offset));
-    payload.append((char *)buf, size);
+    payload.append((char *)(&pathLength), sizeof(pathLength));
     payload.append((char *)path, strlen(path));
+    payload.append((char *)nullTerminal, 1);
+    payload.append((char *)buf, size);
+
+    qDebug() << "[FUSEClient::FD_write] size:" << size;
+    qDebug() << "[FUSEClient::FD_write] offset:" << offset;
+    qDebug() << "[FUSEClient::FD_write] path length:" << pathLength;
+    qDebug() << "[FUSEClient::FD_write] path:" << path;
+    qDebug() << "[FUSEClient::FD_write] payload length:" << payload.length();
 
     FetchResult incoming = Fetch("write", payload);
 
@@ -106,39 +117,69 @@ Ref<GetattrResult> FUSEClient::FD_getattr(const char *path)
     return result;
 }
 
+Ref<CreateResult> FUSEClient::FD_create(const char *path, u32 mode, i32 flags)
+{
+    QByteArray payload;
+    payload.append((char *)(&mode), sizeof(mode));
+    payload.append((char *)(&flags), sizeof(flags));
+    payload.append((char *)path, strlen(path));
+
+    FetchResult incoming = Fetch("create", payload);
+
+    Ref<CreateResult> result = MakeRef<CreateResult>(incoming.payload.data());
+
+    qDebug() << "[FUSEClient::FD_create] incoming result status:" << result->status;
+
+    // Before calling "create" operation FUSE calls "getattr" in order
+    // to check whether file alredy exists. FUSE calls "getattr" operation
+    // after "create" one more time. We need to remove prev "getattr" result
+    // from cache to let FUSE know that file was successfully created.
+    QByteArray getattrPayload((char *)path, strlen(path));
+    QString cacheKey = QString("%1%2%3").arg(conn->machineId).arg("getattr").arg(getattrPayload);
+    netCache.remove(cacheKey);
+
+    return result;
+}
+
 FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &payload)
 {
     //------------------------------------------------------------------------------------
     // Caching
     //------------------------------------------------------------------------------------
-    QString cacheKey = QString("%1%2%3").arg(conn->machineId).arg(operationName).arg(payload);
+    static QList<QString> operationsAllowedToCache = {"getattr", "statfs", "readdir"};
+    bool shouldBeCached = operationsAllowedToCache.contains(QString(operationName));
 
-    if (netCache.contains(cacheKey))
+    if (shouldBeCached)
     {
-        CacheValue value = netCache.value(cacheKey);
-        if (value.expirationDate > QDateTime::currentDateTimeUtc())
+        QString cacheKey = QString("%1%2%3").arg(conn->machineId).arg(operationName).arg(payload);
+
+        if (netCache.contains(cacheKey))
         {
-            QByteArray incoming = value.response;
+            CacheValue value = netCache.value(cacheKey);
+            if (value.expirationDate > QDateTime::currentDateTimeUtc())
+            {
+                QByteArray incoming = value.response;
 
-            DatagramHeader *inHeader;
-            DatagramHeader::ReadFrom(&inHeader, incoming.data());
+                DatagramHeader *inHeader;
+                DatagramHeader::ReadFrom(&inHeader, incoming.data());
 
 
-            FetchResult result = {
-                .header = *inHeader,
-                .payload = incoming.sliced(sizeof(DatagramHeader))
-            };
+                FetchResult result = {
+                    .header = *inHeader,
+                    .payload = incoming.sliced(sizeof(DatagramHeader))
+                };
 
-            savedBytes += incoming.size();
+                savedBytes += incoming.size();
 
-            QLocale locale(QLocale::English, QLocale::UnitedStates);
-            qDebug() << "[FUSEClient::Fetch] cache bytes saved:" << locale.formattedDataSize(savedBytes).toStdString().c_str();
+                QLocale locale(QLocale::English, QLocale::UnitedStates);
+                qDebug() << "[FUSEClient::Fetch] cache bytes saved:" << locale.formattedDataSize(savedBytes).toStdString().c_str();
 
-            return result;
-        }
-        else
-        {
-            netCache.remove(cacheKey);
+                return result;
+            }
+            else
+            {
+                netCache.remove(cacheKey);
+            }
         }
     }
     //------------------------------------------------------------------------------------
@@ -197,11 +238,15 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
         //--------------------------------------------------------------------------------
         // Caching
         //--------------------------------------------------------------------------------
-        CacheValue value = {
-            .expirationDate = QDateTime::currentDateTimeUtc().addSecs(15),
-            .response = incoming
-        };
-        netCache.insert(cacheKey, value);
+        if (shouldBeCached)
+        {
+            QString key = QString("%1%2%3").arg(conn->machineId).arg(operationName).arg(payload);
+            CacheValue value = {
+                .expirationDate = QDateTime::currentDateTimeUtc().addSecs(15),
+                .response = incoming
+            };
+            netCache.insert(key, value);
+        }
         //--------------------------------------------------------------------------------
 
         qDebug() << "[FUSEClient::Fetch] count:" << count;

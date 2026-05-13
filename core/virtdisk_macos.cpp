@@ -14,6 +14,7 @@
 
 #include <QDebug>
 #include <QHostAddress>
+#include <cassert>
 #include <thread>
 
 #define FUSE_USE_VERSION 31
@@ -715,14 +716,15 @@ static int xmp_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
     qDebug() << "[xmp_create] path: " << path;
 
-    int fd;
+    struct fuse_context *context = fuse_get_context();
+    FUSEClient *client = (FUSEClient *)context->private_data;
+    assert(client && "[xmp_create] FUSEClient not found");
 
-    fd = open(path, fi->flags, mode);
-    if (fd == -1)
-        return -errno;
+    Ref<CreateResult> result = client->FD_create(path, mode, fi->flags);
 
-    fi->fh = fd;
-    return 0;
+    qDebug() << "[xmp_create] status: " << result->status;
+
+    return result->status;
 }
 
 static int xmp_open(const char *path, struct fuse_file_info *fi)
@@ -740,18 +742,13 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 }
 
 static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
-            struct fuse_file_info *fi)
+                    struct fuse_file_info *fi)
 {
-    qDebug() << "[xmp_read] path: " << path;
+    (void)fi;
 
-    (void) fi;
-
-    //------------------------------------------------------------------------------------
-    // Network tests
-    //------------------------------------------------------------------------------------
     struct fuse_context *context = fuse_get_context();
-    qDebug() << "[xmp_readdir] context:" << context << context->private_data;
-    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+    FUSEClient *client = (FUSEClient *)context->private_data;
+    assert(client && "[xmp_read] FUSEClient not found");
 
     Ref<ReadResult> result = client->FD_read(path, size, offset);
 
@@ -763,17 +760,6 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
     }
 
     return result->status;
-
-    //------------------------------------------------------------------------------------
-
-    // int res;
-
-    // (void) path;
-    // res = pread(fi->fh, buf, size, offset);
-    // if (res == -1)
-    //     res = -errno;
-
-    // return res;
 }
 
 static int xmp_read_buf(const char *path, struct fuse_bufvec **bufp,
@@ -1125,7 +1111,7 @@ static int xmp_flock(const char *path, struct fuse_file_info *fi, int op)
 
 static struct fuse_operations xmp_oper = {
     // Minimal v1 operation set.
-    .init	   	= xmp_init,
+//    .init	   	= xmp_init,
     .destroy	= xmp_destroy,
     .getattr	= xmp_getattr,
     .fgetattr	= xmp_fgetattr,
@@ -1191,8 +1177,7 @@ static void Start(VirtDisk *self, Connection *conn)
 
     if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
             (ch = fuse_mount(mountpoint, &args)) != NULL) {
-
-            f = fuse_new(ch, &args, &xmp_oper, sizeof(xmp_oper), conn);
+            f = fuse_new(ch, &args, &xmp_oper, sizeof(xmp_oper), self->client);
             qDebug() << "before fuse_set_signal_handlers call";
             if (fuse_set_signal_handlers(fuse_get_session(f)) != 0) {
                 fprintf(stderr, "Failed to set up signal handlers\n");

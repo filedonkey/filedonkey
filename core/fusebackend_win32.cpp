@@ -263,9 +263,11 @@ Ref<CreateResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
 {
     auto absolutePath = normalizePath(path);
 
+    (void)flags;
+
     Ref<CreateResult> result = MakeRef<CreateResult>();
 
-    int fd = open(path, flags, mode);
+    int fd = open(path, O_CREAT | O_WRONLY, mode);
     if (fd == -1)
     {
         result->status = -errno;

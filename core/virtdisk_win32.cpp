@@ -103,8 +103,7 @@ static int xmp_getattr(const char *path, struct fuse_stat /*stat*/ *stbuf)
         stbuf->st_ctim.tv_sec = result->st_ctim.tv_sec;
         stbuf->st_ctim.tv_nsec = result->st_ctim.tv_nsec;
 
-        if (QString(path) == QString("/home/vboxuser")) {
-            qDebug() << "custome mode for vboxuser";
+        if (QString(path) == QString("/")) {
             stbuf->st_mode = 16877;
         }
 

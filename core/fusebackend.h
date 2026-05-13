@@ -21,9 +21,19 @@ public:
     Ref<ReadlinkResult> FD_readlink(const char *path, u64 size);
     Ref<StatfsResult>   FD_statfs(const char *path);
     Ref<GetattrResult>  FD_getattr(const char *path);
+    Ref<CreateResult>   FD_create(const char *path, u32 mode, i32 flags);
+
+    std::filesystem::path normalizePath(const char *path)
+    {
+        return publicDir / std::filesystem::path(path).relative_path();
+    }
 
     static std::filesystem::path defualtPublicDir()
     {
+        // On Linux and MacOS this resolves to user folder.
+        // On Windows: to first non system disk or to system
+        // disk if it is the only one exists.
+
         QByteArray homePath = qgetenv("HOME");
         if (homePath.length()) return std::filesystem::path(homePath.toStdString());
 

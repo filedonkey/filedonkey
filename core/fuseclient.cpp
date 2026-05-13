@@ -107,6 +107,22 @@ Ref<GetattrResult> FUSEClient::FD_getattr(const char *path)
     return result;
 }
 
+Ref<CreateResult> FUSEClient::FD_create(const char *path, u32 mode, i32 flags)
+{
+    QByteArray payload;
+    payload.append((char *)(&mode), sizeof(mode));
+    payload.append((char *)(&flags), sizeof(flags));
+    payload.append((char *)path, strlen(path));
+
+    FetchResult incoming = Fetch("create", payload);
+
+    Ref<CreateResult> result = MakeRef<CreateResult>(incoming.payload.data());
+
+    qDebug() << "[FUSEClient::FD_create] incoming result status:" << result->status;
+
+    return result;
+}
+
 FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &payload)
 {
     //------------------------------------------------------------------------------------

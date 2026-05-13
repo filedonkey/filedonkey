@@ -768,14 +768,15 @@ static int xmp_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
     qDebug() << "[xmp_create] path: " << path;
 
-    int fd;
+    struct fuse_context *context = fuse_get_context();
+    FUSEClient *client = (FUSEClient *)context->private_data;
+    assert(client && "[xmp_create] FUSEClient not found");
 
-    fd = open(path, fi->flags, mode);
-    if (fd == -1)
-        return -errno;
+    Ref<CreateResult> result = client->FD_create(path, mode, fi->flags);
 
-    fi->fh = fd;
-    return 0;
+    qDebug() << "[xmp_create] status: " << result->status;
+
+    return result->status;
 }
 
 static int xmp_open(const char *path, struct fuse_file_info *fi)

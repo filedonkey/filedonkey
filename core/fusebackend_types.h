@@ -167,4 +167,19 @@ struct GetattrResult
     }
 };
 
+struct CreateResult
+{
+    i32 status;
+
+    CreateResult()
+    {
+        memset(this, 0, sizeof(CreateResult));
+    }
+
+    CreateResult(const char *data)
+    {
+        memcpy(this, data, sizeof(CreateResult));
+    }
+};
+
 #endif // FUSEBACKEND_TYPES_H

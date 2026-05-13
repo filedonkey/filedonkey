@@ -23,8 +23,7 @@
 
 Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 {
-    auto relativePath = std::filesystem::path(path).relative_path();
-    auto absolutePath = publicDir / relativePath;
+    auto absolutePath = normalizePath(path);
 
     Ref<ReaddirResult> result = MakeRef<ReaddirResult>();
 
@@ -129,8 +128,7 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 
 Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
 {
-    auto relativePath = std::filesystem::path(path).relative_path();
-    auto absolutePath = publicDir / relativePath;
+    auto absolutePath = normalizePath(path);
 
     Ref<ReadResult> result = MakeRef<ReadResult>(size);
 
@@ -156,8 +154,7 @@ Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
 
 Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
 {
-    auto relativePath = std::filesystem::path(path).relative_path();
-    auto absolutePath = publicDir / relativePath;
+    auto absolutePath = normalizePath(path);
 
     Ref<ReadlinkResult> result = MakeRef<ReadlinkResult>(size);
 
@@ -175,8 +172,7 @@ Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
 
 Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 {
-    auto relativePath = std::filesystem::path(path).relative_path();
-    auto absolutePath = publicDir / relativePath;
+    auto absolutePath = normalizePath(path);
 
     Ref<StatfsResult> result = MakeRef<StatfsResult>();
 
@@ -206,8 +202,7 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 
 Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 {
-    auto relativePath = std::filesystem::path(path).relative_path();
-    auto absolutePath = publicDir / relativePath;
+    auto absolutePath = normalizePath(path);
 
     Ref<GetattrResult> result = MakeRef<GetattrResult>();
 
@@ -244,8 +239,7 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 
 i32 FUSEBackend::FD_write(const char *path, const char *buf, u64 size, i64 offset)
 {
-    auto relativePath = std::filesystem::path(path).relative_path();
-    auto absolutePath = publicDir / relativePath;
+    auto absolutePath = normalizePath(path);
 
     int fd = open(absolutePath.string().c_str(), O_WRONLY);
     if (fd == -1)
@@ -263,6 +257,23 @@ i32 FUSEBackend::FD_write(const char *path, const char *buf, u64 size, i64 offse
 
     close(fd);
     return res;
+}
+
+Ref<CreateResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
+{
+    auto absolutePath = normalizePath(path);
+
+    Ref<CreateResult> result = MakeRef<CreateResult>();
+
+    int fd = open(path, flags, mode);
+    if (fd == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    close(fd);
+    return result;
 }
 
 #endif

@@ -69,6 +69,7 @@ MainWindow::MainWindow(QWidget *parent)
     fuseHandlers.insert("readlink", std::bind(&MainWindow::readlinkHandler, this, _1));
     fuseHandlers.insert("statfs", std::bind(&MainWindow::statfsHandler, this, _1));
     fuseHandlers.insert("getattr", std::bind(&MainWindow::getattrHandler, this, _1));
+    fuseHandlers.insert("create", std::bind(&MainWindow::createHandler, this, _1));
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
     if (!server->listen(QHostAddress::Any, TCP_PORT))
@@ -329,6 +330,26 @@ QByteArray MainWindow::getattrHandler(QByteArray payload)
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
     response.append((char *)result.get(), sizeof(GetattrResult));
+
+    return response;
+}
+
+QByteArray MainWindow::createHandler(QByteArray payload)
+{
+    u32 mode = *(u32 *)(payload.data());
+    i32 flags = *(i32 *)(payload.sliced(sizeof(u32)).data());
+    QByteArray path = payload.sliced(sizeof(u32) + sizeof(i32));
+    qDebug() << "[MainWindow::createHandler] incoming mode:" << mode;
+    qDebug() << "[MainWindow::createHandler] incoming flags:" << flags;
+    qDebug() << "[MainWindow::createHandler] incoming path:" << path.data();
+    Ref<CreateResult> result = fuseBackend->FD_create(path.data(), mode, flags);
+    qDebug() << "[MainWindow::createHandler] result status:" << result->status;
+
+    DatagramHeader header("response", "fuse", "create");
+    header.datagramSize += sizeof(CreateResult);
+
+    QByteArray response((char *)&header, sizeof(DatagramHeader));
+    response.append((char *)result.get(), sizeof(CreateResult));
 
     return response;
 }

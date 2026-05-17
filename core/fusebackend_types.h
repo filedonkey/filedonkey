@@ -167,6 +167,21 @@ struct GetattrResult
     }
 };
 
+struct WriteResult
+{
+    i32 status;
+
+    WriteResult()
+    {
+        memset(this, 0, sizeof(WriteResult));
+    }
+
+    WriteResult(const char *data)
+    {
+        memcpy(this, data, sizeof(WriteResult));
+    }
+};
+
 struct CreateResult
 {
     i32 status;

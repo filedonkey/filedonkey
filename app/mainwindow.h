@@ -24,6 +24,12 @@ QT_END_NAMESPACE
 
 using RequestHandler = std::function<QByteArray(QByteArray)>;
 
+struct SocketState {
+    QByteArray buffer;
+    bool headerParsed = false;
+    DatagramHeader header;
+};
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -39,6 +45,7 @@ public slots:
     void onBroadcasting();
     void onConnection();
     void onSocketReadyRead();
+    void onSocketDisconnected();
     void onUpgradeToPro();
     void onUploaded(u64 uploaded);
     void onDownloaded(u64 downloaded);
@@ -69,6 +76,7 @@ private:
     QMap<QString, Connection> connections;
     QMap<QString, RequestHandler> fuseHandlers;
 
+    QMap<QTcpSocket*, SocketState> socketStates;
     VirtDisk *virtDisk = nullptr;
     FUSEBackend *fuseBackend = nullptr;
 };

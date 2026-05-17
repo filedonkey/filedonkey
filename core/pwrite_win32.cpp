@@ -53,9 +53,56 @@ ssize_t pwrite(int fd, const void *buffer, size_t count, off_t offset)
         case ERROR_INVALID_PARAMETER:
             errno = EINVAL;
             break;
+        case ERROR_INVALID_USER_BUFFER:
+            errno = EFAULT;
+            break;
         default:
             errno = EIO;
             break;
+        }
+        return -1;
+    }
+
+    return (ssize_t)bytesWritten;
+}
+
+ssize_t pwrite_non_overlapped(int fd, const void *buffer, size_t count, off_t offset)
+{
+    HANDLE hFile = (HANDLE)_get_osfhandle(fd);
+    if (hFile == INVALID_HANDLE_VALUE) { errno = EBADF; return -1; }
+    if (!buffer)    { errno = EFAULT;  return -1; }
+    if (offset < 0) { errno = EINVAL;  return -1; }
+
+    // Save current position
+    LARGE_INTEGER liOld = {0}, liNew = {0};
+    if (!SetFilePointerEx(hFile, liOld, &liOld, FILE_CURRENT)) {
+        errno = EIO; return -1;
+    }
+
+    // Seek to target offset
+    LARGE_INTEGER liTarget;
+    liTarget.QuadPart = offset;
+    if (!SetFilePointerEx(hFile, liTarget, NULL, FILE_BEGIN)) {
+        errno = EIO; return -1;
+    }
+
+    // Write
+    DWORD bytesWritten = 0;
+    BOOL result = WriteFile(hFile, buffer, (DWORD)count, &bytesWritten, NULL); // NULL = no OVERLAPPED
+
+    // Restore original position
+    SetFilePointerEx(hFile, liOld, NULL, FILE_BEGIN);
+
+    if (!result) {
+        DWORD error = GetLastError();
+        qDebug() << "pwrite_non_overlapped last error:" << error;
+        switch (error) {
+        case ERROR_ACCESS_DENIED:
+        case ERROR_INVALID_HANDLE: errno = EBADF;  break;
+        case ERROR_DISK_FULL:
+        case ERROR_HANDLE_DISK_FULL: errno = ENOSPC; break;
+        case ERROR_INVALID_USER_BUFFER: errno = EFAULT; break;
+        default: errno = EIO; break;
         }
         return -1;
     }

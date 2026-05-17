@@ -13,6 +13,11 @@ struct DatagramHeader
     char virtDiskType[32];
     char operationName[32];
 
+    DatagramHeader()
+    {
+        memset(this, 0, sizeof(DatagramHeader));
+    }
+
     DatagramHeader(const char *messageType,
                    const char *virtDiskType,
                    const char *operationName,

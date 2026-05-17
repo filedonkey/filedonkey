@@ -6,6 +6,7 @@
 #include <windows.h>
 
 ssize_t pwrite(int fd, const void *buffer, size_t count, off_t offset);
+ssize_t pwrite_non_overlapped(int fd, const void *buffer, size_t count, off_t offset);
 
 #endif // _WIN32
 

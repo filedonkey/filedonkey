@@ -492,14 +492,14 @@ static int xmp_write(const char *path, const char *buf, size_t size,
     // Network tests
     //------------------------------------------------------------------------------------
     struct fuse_context *context = fuse_get_context();
-    qDebug() << "[xmp_write] context:" << context << context->private_data;
-    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+    FUSEClient *client = (FUSEClient *)context->private_data;
+    assert(client && "[xmp_write] FUSEClient not found");
 
-    i32 result = client->FD_write(path, buf, size, offset);
+    Ref<WriteResult> result = client->FD_write(path, buf, size, offset);
 
-    qDebug() << "[xmp_write] incoming result:" << result;
+    qDebug() << "[xmp_write] incoming result status:" << result->status;
 
-    return result;
+    return result->status;
     //------------------------------------------------------------------------------------
 
     // int fd;

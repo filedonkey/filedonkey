@@ -174,24 +174,30 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
     return result;
 }
 
-i32 FUSEBackend::FD_write(const char *path, const char *buf, u64 size, i64 offset)
+Ref<WriteResult> FUSEBackend::FD_write(const char *path, const char *buf, u64 size, i64 offset)
 {
     auto absolutePath = normalizePath(path);
+
+    Ref<WriteResult> result = MakeRef<WriteResult>();
 
     int fd = open(absolutePath.string().c_str(), O_WRONLY);
     if (fd == -1)
     {
-        return -errno;
+        result->status = -errno;
+        return result;
     }
 
     int res = pwrite(fd, buf, size, offset);
     if (res == -1)
     {
-        res = -errno;
+        result->status = -errno;
+        close(fd);
+        return result;
     }
 
+    result->status = res;
     close(fd);
-    return res;
+    return result;
 }
 
 Ref<CreateResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)

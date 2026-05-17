@@ -45,7 +45,7 @@ Ref<ReadResult> FUSEClient::FD_read(const char *path, u64 size, i64 offset)
     return result;
 }
 
-i32 FUSEClient::FD_write(const char *path, const char *buf, u64 size, i64 offset)
+Ref<WriteResult> FUSEClient::FD_write(const char *path, const char *buf, u64 size, i64 offset)
 {
     const char *nullTerminal = "\0";
     size_t pathLength = strlen(path) + 1;
@@ -65,9 +65,9 @@ i32 FUSEClient::FD_write(const char *path, const char *buf, u64 size, i64 offset
 
     FetchResult incoming = Fetch("write", payload);
 
-    i32 result = *incoming.payload.data();
+    Ref<WriteResult> result = MakeRef<WriteResult>(incoming.payload.data());
 
-    qDebug() << "[FUSEClient::FD_write] incoming result:" << result;
+    qDebug() << "[FUSEClient::FD_write] incoming result status:" << result->status;
 
     return result;
 }
@@ -192,6 +192,7 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
     if (socket)
     {
         DatagramHeader header("request", "fuse", operationName);
+        header.datagramSize += payload.size();
         QByteArray request((char *)&header, sizeof(DatagramHeader));
         request.append(payload);
 

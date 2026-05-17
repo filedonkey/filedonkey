@@ -180,6 +180,7 @@ void MainWindow::onConnection()
         qDebug() << "[MainWindow::onConnection] Befor next pending connection";
         QTcpSocket *newConnection = server->nextPendingConnection();
         connect(newConnection, SIGNAL(readyRead()), this, SLOT(onSocketReadyRead()));
+        connect(newConnection, SIGNAL(disconnected()), this, SLOT(onSocketDisconnected()));
     }
 }
 
@@ -187,14 +188,26 @@ void MainWindow::onSocketReadyRead()
 {
     QTcpSocket *newConnection = (QTcpSocket*)QObject::sender();
 
-    QByteArray incoming = newConnection->readAll();
-    DatagramHeader *header;
-    DatagramHeader::ReadFrom(&header, incoming.data());
+    SocketState &state = socketStates[newConnection];
+    state.buffer.append(newConnection->readAll());
+    DatagramHeader *header = &state.header;
+    QByteArray &incoming = state.buffer;
+
+    if (!state.headerParsed)
+    {
+        if ((u64)incoming.size() < sizeof(DatagramHeader))
+            return;
+
+        memcpy(&state.header, state.buffer.constData(), sizeof(DatagramHeader));
+        // DatagramHeader::ReadFrom(&header, incoming.data());
+        state.headerParsed = true;
+    }
 
     assert(strcmp(header->messageType, "request") == 0);
     assert(header->protocolVersion == 1);
 
-    QByteArray response;
+    if (incoming.size() < header->datagramSize)
+        return;
 
     if (strcmp(header->virtDiskType, "fuse") != 0)
     {
@@ -212,15 +225,23 @@ void MainWindow::onSocketReadyRead()
 
     RequestHandler handler = fuseHandlers[operationName];
     QByteArray payload = incoming.sliced(sizeof(DatagramHeader));
-    response = handler(payload);
-
-    // QStorageInfo storage = QStorageInfo::root();
-    // storage.bytesTotal();
-    // qDebug() << "[Server] incoming freeBytesAvailable: " << storage.bytesAvailable();
-    // qDebug() << "[Server] incoming totalNumberOfBytes: " << storage.bytesTotal();
-    // qDebug() << "[Server] incoming totalNumberOfFreeBytes: " << storage.bytesFree();
+    QByteArray response = handler(payload);
 
     newConnection->write(response);
+
+    incoming.remove(0, header->datagramSize);
+    state.headerParsed = false;
+}
+
+void MainWindow::onSocketDisconnected()
+{
+    QTcpSocket *socket = (QTcpSocket*)QObject::sender();
+    if (!socket) return;
+
+    qDebug() << "[onSocketDisconnected] disconnect socket:" << (u64)socket;
+
+    socketStates.remove(socket);
+    socket->deleteLater();
 }
 
 QByteArray MainWindow::readdirHandler(QByteArray payload)
@@ -275,14 +296,14 @@ QByteArray MainWindow::writeHandler(QByteArray payload)
     QByteArray buf = payload.sliced(sizeof(u64) + sizeof(i64) + sizeof(u64) + pathLength);
     qDebug() << "[MainWindow::writeHandler] incoming buff length:" << buf.length();
 
-    i32 result = fuseBackend->FD_write(path.data(), buf.data(), size, offset);
-    qDebug() << "[MainWindow::writeHandler] result:" << result;
+    Ref<WriteResult> result = fuseBackend->FD_write(path.data(), buf.data(), buf.length() /* size */, offset);
+    qDebug() << "[MainWindow::writeHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "write");
-    header.datagramSize += sizeof(ReadResult) + sizeof(i32);
+    header.datagramSize += sizeof(WriteResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
-    response.append((char *)(&result), sizeof(i32));
+    response.append((char *)result.get(), sizeof(WriteResult));
 
     return response;
 }

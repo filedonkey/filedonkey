@@ -173,7 +173,7 @@ private slots:
 
         const char *data = "Hello, World!";
         FUSEBackend fuseBackend;
-        i32 result = fuseBackend.FD_write(filePath.toStdString().c_str(), data, strlen(data), 0);
+        Ref<WriteResult> result = fuseBackend.FD_write(filePath.toStdString().c_str(), data, strlen(data), 0);
 
         QFile file = QFile(filePath);
         file.open(QIODeviceBase::ReadOnly);
@@ -183,7 +183,7 @@ private slots:
         QFile::remove(filePath);
         fileData[strlen(data)] = '\0';
 
-        QCOMPARE(result, strlen(data));
+        QCOMPARE(result->status, strlen(data));
         QCOMPARE(strcmp(fileData, data), 0);
     }
 };

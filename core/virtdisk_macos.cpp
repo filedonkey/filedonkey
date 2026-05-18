@@ -11,7 +11,6 @@
 #include "virtdisk.h"
 #include "fuseclient.h"
 
-//#include "fuse_lowlevel.h"
 
 #include <QDebug>
 #include <QHostAddress>
@@ -25,7 +24,7 @@
 #ifdef __APPLE__
 #define _DARWIN_C_SOURCE
 #else
-//#define _GNU_SOURCE
+
 #endif
 
 #include <fuse.h>
@@ -127,13 +126,7 @@ static int xmp_getattr(const char *path, struct stat *stbuf)
 
     //------------------------------------------------------------------------------------
 
-    // int res;
 
-    // res = lstat(path, stbuf);
-    // if (res == -1)
-    //     return -errno;
-
-    // return 0;
 }
 
 static int xmp_fgetattr(const char *path, struct stat *stbuf,
@@ -186,15 +179,6 @@ static int xmp_readlink(const char *path, char *buf, size_t size)
     return result->status;
 
     //------------------------------------------------------------------------------------
-
-    // int res;
-
-    // res = readlink(path, buf, size - 1);
-    // if (res == -1)
-    //     return -errno;
-
-    // buf[res] = '\0';
-    // return 0;
 }
 
 struct xmp_dirp {
@@ -266,42 +250,6 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     return result->status;
     //------------------------------------------------------------------------------------
 
-//    struct xmp_dirp *d = get_dirp(fi);
-
-//    (void) path;
-//    if (offset != d->offset) {
-//        seekdir(d->dp, offset);
-//        d->entry = NULL;
-//        d->offset = offset;
-//    }
-//    while (1) {
-//        struct stat st;
-//        off_t nextoff;
-
-//        if (!d->entry) {
-//            d->entry = readdir(d->dp);
-//            if (!d->entry)
-//                break;
-//        }
-
-//        memset(&st, 0, sizeof(st));
-//        st.st_ino = d->entry->d_ino;
-//        st.st_mode = d->entry->d_type << 12;
-//        nextoff = telldir(d->dp);
-//        nextoff++;
-
-//        qDebug() << "[xmp_readdir] fill name:" << d->entry->d_name;
-//        qDebug() << "[xmp_readdir] fill st_ino:" << st.st_ino;
-//        qDebug() << "[xmp_readdir] fill st_mode:" << st.st_mode;
-
-//        if (filler(buf, d->entry->d_name, &st, /*nextoff*/0))
-//            break;
-
-//        d->entry = NULL;
-//        d->offset = nextoff;
-//    }
-
-//    return 0;
 }
 
 static int xmp_releasedir(const char *path, struct fuse_file_info *fi)
@@ -916,13 +864,7 @@ static int xmp_statfs(const char *path, struct statvfs *stbuf)
 
     //------------------------------------------------------------------------------------
 
-    // int res;
 
-    // res = statvfs(path, stbuf);
-    // if (res == -1)
-    //     return -errno;
-
-    // return 0;
 }
 
 static int xmp_flush(const char *path, struct fuse_file_info *fi)
@@ -1263,36 +1205,13 @@ static void Start(VirtDisk *self, Connection *conn)
             qDebug() << "before fuse_loop call";
             fuse_loop(f);
             qDebug() << "after fuse_loop call";
-//            struct fuse_session *se;
-//            se = fuse_get_session(f);
-//            if (se != NULL) {
-//                if (fuse_set_signal_handlers(se) != -1) {
-//                    fuse_session_add_chan(se, ch);
-//                    err = fuse_session_loop(se);
-//                    fuse_remove_signal_handlers(se);
-//                    fuse_session_remove_chan(ch);
-//                }
-//                fuse_session_destroy(se);
-//            }
-//             fuse_exit(f);
+
             fuse_remove_signal_handlers(fuse_get_session(f));
             fuse_destroy(f);
             fuse_unmount(mountpoint, ch);
         }
 
-    // int ret = fuse_main_real(args.argc, args.argv, &xmp_oper,
-    //                          sizeof(xmp_oper), (void *)conn);
 
-//    umask(0);
-//        loopback.blocksize = 4096;
-//        loopback.case_insensitive = 0;
-//        if (fuse_opt_parse(&args, &loopback, loopback_opts, NULL) == -1) {
-//            exit(1);
-//        }
-//    qDebug() << "before fuse_main call";
-//     int res = fuse_main(argc, argv, &xmp_oper, conn);
-//     qDebug() << "fuse_main result: " << res;
-//     fuse_opt_free_args(&args);
 }
 
 void VirtDisk::mount(const QString &mountPoint)
@@ -1301,16 +1220,7 @@ void VirtDisk::mount(const QString &mountPoint)
     char *argv[] = {"FileDonkey", "/Users/Guest/Public/fuse/", "-o", "volname=Windows PC"};
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
-//    loopback.blocksize = 4096;
-//    loopback.case_insensitive = 0;
-//    if (fuse_opt_parse(&args, &loopback, loopback_opts, NULL) == -1) {
-//        exit(1);
-//    }
 
-//    umask(0);
-//    int res = fuse_main(args.argc, args.argv, &loopback_oper, NULL);
-
-//    qDebug() << "fuse_main result: " << res;
 
     thread = std::thread(Start, this, &conn);
 }

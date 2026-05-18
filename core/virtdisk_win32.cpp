@@ -128,40 +128,14 @@ static int xmp_getattr(const char *path, struct fuse_stat /*stat*/ *stbuf)
 
     //------------------------------------------------------------------------------------
 
-    // int res;
 
-    // res = lstat(path, stbuf);
-    // if (res == -1)
-    //     return -errno;
-
-    // qDebug() << "\tst_atimespec" << stbuf->st_atim.tv_sec << stbuf->st_atim.tv_nsec;
-    // qDebug() << "\tst_birthtimespec" << stbuf->st_birthtim.tv_sec << stbuf->st_birthtim.tv_nsec;
-    // qDebug() << "\tst_blksize" << stbuf->st_blksize;
-    // qDebug() << "\tst_blocks" << stbuf->st_blocks;
-    // qDebug() << "\tst_ctimespec" << stbuf->st_ctim.tv_sec << stbuf->st_ctim.tv_nsec;
-    // qDebug() << "\tst_dev" << stbuf->st_dev;
-    // qDebug() << "\tst_gid" << stbuf->st_gid;
-    // qDebug() << "\tst_ino" << stbuf->st_ino;
-    // qDebug() << "\tst_mode" << stbuf->st_mode;
-    // qDebug() << "\tst_mtimespec" << stbuf->st_mtim.tv_sec << stbuf->st_mtim.tv_nsec;
-    // qDebug() << "\tst_nlink" << stbuf->st_nlink;
-    // qDebug() << "\tst_rdev" << stbuf->st_rdev;
-    // qDebug() << "\tst_size" << stbuf->st_size;
-    // qDebug() << "\tst_uid" << stbuf->st_uid;
-    // qDebug() << "\t";
-
-    // return 0;
 }
 
 static int xmp_access(const char *path, int mask)
 {
     qDebug() << "[xmp_access] path: " << path;
 
-    // int res;
 
-    // res = access(path, mask);
-    // if (res == -1)
-    //     return -errno;
 
     return 0;
 }
@@ -189,14 +163,6 @@ static int xmp_readlink(const char *path, char *buf, size_t size)
 
     //------------------------------------------------------------------------------------
 
-    // int res;
-
-    // res = readlink(path, buf, size - 1);
-    // if (res == -1)
-    //     return -errno;
-
-    // buf[res] = '\0';
-    // return 0;
 }
 
 
@@ -250,34 +216,7 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     return status;
     //------------------------------------------------------------------------------------
 
-    // ReaddirResult *result = FUSEBackend::FD_readdir(path);
 
-    // if (result->status != 0)
-    // {
-    //     qDebug() << "[xmp_readdir] error result->status" << result->status;
-    //     return result->status;
-    // }
-
-    // struct FindData
-    // {
-    //     char name[1024];
-    //     unsigned long long st_ino;
-    //     unsigned short st_mode;
-    // };
-
-    // struct FUSE_STAT stat;
-    // memset(&stat, 0, sizeof(FUSE_STAT));
-
-    // for (unsigned int i = 0; i < result->count; ++i)
-    // {
-    //     auto findData = (FindData *)result->findData + i;
-    //     qDebug() << "[xmp_readdir] findData.name: " << findData->name;
-    //     stat.st_ino = findData->st_ino;
-    //     stat.st_mode = findData->st_mode;
-    //     filler(buf, findData->name, &stat, 0);
-    // }
-
-    // return result->status;
 }
 
 static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)
@@ -347,9 +286,7 @@ static int xmp_symlink(const char *from, const char *to)
 
     int res;
 
-    // res = symlink(from, to);
-    // if (res == -1)
-    //     return -errno;
+
 
     return 0;
 }
@@ -373,9 +310,6 @@ static int xmp_link(const char *from, const char *to)
 
     int res;
 
-    // res = link(from, to);
-    // if (res == -1)
-    //     return -errno;
 
     return 0;
 }
@@ -399,9 +333,7 @@ static int xmp_chown(const char *path, fuse_uid_t uid, fuse_gid_t gid)
 
     int res;
 
-    // res = lchown(path, uid, gid);
-    // if (res == -1)
-    //     return -errno;
+
 
     return 0;
 }
@@ -452,13 +384,6 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 {
     qDebug() << "[xmp_open] path: " << path;
 
-    // int res;
-
-    // res = open(path, fi->flags);
-    // if (res == -1)
-    //     return -errno;
-
-    // close(res);
     return 0;
 }
 
@@ -502,19 +427,7 @@ static int xmp_write(const char *path, const char *buf, size_t size,
     return result->status;
     //------------------------------------------------------------------------------------
 
-    // int fd;
-    // int res;
 
-    // fd = open(path, O_WRONLY);
-    // if (fd == -1)
-    //     return -errno;
-
-    // res = pwrite(fd, buf, size, offset);
-    // if (res == -1)
-    //     res = -errno;
-
-    // close(fd);
-    // return res;
     return 0;
 }
 
@@ -550,26 +463,7 @@ static int xmp_statfs(const char *path, struct fuse_statvfs *stbuf)
 
     //------------------------------------------------------------------------------------
 
-    // int res;
 
-    // res = statvfs(path, stbuf);
-    // if (res == -1)
-    //     return -errno;
-
-    // qDebug() << "\tf_bavail" << stbuf->f_bavail;
-    // qDebug() << "\tf_bfree" << stbuf->f_bfree;
-    // qDebug() << "\tf_blocks" << stbuf->f_blocks;
-    // qDebug() << "\tf_bsize" << stbuf->f_bsize;
-    // qDebug() << "\tf_ffree" << stbuf->f_ffree;
-    // qDebug() << "\tf_files" << stbuf->f_files;
-    // qDebug() << "\tf_favail" << stbuf->f_favail;
-    // qDebug() << "\tf_flag" << stbuf->f_flag;
-    // qDebug() << "\tf_frsize" << stbuf->f_frsize;
-    // qDebug() << "\tf_fsid" << stbuf->f_fsid;
-    // qDebug() << "\tf_namemax" << stbuf->f_namemax;
-    // qDebug() << "\n";
-
-    // return 0;
 }
 
 static int xmp_release(const char *path, struct fuse_file_info *fi)
@@ -769,15 +663,7 @@ static void Start(VirtDisk *self, Connection *conn)
         qDebug() << "after fuse_loop call";
 
 
-        //            if (se != NULL) {
-        //                if (fuse_set_signal_handlers(se) != -1) {
-        //                    fuse_session_add_chan(se, ch);
-        //                    err = fuse_session_loop(se);
-        //                    fuse_remove_signal_handlers(se);
-        //                    fuse_session_remove_chan(ch);
-        //                }
-        //                fuse_session_destroy(se);
-        //            }
+
         fuse_exit(f);
         fuse_unmount(mountpoint, ch);
     }
@@ -787,30 +673,11 @@ static void Start(VirtDisk *self, Connection *conn)
 
 void VirtDisk::mount(const QString &mountPoint)
 {
-    // int argc = 4;
-    // char *argv[] = {"FileDonkey", "M:", "-o", "volname=MacBook Pro"};
-    // struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
-    // loopback.blocksize = 4096;
-    // loopback.case_insensitive = 0;
-    // if (fuse_opt_parse(&args, &loopback, loopback_opts, NULL) == -1) {
-    //     exit(1);
-    // }
-
-    // umask(0);
-    // int res = fuse_main(args.argc, args.argv, &xmp_oper, NULL);
-
-    // qDebug() << "fuse_main result: " << res;
-
-    // fuse_opt_free_args(&args);
 
     thread = std::thread(Start, this, &conn);
 }
 
-// int main(int argc, char *argv[])
-// {
-//     umask(0);
-//     return fuse_main(argc, argv, &xmp_oper, NULL);
-// }
+
 
 #endif

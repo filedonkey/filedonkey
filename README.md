@@ -62,7 +62,7 @@ Stop emailing files to yourself or juggling USB drives. FileDonkey creates a uni
 
 <p><strong>Business Structure:</strong> Sole Proprietorship (not a registered company)</p>
 
-<p>Copyright © 2025 Ihor Horemykin. All rights reserved.</p>
+<p>Copyright © 2026 Ihor Horemykin. All rights reserved.</p>
 
 <p>Unauthorized commercial use is a violation of copyright law and will be enforced.</p>
 

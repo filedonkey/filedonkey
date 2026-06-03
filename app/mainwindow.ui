@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>FileDonkey</string>
+   <string>FileDonkey v0.0.5 (Alpha)</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QWidget" name="networkWidget" native="true">

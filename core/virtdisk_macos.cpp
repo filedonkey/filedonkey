@@ -296,11 +296,13 @@ static int xmp_unlink(const char *path)
 {
     qDebug() << "[xmp_unlink] path: " << path;
 
-    int res;
+    (void)path;
 
-    res = unlink(path);
-    if (res == -1)
-        return -errno;
+//    int res;
+
+//    res = unlink(path);
+//    if (res == -1)
+//        return -errno;
 
     return 0;
 }
@@ -720,6 +722,9 @@ static int xmp_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     FUSEClient *client = (FUSEClient *)context->private_data;
     assert(client && "[xmp_create] FUSEClient not found");
 
+    qDebug() << "[xmp_create] flags:" << fi->flags;
+    qDebug() << "[xmp_create] mmode:" << mode;
+
     Ref<CreateResult> result = client->FD_create(path, mode, fi->flags);
 
     qDebug() << "[xmp_create] status: " << result->status;
@@ -731,13 +736,16 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 {
     qDebug() << "[xmp_open] path: " << path;
 
-    int fd;
+    (void)path;
+    (void)fi;
 
-    fd = open(path, fi->flags);
-    if (fd == -1)
-        return -errno;
+//    int fd;
 
-    fi->fh = fd;
+//    fd = open(path, fi->flags);
+//    if (fd == -1)
+//        return -errno;
+
+//    fi->fh = fd;
     return 0;
 }
 
@@ -891,7 +899,8 @@ static int xmp_release(const char *path, struct fuse_file_info *fi)
     qDebug() << "[xmp_release] path: " << path;
 
     (void) path;
-    close(fi->fh);
+    (void) fi;
+//    close(fi->fh);
 
     return 0;
 }
@@ -1130,7 +1139,7 @@ static struct fuse_operations xmp_oper = {
 //    .init	   	= xmp_init,
     .destroy	= xmp_destroy,
     .getattr	= xmp_getattr,
-    .fgetattr	= xmp_fgetattr,
+//    .fgetattr	= xmp_fgetattr,
 #ifndef __APPLE__
     .access		= xmp_access,
 #endif
@@ -1150,7 +1159,7 @@ static struct fuse_operations xmp_oper = {
     .read		= xmp_read,
     .write		= xmp_write,
     .statfs		= xmp_statfs,
-    .flush		= xmp_flush,
+//    .flush		= xmp_flush,
     .release	= xmp_release,
     .fsync		= xmp_fsync,
 

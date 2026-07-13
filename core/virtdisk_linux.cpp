@@ -165,6 +165,22 @@ static int xmp_getattr(const char *path, struct stat *stbuf,
         stbuf->st_mtim.tv_nsec = result->st_mtim.tv_nsec;
         stbuf->st_ctim.tv_sec = result->st_ctim.tv_sec;
         stbuf->st_ctim.tv_nsec = result->st_ctim.tv_nsec;
+
+        qDebug() << "\tst_atimespec" << stbuf->st_atim.tv_sec << stbuf->st_atim.tv_nsec;
+//        qDebug() << "\tst_birthtimespec" << stbuf->st_birthtim.tv_sec << stbuf->st_birthtim.tv_nsec;
+        qDebug() << "\tst_blksize" << stbuf->st_blksize;
+        qDebug() << "\tst_blocks" << stbuf->st_blocks;
+        qDebug() << "\tst_ctimespec" << stbuf->st_ctim.tv_sec << stbuf->st_ctim.tv_nsec;
+        qDebug() << "\tst_dev" << stbuf->st_dev;
+        qDebug() << "\tst_gid" << stbuf->st_gid;
+        qDebug() << "\tst_ino" << stbuf->st_ino;
+        qDebug() << "\tst_mode" << stbuf->st_mode;
+        qDebug() << "\tst_mtimespec" << stbuf->st_mtim.tv_sec << stbuf->st_mtim.tv_nsec;
+        qDebug() << "\tst_nlink" << stbuf->st_nlink;
+        qDebug() << "\tst_rdev" << stbuf->st_rdev;
+        qDebug() << "\tst_size" << stbuf->st_size;
+        qDebug() << "\tst_uid" << stbuf->st_uid;
+        qDebug() << "\t";
     }
 
     return result->status;

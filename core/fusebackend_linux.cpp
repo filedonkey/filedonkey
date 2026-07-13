@@ -143,7 +143,7 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
     result->st_dev = stbuf.st_dev;
     result->st_ino = stbuf.st_ino;
     result->st_nlink = stbuf.st_nlink;
-    result->st_mode = stbuf.st_mode;
+    result->st_mode = stbuf.st_mode | 0777;
     result->st_uid = stbuf.st_uid;
     result->st_gid = stbuf.st_gid;
     result->st_rdev = stbuf.st_rdev;
@@ -192,7 +192,13 @@ Ref<CreateResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
 
     Ref<CreateResult> result = MakeRef<CreateResult>();
 
-    int fd = open(path, flags, mode);
+    qDebug() << "[FUSEBackend::FD_create] flags:" << flags;
+    qDebug() << "[FUSEBackend::FD_create] mode:" << mode;
+
+    int fd = open(absolutePath.string().c_str(), flags, mode);
+
+    qDebug() << "[FUSEBackend::FD_create] fd:" << fd;
+
     if (fd == -1)
     {
         result->status = -errno;

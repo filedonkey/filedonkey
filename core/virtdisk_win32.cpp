@@ -104,7 +104,7 @@ static int xmp_getattr(const char *path, struct fuse_stat /*stat*/ *stbuf)
         stbuf->st_ctim.tv_nsec = result->st_ctim.tv_nsec;
 
         if (QString(path) == QString("/")) {
-            stbuf->st_mode = 16877;
+            stbuf->st_mode = 16895;
         }
 
         qDebug() << "\tst_atimespec" << stbuf->st_atim.tv_sec << stbuf->st_atim.tv_nsec;
@@ -373,7 +373,10 @@ static int xmp_create(const char *path, fuse_mode_t mode, struct fuse_file_info 
     FUSEClient *client = (FUSEClient *)context->private_data;
     assert(client && "[xmp_create] FUSEClient not found");
 
-    Ref<CreateResult> result = client->FD_create(path, mode, fi->flags);
+    qDebug() << "[xmp_create] flags:" << fi->flags;
+    qDebug() << "[xmp_create] mode:" << mode;
+
+    Ref<CreateResult> result = client->FD_create(path, 33188, 32961);
 
     qDebug() << "[xmp_create] status: " << result->status;
 

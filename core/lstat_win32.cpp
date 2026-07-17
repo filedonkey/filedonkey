@@ -132,12 +132,13 @@ int lstat(const char* path, struct fuse_stat* buf) {
     // Set permissions (Windows doesn't match POSIX permissions exactly)
     // Assume owner has full permissions, group and others have read permission
     // buf->st_mode |= WIN_S_IRWXU;  // Owner can read/write/execute
-    buf->st_mode |= WIN_S_IRUSR; // Owner can read
-    buf->st_mode |= WIN_S_IWUSR; // Owner can write
-    buf->st_mode |= WIN_S_IRGRP; // Group can read
-    buf->st_mode |= WIN_S_IWGRP; // Group can write
-    buf->st_mode |= WIN_S_IROTH; // Group can read
-    buf->st_mode |= WIN_S_IWOTH; // Group can write
+    buf->st_mode |= WIN_S_IRWXU | WIN_S_IRWXG | WIN_S_IRWXO;
+    // buf->st_mode |= WIN_S_IRUSR; // Owner can read
+    // buf->st_mode |= WIN_S_IWUSR; // Owner can write
+    // buf->st_mode |= WIN_S_IRGRP; // Group can read
+    // buf->st_mode |= WIN_S_IWGRP; // Group can write
+    // buf->st_mode |= WIN_S_IROTH; // Group can read
+    // buf->st_mode |= WIN_S_IWOTH; // Group can write
 
     if (!(fileData.dwFileAttributes & FILE_ATTRIBUTE_READONLY)) {
         buf->st_mode |= WIN_S_IRGRP | WIN_S_IROTH;  // Group and others can read

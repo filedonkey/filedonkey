@@ -273,7 +273,13 @@ Ref<CreateResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
 
     Ref<CreateResult> result = MakeRef<CreateResult>();
 
+    qDebug() << "[FUSEBackend::FD_create] flags:" << flags;
+    qDebug() << "[FUSEBackend::FD_create] mode:" << mode;
+
     int fd = open(absolutePath.string().c_str(), O_CREAT | O_WRONLY, mode);
+
+    qDebug() << "[FUSEBackend::FD_create] fd:" << fd;
+
     if (fd == -1)
     {
         result->status = -errno;

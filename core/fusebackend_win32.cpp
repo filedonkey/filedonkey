@@ -6,6 +6,7 @@
 #include "lstat_win32.h"
 #include "statvfs_win32.h"
 #include "readlink_win32.h"
+#include "unlink_win32.h"
 
 #include <QDebug>
 #include <QRandomGenerator>
@@ -287,6 +288,22 @@ Ref<CreateResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
     }
 
     close(fd);
+    return result;
+}
+
+Ref<UnlinkResult> FUSEBackend::FD_unlink(const char *path)
+{
+    auto absolutePath = normalizePath(path);
+
+    Ref<UnlinkResult> result = MakeRef<UnlinkResult>();
+
+    int res = unlink(path);
+    if (res == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
     return result;
 }
 

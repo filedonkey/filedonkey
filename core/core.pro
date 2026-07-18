@@ -22,6 +22,7 @@ SOURCES += \
     pwrite_win32.cpp \
     readlink_win32.cpp \
     statvfs_win32.cpp \
+    unlink_win32.cpp \
     virtdisk_linux.cpp \
     virtdisk_macos.cpp \
     virtdisk_win32.cpp
@@ -37,6 +38,7 @@ HEADERS += \
     pwrite_win32.h \
     readlink_win32.h \
     statvfs_win32.h \
+    unlink_win32.h \
     virtdisk.h
 
 CONFIG += lrelease

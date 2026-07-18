@@ -223,7 +223,7 @@ Ref<UnlinkResult> FUSEBackend::FD_unlink(const char *path)
 
     Ref<UnlinkResult> result = MakeRef<UnlinkResult>();
 
-    int res = unlink(path);
+    int res = unlink(absolutePath.string().c_str());
     if (res == -1)
     {
         result->status = -errno;

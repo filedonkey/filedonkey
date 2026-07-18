@@ -70,6 +70,7 @@ MainWindow::MainWindow(QWidget *parent)
     fuseHandlers.insert("statfs", std::bind(&MainWindow::statfsHandler, this, _1));
     fuseHandlers.insert("getattr", std::bind(&MainWindow::getattrHandler, this, _1));
     fuseHandlers.insert("create", std::bind(&MainWindow::createHandler, this, _1));
+    fuseHandlers.insert("unlink", std::bind(&MainWindow::unlinkHandler, this, _1));
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
     if (!server->listen(QHostAddress::Any, TCP_PORT))
@@ -375,6 +376,22 @@ QByteArray MainWindow::createHandler(QByteArray payload)
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
     response.append((char *)result.get(), sizeof(CreateResult));
+
+    return response;
+}
+
+QByteArray MainWindow::unlinkHandler(QByteArray payload)
+{
+    const char *path = payload.data();
+    qDebug() << "[MainWindow::unlinkHandler] fuse unlink path:" << path;
+    Ref<UnlinkResult> result = fuseBackend->FD_unlink(path);
+    qDebug() << "[MainWindow::unlinkHandler] result status:" << result->status;
+
+    DatagramHeader header("response", "fuse", "unlink");
+    header.datagramSize += sizeof(UnlinkResult);
+
+    QByteArray response((char *)&header, sizeof(DatagramHeader));
+    response.append((char *)result.get(), sizeof(UnlinkResult));
 
     return response;
 }

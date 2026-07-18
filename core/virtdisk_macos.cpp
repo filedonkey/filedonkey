@@ -296,7 +296,13 @@ static int xmp_unlink(const char *path)
 {
     qDebug() << "[xmp_unlink] path: " << path;
 
-    (void)path;
+    struct fuse_context *context = fuse_get_context();
+    FUSEClient *client = (FUSEClient *)context->private_data;
+    assert(client && "[xmp_unlink] FUSEClient not found");
+
+    Ref<UnlinkResult> result = client->FD_unlink(path);
+
+    return result->status;
 
 //    int res;
 
@@ -304,7 +310,7 @@ static int xmp_unlink(const char *path)
 //    if (res == -1)
 //        return -errno;
 
-    return 0;
+//    return 0;
 }
 
 static int xmp_rmdir(const char *path)

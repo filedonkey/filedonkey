@@ -197,4 +197,19 @@ struct CreateResult
     }
 };
 
+struct UnlinkResult
+{
+    i32 status;
+
+    UnlinkResult()
+    {
+        memset(this, 0, sizeof(CreateResult));
+    }
+
+    UnlinkResult(const char *data)
+    {
+        memcpy(this, data, sizeof(CreateResult));
+    }
+};
+
 #endif // FUSEBACKEND_TYPES_H

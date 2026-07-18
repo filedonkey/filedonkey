@@ -25,6 +25,7 @@ public:
     Ref<StatfsResult>   FD_statfs(const char *path);
     Ref<GetattrResult>  FD_getattr(const char *path);
     Ref<CreateResult>   FD_create(const char *path, u32 mode, i32 flags);
+    Ref<UnlinkResult>   FD_unlink(const char *path);
 
 signals:
     void uploadedChanged(u64 uploaded);

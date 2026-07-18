@@ -62,6 +62,7 @@ private:
     QByteArray statfsHandler(QByteArray payload);
     QByteArray getattrHandler(QByteArray payload);
     QByteArray createHandler(QByteArray payload);
+    QByteArray unlinkHandler(QByteArray payload);
 
     Ui::MainWindow  *ui = nullptr;
     QAction         *restoreAction;

@@ -1,6 +1,8 @@
-Bugs:
-- Disksize issue.
-- File reading.
-- File sizes: all file sizes are 0 for some reason.
-- macOS directory browsing available only for 1st level
-- Linux doesn't show any windows files
+FUSE operation:
+  - rename
+  - rmdir
+  - mkdir
+  - truncate
+  - release (?)
+  - fsync (?)
+  

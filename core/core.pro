@@ -21,6 +21,7 @@ SOURCES += \
     pread_win32.cpp \
     pwrite_win32.cpp \
     readlink_win32.cpp \
+    rename_win32.cpp \
     statvfs_win32.cpp \
     unlink_win32.cpp \
     virtdisk_linux.cpp \
@@ -37,6 +38,7 @@ HEADERS += \
     pread_win32.h \
     pwrite_win32.h \
     readlink_win32.h \
+    rename_win32.h \
     statvfs_win32.h \
     unlink_win32.h \
     virtdisk.h

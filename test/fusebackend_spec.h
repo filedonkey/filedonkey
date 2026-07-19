@@ -173,7 +173,7 @@ private slots:
 
         const char *data = "Hello, World!";
         FUSEBackend fuseBackend;
-        Ref<WriteResult> result = fuseBackend.FD_write(filePath.toStdString().c_str(), data, strlen(data), 0);
+        Ref<StatusResult> result = fuseBackend.FD_write(filePath.toStdString().c_str(), data, strlen(data), 0);
 
         QFile file = QFile(filePath);
         file.open(QIODeviceBase::ReadOnly);

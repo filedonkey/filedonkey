@@ -325,7 +325,7 @@ static int xmp_unlink(const char *path)
     FUSEClient *client = (FUSEClient *)context->private_data;
     assert(client && "[xmp_unlink] FUSEClient not found");
 
-    Ref<UnlinkResult> result = client->FD_unlink(path);
+    Ref<StatusResult> result = client->FD_unlink(path);
 
     return result->status;
 
@@ -467,7 +467,7 @@ static int xmp_create(const char *path, mode_t mode,
     FUSEClient *client = (FUSEClient *)context->private_data;
     assert(client && "[xmp_create] FUSEClient not found");
 
-    Ref<CreateResult> result = client->FD_create(path, mode, fi->flags);
+    Ref<StatusResult> result = client->FD_create(path, mode, fi->flags);
 
     qDebug() << "[xmp_create] status: " << result->status;
 
@@ -516,7 +516,7 @@ static int xmp_write(const char *path, const char *buf, size_t size,
     FUSEClient *client = (FUSEClient *)context->private_data;
     assert(client && "[xmp_write] FUSEClient not found");
 
-    Ref<WriteResult> result = client->FD_write(path, buf, size, offset);
+    Ref<StatusResult> result = client->FD_write(path, buf, size, offset);
 
     qDebug() << "[xmp_write] incoming result status:" << result->status;
 

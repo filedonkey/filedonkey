@@ -13,9 +13,23 @@ struct FindData
     u16 st_mode;
 };
 
-struct ReaddirResult
+struct StatusResult
 {
     i32 status;
+
+    StatusResult()
+    {
+        memset(this, 0, sizeof(StatusResult));
+    }
+
+    StatusResult(const char *data)
+    {
+        memcpy(this, data, sizeof(StatusResult));
+    }
+};
+
+struct ReaddirResult : public StatusResult
+{
     u32 count;
     u32 dataSize;
     FindData *findData;
@@ -38,9 +52,8 @@ struct ReaddirResult
     }
 };
 
-struct ReadResult
+struct ReadResult : public StatusResult
 {
-    i32 status;
     u64 size;
     char *data;
 
@@ -72,9 +85,8 @@ struct ReadResult
     }
 };
 
-struct ReadlinkResult
+struct ReadlinkResult : public StatusResult
 {
-    i32 status;
     u64 size;
     char *data;
 
@@ -106,9 +118,8 @@ struct ReadlinkResult
     }
 };
 
-struct StatfsResult
+struct StatfsResult : public StatusResult
 {
-    i32 status;
     // statvfs data
     u64 f_bsize;
     u64 f_frsize;
@@ -138,9 +149,8 @@ struct fd_timespec {
   i64 tv_nsec;
 };
 
-struct GetattrResult
+struct GetattrResult : public StatusResult
 {
-    i32 status;
     // stat data
     u64 st_dev;
     u64 st_ino;
@@ -164,51 +174,6 @@ struct GetattrResult
     GetattrResult(const char *data)
     {
         memcpy(this, data, sizeof(GetattrResult));
-    }
-};
-
-struct WriteResult
-{
-    i32 status;
-
-    WriteResult()
-    {
-        memset(this, 0, sizeof(WriteResult));
-    }
-
-    WriteResult(const char *data)
-    {
-        memcpy(this, data, sizeof(WriteResult));
-    }
-};
-
-struct CreateResult
-{
-    i32 status;
-
-    CreateResult()
-    {
-        memset(this, 0, sizeof(CreateResult));
-    }
-
-    CreateResult(const char *data)
-    {
-        memcpy(this, data, sizeof(CreateResult));
-    }
-};
-
-struct UnlinkResult
-{
-    i32 status;
-
-    UnlinkResult()
-    {
-        memset(this, 0, sizeof(CreateResult));
-    }
-
-    UnlinkResult(const char *data)
-    {
-        memcpy(this, data, sizeof(CreateResult));
     }
 };
 

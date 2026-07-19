@@ -238,11 +238,11 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
     return result;
 }
 
-Ref<WriteResult> FUSEBackend::FD_write(const char *path, const char *buf, u64 size, i64 offset)
+Ref<StatusResult> FUSEBackend::FD_write(const char *path, const char *buf, u64 size, i64 offset)
 {
     auto absolutePath = normalizePath(path);
 
-    Ref<WriteResult> result = MakeRef<WriteResult>();
+    Ref<StatusResult> result = MakeRef<StatusResult>();
 
     int fd = open(absolutePath.string().c_str(), O_WRONLY);
     if (fd == -1)
@@ -266,13 +266,13 @@ Ref<WriteResult> FUSEBackend::FD_write(const char *path, const char *buf, u64 si
     return result;
 }
 
-Ref<CreateResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
+Ref<StatusResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
 {
     auto absolutePath = normalizePath(path);
 
     (void)flags;
 
-    Ref<CreateResult> result = MakeRef<CreateResult>();
+    Ref<StatusResult> result = MakeRef<StatusResult>();
 
     qDebug() << "[FUSEBackend::FD_create] flags:" << flags;
     qDebug() << "[FUSEBackend::FD_create] mode:" << mode;
@@ -291,11 +291,11 @@ Ref<CreateResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
     return result;
 }
 
-Ref<UnlinkResult> FUSEBackend::FD_unlink(const char *path)
+Ref<StatusResult> FUSEBackend::FD_unlink(const char *path)
 {
     auto absolutePath = normalizePath(path);
 
-    Ref<UnlinkResult> result = MakeRef<UnlinkResult>();
+    Ref<StatusResult> result = MakeRef<StatusResult>();
 
     int res = unlink(absolutePath.string().c_str());
     if (res == -1)

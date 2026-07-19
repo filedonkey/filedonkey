@@ -45,7 +45,7 @@ Ref<ReadResult> FUSEClient::FD_read(const char *path, u64 size, i64 offset)
     return result;
 }
 
-Ref<WriteResult> FUSEClient::FD_write(const char *path, const char *buf, u64 size, i64 offset)
+Ref<StatusResult> FUSEClient::FD_write(const char *path, const char *buf, u64 size, i64 offset)
 {
     const char *nullTerminal = "\0";
     size_t pathLength = strlen(path) + 1;
@@ -65,7 +65,7 @@ Ref<WriteResult> FUSEClient::FD_write(const char *path, const char *buf, u64 siz
 
     FetchResult incoming = Fetch("write", payload);
 
-    Ref<WriteResult> result = MakeRef<WriteResult>(incoming.payload.data());
+    Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
 
     qDebug() << "[FUSEClient::FD_write] incoming result status:" << result->status;
 
@@ -117,7 +117,7 @@ Ref<GetattrResult> FUSEClient::FD_getattr(const char *path)
     return result;
 }
 
-Ref<CreateResult> FUSEClient::FD_create(const char *path, u32 mode, i32 flags)
+Ref<StatusResult> FUSEClient::FD_create(const char *path, u32 mode, i32 flags)
 {
     QByteArray payload;
     payload.append((char *)(&mode), sizeof(mode));
@@ -126,7 +126,7 @@ Ref<CreateResult> FUSEClient::FD_create(const char *path, u32 mode, i32 flags)
 
     FetchResult incoming = Fetch("create", payload);
 
-    Ref<CreateResult> result = MakeRef<CreateResult>(incoming.payload.data());
+    Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
 
     qDebug() << "[FUSEClient::FD_create] incoming result status:" << result->status;
 
@@ -141,12 +141,12 @@ Ref<CreateResult> FUSEClient::FD_create(const char *path, u32 mode, i32 flags)
     return result;
 }
 
-Ref<UnlinkResult> FUSEClient::FD_unlink(const char *path)
+Ref<StatusResult> FUSEClient::FD_unlink(const char *path)
 {
     QByteArray payload((char *)path, strlen(path));
     FetchResult incoming = Fetch("unlink", payload);
 
-    Ref<UnlinkResult> result = MakeRef<UnlinkResult>(incoming.payload.data());
+    Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
 
     qDebug() << "[FUSEClient::FD_unlink] incoming result status:" << result->status;
 

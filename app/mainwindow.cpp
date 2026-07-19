@@ -297,14 +297,14 @@ QByteArray MainWindow::writeHandler(QByteArray payload)
     QByteArray buf = payload.sliced(sizeof(u64) + sizeof(i64) + sizeof(u64) + pathLength);
     qDebug() << "[MainWindow::writeHandler] incoming buff length:" << buf.length();
 
-    Ref<WriteResult> result = fuseBackend->FD_write(path.data(), buf.data(), buf.length() /* size */, offset);
+    Ref<StatusResult> result = fuseBackend->FD_write(path.data(), buf.data(), buf.length() /* size */, offset);
     qDebug() << "[MainWindow::writeHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "write");
-    header.datagramSize += sizeof(WriteResult);
+    header.datagramSize += sizeof(StatusResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
-    response.append((char *)result.get(), sizeof(WriteResult));
+    response.append((char *)result.get(), sizeof(StatusResult));
 
     return response;
 }
@@ -368,14 +368,14 @@ QByteArray MainWindow::createHandler(QByteArray payload)
     qDebug() << "[MainWindow::createHandler] incoming mode:" << mode;
     qDebug() << "[MainWindow::createHandler] incoming flags:" << flags;
     qDebug() << "[MainWindow::createHandler] incoming path:" << path.data();
-    Ref<CreateResult> result = fuseBackend->FD_create(path.data(), mode, flags);
+    Ref<StatusResult> result = fuseBackend->FD_create(path.data(), mode, flags);
     qDebug() << "[MainWindow::createHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "create");
-    header.datagramSize += sizeof(CreateResult);
+    header.datagramSize += sizeof(StatusResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
-    response.append((char *)result.get(), sizeof(CreateResult));
+    response.append((char *)result.get(), sizeof(StatusResult));
 
     return response;
 }
@@ -384,14 +384,14 @@ QByteArray MainWindow::unlinkHandler(QByteArray payload)
 {
     const char *path = payload.data();
     qDebug() << "[MainWindow::unlinkHandler] fuse unlink path:" << path;
-    Ref<UnlinkResult> result = fuseBackend->FD_unlink(path);
+    Ref<StatusResult> result = fuseBackend->FD_unlink(path);
     qDebug() << "[MainWindow::unlinkHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "unlink");
-    header.datagramSize += sizeof(UnlinkResult);
+    header.datagramSize += sizeof(StatusResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
-    response.append((char *)result.get(), sizeof(UnlinkResult));
+    response.append((char *)result.get(), sizeof(StatusResult));
 
     return response;
 }

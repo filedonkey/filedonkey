@@ -295,7 +295,6 @@ static int xmp_rename(const char *from, const char *to)
 {
     qDebug() << "[xmp_rename] from: " << from << "to:" << to;
 
-
     struct fuse_context *context = fuse_get_context();
     FUSEClient *client = (FUSEClient *)context->private_data;
     assert(client && "[xmp_rename] FUSEClient not found");

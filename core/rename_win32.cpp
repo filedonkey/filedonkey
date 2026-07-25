@@ -3,6 +3,7 @@
 #include "rename_win32.h"
 
 #include <errno.h>
+#include <string>
 
 static int win32_to_errno(DWORD err)
 {
@@ -51,11 +52,21 @@ static int win32_to_errno(DWORD err)
     }
 }
 
+static std::wstring to_utf8_wstr(const char *str)
+{
+    int len = MultiByteToWideChar(CP_UTF8, 0, str, -1, nullptr, 0);
+    std::wstring wstr(len, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, str, -1, wstr.data(), len);
+
+    return wstr;
+}
+
 int rename(const char *oldpath, const char *newpath)
 {
-    if (MoveFileExA(oldpath,
-                    newpath,
-                    MOVEFILE_REPLACE_EXISTING))
+    std::wstring w_oldpath = to_utf8_wstr(oldpath);
+    std::wstring w_newpath = to_utf8_wstr(newpath);
+
+    if (MoveFileExW(w_oldpath.data(), w_newpath.data(), MOVEFILE_REPLACE_EXISTING))
     {
         return 0;
     }

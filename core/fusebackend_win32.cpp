@@ -57,10 +57,9 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
             return result;
         }
 
-        wchar_t* wpath = new wchar_t[wchars_needed];
+        wchar_t *wpath = (wchar_t *)alloca(wchars_needed * sizeof(wchar_t));
         if (MultiByteToWideChar(CP_UTF8, 0, direntPath, -1, wpath, wchars_needed) <= 0)
         {
-            delete[] wpath;
             result->status = -1;
             return result;
         }

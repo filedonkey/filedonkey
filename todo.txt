@@ -5,4 +5,5 @@ FUSE operation:
   - truncate
   - release (?)
   - fsync (?)
-  
+
+Bug: fusebackend_win32.cpp readdir etc., returns ??? symbols instead of proper Cyrillic chars 

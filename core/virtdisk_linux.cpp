@@ -366,18 +366,18 @@ static int xmp_symlink(const char *from, const char *to)
 
 static int xmp_rename(const char *from, const char *to, unsigned int flags)
 {
-    qDebug() << "[xmp_rename] path: " << from << to;
 
-    int res;
+    qDebug() << "[xmp_rename] from: " << from << "to:" << to;
 
-    if (flags)
-        return -EINVAL;
+    if (flags) return -EINVAL;
 
-    res = rename(from, to);
-    if (res == -1)
-        return -errno;
+    struct fuse_context *context = fuse_get_context();
+    FUSEClient *client = (FUSEClient *)context->private_data;
+    assert(client && "[xmp_rename] FUSEClient not found");
 
-    return 0;
+    Ref<StatusResult> result = client->FD_rename(from, to);
+
+    return result->status;
 }
 
 static int xmp_link(const char *from, const char *to)

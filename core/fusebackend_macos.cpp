@@ -233,4 +233,21 @@ Ref<StatusResult> FUSEBackend::FD_unlink(const char *path)
     return result;
 }
 
+Ref<StatusResult> FUSEBackend::FD_rename(const char *from, const char *to)
+{
+    auto absoluteOldPath = normalizePath(from);
+    auto absoluteNewPath = normalizePath(to);
+
+    Ref<StatusResult> result = MakeRef<StatusResult>();
+
+    int res = rename(absoluteOldPath.string().c_str(), absoluteNewPath.string().c_str());
+    if (res == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    return result;
+}
+
 #endif

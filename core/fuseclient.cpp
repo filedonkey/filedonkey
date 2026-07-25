@@ -153,6 +153,28 @@ Ref<StatusResult> FUSEClient::FD_unlink(const char *path)
     return result;
 }
 
+Ref<StatusResult> FUSEClient::FD_rename(const char *from, const char *to)
+{
+    QByteArray payload;
+    payload.append((char *)from, strlen(from) + 1);
+    payload.append((char *)to, strlen(to) + 1);
+    FetchResult incoming = Fetch("rename", payload);
+
+    Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
+
+    qDebug() << "[FUSEClient::FD_rename] incoming result status:" << result->status;
+
+    // Before calling "rename" operation FUSE calls "getattr" in order
+    // to check whether file alredy exists. FUSE calls "getattr" operation
+    // after "rename" one more time. We need to remove prev "getattr" result
+    // from cache to let FUSE know that file was successfully renamed.
+    QByteArray getattrPayload((char *)from, strlen(from));
+    QString cacheKey = QString("%1%2%3").arg(conn->machineId).arg("getattr").arg(getattrPayload);
+    netCache.remove(cacheKey);
+
+    return result;
+}
+
 FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &payload)
 {
     //------------------------------------------------------------------------------------

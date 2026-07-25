@@ -341,14 +341,16 @@ static int xmp_symlink(const char *from, const char *to)
 
 static int xmp_rename(const char *from, const char *to)
 {
-    qDebug() << "[xmp_rename] path: " << from;
+    qDebug() << "[xmp_rename] from: " << from << "to:" << to;
 
-    int res;
-    res = rename(from, to);
-    if (res == -1)
-        return -errno;
 
-    return 0;
+    struct fuse_context *context = fuse_get_context();
+    FUSEClient *client = (FUSEClient *)context->private_data;
+    assert(client && "[xmp_rename] FUSEClient not found");
+
+    Ref<StatusResult> result = client->FD_rename(from, to);
+
+    return result->status;
 }
 
 #ifdef __APPLE__

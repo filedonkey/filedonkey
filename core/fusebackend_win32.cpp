@@ -7,6 +7,7 @@
 #include "statvfs_win32.h"
 #include "readlink_win32.h"
 #include "unlink_win32.h"
+#include "rename_win32.h"
 
 #include <QDebug>
 #include <QRandomGenerator>
@@ -298,6 +299,23 @@ Ref<StatusResult> FUSEBackend::FD_unlink(const char *path)
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
     int res = unlink(absolutePath.string().c_str());
+    if (res == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    return result;
+}
+
+Ref<StatusResult> FUSEBackend::FD_rename(const char *from, const char *to)
+{
+    auto absoluteOldPath = normalizePath(from);
+    auto absoluteNewPath = normalizePath(to);
+
+    Ref<StatusResult> result = MakeRef<StatusResult>();
+
+    int res = rename(absoluteOldPath.string().c_str(), absoluteNewPath.string().c_str());
     if (res == -1)
     {
         result->status = -errno;

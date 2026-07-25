@@ -26,6 +26,7 @@ public:
     Ref<GetattrResult>  FD_getattr(const char *path);
     Ref<StatusResult>   FD_create(const char *path, u32 mode, i32 flags);
     Ref<StatusResult>   FD_unlink(const char *path);
+    Ref<StatusResult>   FD_rename(const char *from, const char *to);
 
 signals:
     void uploadedChanged(u64 uploaded);

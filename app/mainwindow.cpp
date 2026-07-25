@@ -71,6 +71,7 @@ MainWindow::MainWindow(QWidget *parent)
     fuseHandlers.insert("getattr", std::bind(&MainWindow::getattrHandler, this, _1));
     fuseHandlers.insert("create", std::bind(&MainWindow::createHandler, this, _1));
     fuseHandlers.insert("unlink", std::bind(&MainWindow::unlinkHandler, this, _1));
+    fuseHandlers.insert("rename", std::bind(&MainWindow::renameHandler, this, _1));
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
     if (!server->listen(QHostAddress::Any, TCP_PORT))
@@ -388,6 +389,25 @@ QByteArray MainWindow::unlinkHandler(QByteArray payload)
     qDebug() << "[MainWindow::unlinkHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "unlink");
+    header.datagramSize += sizeof(StatusResult);
+
+    QByteArray response((char *)&header, sizeof(DatagramHeader));
+    response.append((char *)result.get(), sizeof(StatusResult));
+
+    return response;
+}
+
+QByteArray MainWindow::renameHandler(QByteArray payload)
+{
+    const char *oldpath = payload.data();
+    const char *newpath = payload.data() + strlen(oldpath) + 1;
+
+    qDebug() << "[MainWindow::renameHandler] fuse rename from:" << oldpath << "to:" << newpath;
+
+    Ref<StatusResult> result = fuseBackend->FD_rename(oldpath, newpath);
+    qDebug() << "[MainWindow::renameHandler] result status:" << result->status;
+
+    DatagramHeader header("response", "fuse", "rename");
     header.datagramSize += sizeof(StatusResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));

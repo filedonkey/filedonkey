@@ -1,5 +1,5 @@
 FUSE operation:
-  - rename
+  + rename
   - rmdir
   - mkdir
   - truncate

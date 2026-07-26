@@ -75,6 +75,7 @@ MainWindow::MainWindow(QWidget *parent)
     fuseHandlers.insert("rename",   std::bind(&MainWindow::renameHandler,   this, _1));
     fuseHandlers.insert("mkdir",    std::bind(&MainWindow::mkdirHandler,    this, _1));
     fuseHandlers.insert("rmdir",    std::bind(&MainWindow::rmdirHandler,    this, _1));
+    fuseHandlers.insert("truncate", std::bind(&MainWindow::truncateHandler, this, _1));
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
     if (!server->listen(QHostAddress::Any, TCP_PORT))
@@ -445,6 +446,24 @@ QByteArray MainWindow::rmdirHandler(QByteArray payload)
     qDebug() << "[MainWindow::rmdirHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "rmdir");
+    header.datagramSize += sizeof(StatusResult);
+
+    QByteArray response((char *)&header, sizeof(DatagramHeader));
+    response.append((char *)result.get(), sizeof(StatusResult));
+
+    return response;
+}
+
+QByteArray MainWindow::truncateHandler(QByteArray payload)
+{
+    i64 size = *(i64 *)(payload.data());
+    QByteArray path = payload.sliced(sizeof(i64));
+    qDebug() << "[MainWindow::truncateHandler] incoming mode:" << size;
+    qDebug() << "[MainWindow::truncateHandler] incoming path:" << path.data();
+    Ref<StatusResult> result = fuseBackend->FD_truncate(path.data(), size);
+    qDebug() << "[MainWindow::truncateHandler] result status:" << result->status;
+
+    DatagramHeader header("response", "fuse", "truncate");
     header.datagramSize += sizeof(StatusResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));

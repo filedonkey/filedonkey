@@ -66,6 +66,7 @@ private:
     QByteArray renameHandler(QByteArray payload);
     QByteArray mkdirHandler(QByteArray payload);
     QByteArray rmdirHandler(QByteArray payload);
+    QByteArray truncateHandler(QByteArray payload);
 
     Ui::MainWindow  *ui = nullptr;
     QAction         *restoreAction;

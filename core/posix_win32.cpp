@@ -118,4 +118,30 @@ int unlink(const char *path)
     return -1;
 }
 
+int truncate(const char *path, fuse_off_t size)
+{
+    std::wstring w_path = to_utf8_wstr(path);
+
+    DWORD shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    HANDLE h = CreateFileW(w_path.data(), FILE_WRITE_DATA, shareMode, 0, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
+    if (INVALID_HANDLE_VALUE == h)
+    {
+        errno = win32_to_errno(GetLastError());
+        return -1;
+    }
+
+    FILE_END_OF_FILE_INFO EndOfFileInfo;
+    EndOfFileInfo.EndOfFile.QuadPart = size;
+
+    if (SetFileInformationByHandle(h, FileEndOfFileInfo, &EndOfFileInfo, sizeof(EndOfFileInfo)))
+    {
+        CloseHandle(h);
+        return 0;
+    }
+
+    CloseHandle(h);
+    errno = win32_to_errno(GetLastError());
+    return -1;
+}
+
 #endif // _WIN32

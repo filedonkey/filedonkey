@@ -10,6 +10,7 @@ int rmdir(const char *path);
 
 int rename(const char *oldpath, const char *newpath);
 int unlink(const char *path);
+int truncate(const char *path, fuse_off_t size);
 
 #endif // _WIN32
 

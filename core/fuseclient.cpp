@@ -195,6 +195,23 @@ Ref<StatusResult> FUSEClient::FD_rmdir(const char *path)
     return result;
 }
 
+Ref<StatusResult> FUSEClient::FD_truncate(const char *path, i64 size)
+{
+    QByteArray payload;
+    payload.append((char *)(&size), sizeof(size));
+    payload.append((char *)path, strlen(path));
+
+    FetchResult incoming = Fetch("truncate", payload);
+
+    Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
+
+    qDebug() << "[FUSEClient::FD_truncate] incoming result status:" << result->status;
+
+    netCache.clear();
+
+    return result;
+}
+
 FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &payload)
 {
     //------------------------------------------------------------------------------------

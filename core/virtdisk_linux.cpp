@@ -423,21 +423,19 @@ static int xmp_chown(const char *path, uid_t uid, gid_t gid,
     return 0;
 }
 
-static int xmp_truncate(const char *path, off_t size,
-                        struct fuse_file_info *fi)
+static int xmp_truncate(const char *path, off_t size, struct fuse_file_info *fi)
 {
-    qDebug() << "[xmp_truncate] path: " << path;
+    (void)fi;
 
-    int res;
+    qDebug() << "[xmp_truncate] path: " << path << "size:" << size;
 
-    if (fi != NULL)
-        res = ftruncate(fi->fh, size);
-    else
-        res = truncate(path, size);
-    if (res == -1)
-        return -errno;
+    struct fuse_context *context = fuse_get_context();
+    FUSEClient *client = (FUSEClient *)context->private_data;
+    assert(client && "[xmp_truncate] FUSEClient not found");
 
-    return 0;
+    Ref<StatusResult> result = client->FD_truncate(path, size);
+
+    return result->status;
 }
 
 #ifdef HAVE_UTIMENSAT

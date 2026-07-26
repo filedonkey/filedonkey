@@ -276,4 +276,20 @@ Ref<StatusResult> FUSEBackend::FD_rmdir(const char *path)
     return result;
 }
 
+Ref<StatusResult> FUSEBackend::FD_truncate(const char *path, i64 size)
+{
+    auto absolutePath = normalizePath(path);
+
+    Ref<StatusResult> result = MakeRef<StatusResult>();
+
+    int res = truncate(absolutePath.string().c_str(), size);
+    if (res == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    return result;
+}
+
 #endif

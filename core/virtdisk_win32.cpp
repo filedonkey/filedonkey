@@ -340,15 +340,15 @@ static int xmp_chown(const char *path, fuse_uid_t uid, fuse_gid_t gid)
 
 static int xmp_truncate(const char *path, off_t size)
 {
-    qDebug() << "[xmp_truncate] path: " << path;
+    qDebug() << "[xmp_truncate] path: " << path << "size:" << size;
 
-    int res;
+    struct fuse_context *context = fuse_get_context();
+    FUSEClient *client = (FUSEClient *)context->private_data;
+    assert(client && "[xmp_truncate] FUSEClient not found");
 
-    res = truncate(path, size);
-    if (res == -1)
-        return -errno;
+    Ref<StatusResult> result = client->FD_truncate(path, size);
 
-    return 0;
+    return result->status;
 }
 
 #ifdef HAVE_UTIMENSAT

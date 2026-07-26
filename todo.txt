@@ -2,9 +2,7 @@ FUSE operations:
   + rename
   + rmdir
   + mkdir
-  - truncate
-  - release (?)
-  - fsync (?)
+  + truncate
 
 Bugs:
   - fusebackend_win32.cpp readdir etc., returns ??? symbols instead of proper Cyrillic chars 

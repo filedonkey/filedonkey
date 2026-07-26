@@ -63,15 +63,18 @@ MainWindow::MainWindow(QWidget *parent)
     // return;
     //------------------------------------------------------------------------------------
 
-    fuseHandlers.insert("readdir", std::bind(&MainWindow::readdirHandler, this, _1));
-    fuseHandlers.insert("read", std::bind(&MainWindow::readHandler, this, _1));
-    fuseHandlers.insert("write", std::bind(&MainWindow::writeHandler, this, _1));
+    fuseHandlers.insert("readdir",  std::bind(&MainWindow::readdirHandler,  this, _1));
+    fuseHandlers.insert("read",     std::bind(&MainWindow::readHandler,     this, _1));
+    fuseHandlers.insert("write",    std::bind(&MainWindow::writeHandler,    this, _1));
     fuseHandlers.insert("readlink", std::bind(&MainWindow::readlinkHandler, this, _1));
-    fuseHandlers.insert("statfs", std::bind(&MainWindow::statfsHandler, this, _1));
-    fuseHandlers.insert("getattr", std::bind(&MainWindow::getattrHandler, this, _1));
-    fuseHandlers.insert("create", std::bind(&MainWindow::createHandler, this, _1));
-    fuseHandlers.insert("unlink", std::bind(&MainWindow::unlinkHandler, this, _1));
-    fuseHandlers.insert("rename", std::bind(&MainWindow::renameHandler, this, _1));
+    fuseHandlers.insert("statfs",   std::bind(&MainWindow::statfsHandler,   this, _1));
+    fuseHandlers.insert("getattr",  std::bind(&MainWindow::getattrHandler,  this, _1));
+    fuseHandlers.insert("create",   std::bind(&MainWindow::createHandler,   this, _1));
+    fuseHandlers.insert("unlink",   std::bind(&MainWindow::unlinkHandler,   this, _1));
+    fuseHandlers.insert("rename",   std::bind(&MainWindow::renameHandler,   this, _1));
+    fuseHandlers.insert("rename",   std::bind(&MainWindow::renameHandler,   this, _1));
+    fuseHandlers.insert("mkdir",    std::bind(&MainWindow::mkdirHandler,    this, _1));
+    fuseHandlers.insert("rmdir",    std::bind(&MainWindow::rmdirHandler,    this, _1));
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
     if (!server->listen(QHostAddress::Any, TCP_PORT))
@@ -408,6 +411,40 @@ QByteArray MainWindow::renameHandler(QByteArray payload)
     qDebug() << "[MainWindow::renameHandler] result status:" << result->status;
 
     DatagramHeader header("response", "fuse", "rename");
+    header.datagramSize += sizeof(StatusResult);
+
+    QByteArray response((char *)&header, sizeof(DatagramHeader));
+    response.append((char *)result.get(), sizeof(StatusResult));
+
+    return response;
+}
+
+QByteArray MainWindow::mkdirHandler(QByteArray payload)
+{
+    u32 mode = *(u32 *)(payload.data());
+    QByteArray path = payload.sliced(sizeof(u32));
+    qDebug() << "[MainWindow::mkdirHandler] incoming mode:" << mode;
+    qDebug() << "[MainWindow::mkdirHandler] incoming path:" << path.data();
+    Ref<StatusResult> result = fuseBackend->FD_mkdir(path.data(), mode);
+    qDebug() << "[MainWindow::mkdirHandler] result status:" << result->status;
+
+    DatagramHeader header("response", "fuse", "mkdir");
+    header.datagramSize += sizeof(StatusResult);
+
+    QByteArray response((char *)&header, sizeof(DatagramHeader));
+    response.append((char *)result.get(), sizeof(StatusResult));
+
+    return response;
+}
+
+QByteArray MainWindow::rmdirHandler(QByteArray payload)
+{
+    const char *path = payload.data();
+    qDebug() << "[MainWindow::rmdirHandler] fuse rmdir path:" << path;
+    Ref<StatusResult> result = fuseBackend->FD_rmdir(path);
+    qDebug() << "[MainWindow::rmdirHandler] result status:" << result->status;
+
+    DatagramHeader header("response", "fuse", "rmdir");
     header.datagramSize += sizeof(StatusResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));

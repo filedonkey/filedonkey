@@ -283,13 +283,13 @@ static int xmp_mkdir(const char *path, mode_t mode)
 {
     qDebug() << "[xmp_mkdir] path: " << path;
 
-    int res;
+    struct fuse_context *context = fuse_get_context();
+    FUSEClient *client = (FUSEClient *)context->private_data;
+    assert(client && "[xmp_mkdir] FUSEClient not found");
 
-    res = mkdir(path, mode);
-    if (res == -1)
-        return -errno;
+    Ref<StatusResult> result = client->FD_mkdir(path, mode);
 
-    return 0;
+    return result->status;
 }
 
 static int xmp_unlink(const char *path)
@@ -317,13 +317,13 @@ static int xmp_rmdir(const char *path)
 {
     qDebug() << "[xmp_rmdir] path: " << path;
 
-    int res;
+    struct fuse_context *context = fuse_get_context();
+    FUSEClient *client = (FUSEClient *)context->private_data;
+    assert(client && "[xmp_rmdir] FUSEClient not found");
 
-    res = rmdir(path);
-    if (res == -1)
-        return -errno;
+    Ref<StatusResult> result = client->FD_rmdir(path);
 
-    return 0;
+    return result->status;
 }
 
 static int xmp_symlink(const char *from, const char *to)

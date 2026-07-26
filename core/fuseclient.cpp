@@ -41,7 +41,6 @@ Ref<ReadResult> FUSEClient::FD_read(const char *path, u64 size, i64 offset)
     qDebug() << "[FUSEClient::FD_read] incoming result status:" << result->status;
     qDebug() << "[FUSEClient::FD_read] incoming result size:" << result->size;
 
-
     return result;
 }
 
@@ -144,6 +143,8 @@ Ref<StatusResult> FUSEClient::FD_unlink(const char *path)
 
     qDebug() << "[FUSEClient::FD_unlink] incoming result status:" << result->status;
 
+    netCache.clear();
+
     return result;
 }
 
@@ -157,6 +158,37 @@ Ref<StatusResult> FUSEClient::FD_rename(const char *from, const char *to)
     Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
 
     qDebug() << "[FUSEClient::FD_rename] incoming result status:" << result->status;
+
+    netCache.clear();
+
+    return result;
+}
+
+Ref<StatusResult> FUSEClient::FD_mkdir(const char *path, u32 mode)
+{
+    QByteArray payload;
+    payload.append((char *)(&mode), sizeof(mode));
+    payload.append((char *)path, strlen(path));
+
+    FetchResult incoming = Fetch("mkdir", payload);
+
+    Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
+
+    qDebug() << "[FUSEClient::FD_mkdir] incoming result status:" << result->status;
+
+    netCache.clear();
+
+    return result;
+}
+
+Ref<StatusResult> FUSEClient::FD_rmdir(const char *path)
+{
+    QByteArray payload((char *)path, strlen(path));
+    FetchResult incoming = Fetch("rmdir", payload);
+
+    Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
+
+    qDebug() << "[FUSEClient::FD_rmdir] incoming result status:" << result->status;
 
     netCache.clear();
 

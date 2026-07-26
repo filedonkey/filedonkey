@@ -242,4 +242,38 @@ Ref<StatusResult> FUSEBackend::FD_rename(const char *from, const char *to)
     return result;
 }
 
+Ref<StatusResult> FUSEBackend::FD_mkdir(const char *path, u32 mode)
+{
+    auto absolutePath = normalizePath(path);
+
+    Ref<StatusResult> result = MakeRef<StatusResult>();
+
+    qDebug() << "[FUSEBackend::FD_mkdir] mode:" << mode;
+
+    int res = mkdir(absolutePath.string().c_str(), mode);
+    if (res == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    return result;
+}
+
+Ref<StatusResult> FUSEBackend::FD_rmdir(const char *path)
+{
+    auto absolutePath = normalizePath(path);
+
+    Ref<StatusResult> result = MakeRef<StatusResult>();
+
+    int res = rmdir(absolutePath.string().c_str());
+    if (res == -1)
+    {
+        result->status = -errno;
+        return result;
+    }
+
+    return result;
+}
+
 #endif

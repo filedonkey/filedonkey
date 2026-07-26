@@ -64,6 +64,8 @@ private:
     QByteArray createHandler(QByteArray payload);
     QByteArray unlinkHandler(QByteArray payload);
     QByteArray renameHandler(QByteArray payload);
+    QByteArray mkdirHandler(QByteArray payload);
+    QByteArray rmdirHandler(QByteArray payload);
 
     Ui::MainWindow  *ui = nullptr;
     QAction         *restoreAction;

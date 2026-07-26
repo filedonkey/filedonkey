@@ -24,6 +24,8 @@ public:
     Ref<StatusResult>   FD_create(const char *path, u32 mode, i32 flags);
     Ref<StatusResult>   FD_unlink(const char *path);
     Ref<StatusResult>   FD_rename(const char *from, const char *to);
+    Ref<StatusResult>   FD_mkdir(const char *path, u32 mode);
+    Ref<StatusResult>   FD_rmdir(const char *path);
 
     std::filesystem::path normalizePath(const char *path)
     {

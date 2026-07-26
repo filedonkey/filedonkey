@@ -13,6 +13,7 @@ macx {
 }
 
 SOURCES += \
+    dir_win32.cpp \
     fusebackend_linux.cpp \
     fusebackend_macos.cpp \
     fusebackend_win32.cpp \
@@ -31,6 +32,7 @@ SOURCES += \
 HEADERS += \
     connection.h \
     core.h \
+    dir_win32.h \
     fusebackend.h \
     fusebackend_types.h \
     fuseclient.h \

@@ -2,13 +2,11 @@
 
 #include "fusebackend.h"
 #include "pread_win32.h"
+#include "posix_win32.h"
 #include "pwrite_win32.h"
 #include "lstat_win32.h"
 #include "statvfs_win32.h"
 #include "readlink_win32.h"
-#include "unlink_win32.h"
-#include "rename_win32.h"
-#include "dir_win32.h"
 
 #include <QDebug>
 #include <QRandomGenerator>

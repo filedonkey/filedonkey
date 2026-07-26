@@ -1,6 +1,8 @@
 #if defined(_WIN32)
 
-#include "rename_win32.h"
+#include <windows.h>
+
+#include "posix_win32.h"
 
 #include <errno.h>
 #include <string>
@@ -61,12 +63,53 @@ static std::wstring to_utf8_wstr(const char *str)
     return wstr;
 }
 
+int mkdir(const char *path, fuse_mode_t mode)
+{
+    (void)mode;
+
+    std::wstring w_path = to_utf8_wstr(path);
+
+    if (CreateDirectoryW(w_path.data(), 0))
+    {
+        return 0;
+    }
+
+    errno = win32_to_errno(GetLastError());
+    return -1;
+}
+
+int rmdir(const char *path)
+{
+    std::wstring w_path = to_utf8_wstr(path);
+
+    if (RemoveDirectoryW(w_path.data()))
+    {
+        return 0;
+    }
+
+    errno = win32_to_errno(GetLastError());
+    return -1;
+}
+
 int rename(const char *oldpath, const char *newpath)
 {
     std::wstring w_oldpath = to_utf8_wstr(oldpath);
     std::wstring w_newpath = to_utf8_wstr(newpath);
 
     if (MoveFileExW(w_oldpath.data(), w_newpath.data(), MOVEFILE_REPLACE_EXISTING))
+    {
+        return 0;
+    }
+
+    errno = win32_to_errno(GetLastError());
+    return -1;
+}
+
+int unlink(const char *path)
+{
+    std::wstring w_path = to_utf8_wstr(path);
+
+    if (DeleteFileW(w_path.data()))
     {
         return 0;
     }

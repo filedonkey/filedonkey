@@ -13,18 +13,16 @@ macx {
 }
 
 SOURCES += \
-    dir_win32.cpp \
     fusebackend_linux.cpp \
     fusebackend_macos.cpp \
     fusebackend_win32.cpp \
     fuseclient.cpp \
     lstat_win32.cpp \
+    posix_win32.cpp \
     pread_win32.cpp \
     pwrite_win32.cpp \
     readlink_win32.cpp \
-    rename_win32.cpp \
     statvfs_win32.cpp \
-    unlink_win32.cpp \
     virtdisk_linux.cpp \
     virtdisk_macos.cpp \
     virtdisk_win32.cpp
@@ -32,17 +30,15 @@ SOURCES += \
 HEADERS += \
     connection.h \
     core.h \
-    dir_win32.h \
     fusebackend.h \
     fusebackend_types.h \
     fuseclient.h \
     lstat_win32.h \
+    posix_win32.h \
     pread_win32.h \
     pwrite_win32.h \
     readlink_win32.h \
-    rename_win32.h \
     statvfs_win32.h \
-    unlink_win32.h \
     virtdisk.h
 
 CONFIG += lrelease

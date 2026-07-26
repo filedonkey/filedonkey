@@ -1,7 +1,7 @@
 FUSE operations:
   + rename
-  - rmdir
-  - mkdir
+  + rmdir
+  + mkdir
   - truncate
   - release (?)
   - fsync (?)

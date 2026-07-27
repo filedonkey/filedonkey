@@ -385,12 +385,6 @@ static void Start(VirtDisk *self, Connection *conn)
     int argc = sizeof(argv) / sizeof(argv[0]);
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
-    const char* runtime = getenv("XDG_RUNTIME_DIR");
-    system(QString("mkdir -p %1/%2")
-               .arg(runtime)
-               .arg(conn->machineName)
-               .toStdString().c_str());
-
     self->f = fuse_new(&args, &xmp_oper, sizeof(xmp_oper), self->client);
     if (!self->f)
     {
@@ -401,7 +395,11 @@ static void Start(VirtDisk *self, Connection *conn)
 
     struct fuse_session *se = fuse_get_session(self->f);
 
-    if (fuse_mount(self->f, self->mountpoint) != 0)
+    const char* runtime = getenv("XDG_RUNTIME_DIR");
+    std::string mountpoint = QString("%1/%2").arg(runtime).arg(conn->machineName).toStdString();
+    system(QString("mkdir -p %1").arg(mountpoint.c_str()).toStdString().c_str());
+
+    if (fuse_mount(self->f, self->mountpoint.c_str()) != 0)
     {
         qDebug() << "[Start] fuse_mount failed";
         fuse_destroy(self->f);

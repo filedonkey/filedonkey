@@ -22,7 +22,7 @@ public:
     FUSEClient *client;
 
     struct fuse *f;
-    const char *mountpoint = "M:";
+    std::string mountpoint;
 
 public slots:
     void onSocketDisconnected();

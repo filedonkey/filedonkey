@@ -360,6 +360,19 @@ static const struct fuse_operations xmp_oper = {
     .create		= xmp_create,
 };
 
+char FindFreeDriveLetter()
+{
+    DWORD mask = GetLogicalDrives();
+
+    for (char drive = 'D'; drive <= 'Z'; ++drive)
+    {
+        if ((mask & (1u << (drive - 'A'))) == 0)
+            return drive;
+    }
+
+    return '\0'; // no free drive letter
+}
+
 static void Start(VirtDisk *self, Connection *conn)
 {
     conn->socket = new QTcpSocket();
@@ -395,7 +408,15 @@ static void Start(VirtDisk *self, Connection *conn)
 
     struct fuse_session *se = fuse_get_session(self->f);
 
-    if (fuse_mount(self->f, self->mountpoint) != 0)
+    char driveLetter = FindFreeDriveLetter();
+    if (!driveLetter)
+    {
+        qDebug() << "[Start] can't find a free drive letter";
+        return;
+    }
+    self->mountpoint = QString("%1:").arg(driveLetter).arg(conn->machineName).toStdString();
+
+    if (fuse_mount(self->f, self->mountpoint.c_str()) != 0)
     {
         qDebug() << "[Start] fuse_mount failed";
         fuse_destroy(self->f);

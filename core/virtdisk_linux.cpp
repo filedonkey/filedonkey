@@ -26,7 +26,9 @@
 #include <dirent.h>
 #include <errno.h>
 #include <sys/time.h>
+#include <sys/mount.h>
 
+#include <QDir>
 #include <QTcpSocket>
 
 VirtDisk::VirtDisk(const Connection& conn) : conn(conn), client(new FUSEClient(&this->conn))
@@ -381,7 +383,7 @@ static void Start(VirtDisk *self, Connection *conn)
 
     std::string fsname = QString("fsname=%1").arg(conn->machineName).toStdString();
 
-    char *argv[] = {"FileDonkey", "-o", fsname.data()};
+    char *argv[] = {"FileDonkey", "-o", fsname.data(), "-o", "subtype=filedonkey", "-o", "auto_cache"};
     int argc = sizeof(argv) / sizeof(argv[0]);
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
@@ -395,9 +397,17 @@ static void Start(VirtDisk *self, Connection *conn)
 
     struct fuse_session *se = fuse_get_session(self->f);
 
-    const char* runtime = getenv("XDG_RUNTIME_DIR");
-    std::string mountpoint = QString("%1/%2").arg(runtime).arg(conn->machineName).toStdString();
-    system(QString("mkdir -p %1").arg(mountpoint.c_str()).toStdString().c_str());
+    self->mountpoint = QString("%1/%2").arg(QDir::homePath()).arg(conn->machineName).toStdString();
+    qDebug() << "[Start] mountpoint directory:" << self->mountpoint.c_str();
+
+    int mntdir_rc = mkdir(self->mountpoint.c_str(), 0755);
+    if (mntdir_rc == -1) {
+        qDebug() << "[Start] could'n create a mountpoint directory";
+        system(QString("fusermount3 -u %1").arg(self->mountpoint.c_str()).toStdString().c_str());
+        rmdir(self->mountpoint.c_str());
+        mkdir(self->mountpoint.c_str(), 0755);
+    }
+    qDebug() << "[Start] mntdir_rc rc:" << mntdir_rc << "errno:" << errno;
 
     if (fuse_mount(self->f, self->mountpoint.c_str()) != 0)
     {
@@ -447,6 +457,8 @@ void VirtDisk::unmount()
 {
     fuse_exit(f);
     thread.join();
+    system(QString("fusermount3 -u %1").arg(mountpoint.c_str()).toStdString().c_str());
+    rmdir(mountpoint.c_str());
     qDebug() << "joined";
 }
 

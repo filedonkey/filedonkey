@@ -6,28 +6,12 @@
 
 #include <cassert>
 #include <thread>
-#include <iostream>
-#include <fileapi.h>
 
 #define FUSE_USE_VERSION 30
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
-#if defined(_WIN32)
-#include "statvfs_win32.h"
-#include "lstat_win32.h"
-#include "pread_win32.h"
-#endif
-
-#ifdef linux
-/* For pread()/pwrite()/utimensat() */
-#define _XOPEN_SOURCE 700
-#endif
-
-#include <fuse/fuse.h>
-#include <fuse/winfsp_fuse.h>
+#include <fileapi.h>
+#include <fuse.h>
+#include <winfsp_fuse.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -36,20 +20,10 @@
 #include <dirent.h>
 #include <errno.h>
 #include <sys/time.h>
-#ifdef HAVE_SETXATTR
-#include <sys/xattr.h>
-#endif
-#include <direct.h>
 
-#define mkdir(path, mode)    _mkdir(path)
+#include <QTcpSocket>
 
-static std::thread thread;
-static struct fuse *f;
-static struct fuse_chan *ch;
-static struct fuse_session *se;
-static char *mountpoint = "D:\\";
-
-static FUSEClient *g_Client;
+#define mkdir(path, mode) _mkdir(path)
 
 VirtDisk::VirtDisk(const Connection& conn) : conn(conn), client(new FUSEClient(&this->conn))
 {
@@ -57,30 +31,17 @@ VirtDisk::VirtDisk(const Connection& conn) : conn(conn), client(new FUSEClient(&
 
 VirtDisk::~VirtDisk()
 {
-    qDebug() << "~VirtDisk";
-    fuse_exit(f);
-    fuse_remove_signal_handlers(se);
-    fuse_unmount(mountpoint, ch);
+    unmount();
 }
 
-static time_t filetimeToUnixTime(const FILETIME *ft) {
-    // if (!is_filetime_set(ft))
-    //     return 0;
-
-    ULONGLONG ll = (ULONGLONG(ft->dwHighDateTime) << 32) + ft->dwLowDateTime;
-    return time_t((ll - 116444736000000000LL) / 10000000LL);
-}
-
-static int xmp_getattr(const char *path, struct fuse_stat /*stat*/ *stbuf)
+static int xmp_getattr(const char *path, struct fuse_stat /*stat*/ *stbuf, struct fuse_file_info *fi)
 {
-    qDebug() << "[xmp_getattr] path: " << path;
+    (void)fi;
 
-    //------------------------------------------------------------------------------------
-    // Network tests
-    //------------------------------------------------------------------------------------
-    struct fuse_context *context = fuse_get_context();
-    qDebug() << "[xmp_getattr] context:" << context << context->private_data;
-    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+    qDebug() << "[xmp_getattr] path:" << path;
+
+    FUSEClient *client = (FUSEClient *)fuse_get_context()->private_data;
+    assert(client && "[xmp_getattr] FUSEClient not found");
 
     Ref<GetattrResult> result = client->FD_getattr(path);
 
@@ -125,17 +86,11 @@ static int xmp_getattr(const char *path, struct fuse_stat /*stat*/ *stbuf)
     }
 
     return result->status;
-
-    //------------------------------------------------------------------------------------
-
-
 }
 
 static int xmp_access(const char *path, int mask)
 {
     qDebug() << "[xmp_access] path: " << path;
-
-
 
     return 0;
 }
@@ -144,13 +99,8 @@ static int xmp_readlink(const char *path, char *buf, size_t size)
 {
     qDebug() << "[xmp_readlink] path: " << path;
 
-
-    //------------------------------------------------------------------------------------
-    // Network tests
-    //------------------------------------------------------------------------------------
-    struct fuse_context *context = fuse_get_context();
-    qDebug() << "[xmp_readlink] context:" << context << context->private_data;
-    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+    FUSEClient *client = (FUSEClient *)fuse_get_context()->private_data;
+    assert(client && "[xmp_readlink] FUSEClient not found");
 
     Ref<ReadlinkResult> result = client->FD_readlink(path, size);
 
@@ -160,26 +110,21 @@ static int xmp_readlink(const char *path, char *buf, size_t size)
     }
 
     return result->status;
-
-    //------------------------------------------------------------------------------------
-
 }
 
 
 static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-                       off_t offset, struct fuse_file_info *fi)
+                       fuse_off_t offset, struct fuse_file_info *fi,
+                       enum fuse_readdir_flags flags)
 {
+    (void)offset;
+    (void)fi;
+    (void)flags;
+
     qDebug() << "[xmp_readdir] path: " << path;
 
-    (void) offset;
-    (void) fi;
-
-    //------------------------------------------------------------------------------------
-    // Network tests
-    //------------------------------------------------------------------------------------
-    struct fuse_context *context = fuse_get_context();
-    qDebug() << "[xmp_readdir] context:" << context << context->private_data;
-    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+    FUSEClient *client = (FUSEClient *)fuse_get_context()->private_data;
+    assert(client && "[xmp_readdir] FUSEClient not found");
 
     Ref<ReaddirResult> result = client->FD_readdir(path);
 
@@ -207,46 +152,20 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         st.st_ctim.tv_sec = 1747514473;
         st.st_ctim.tv_nsec = 21076073;
 
-        filler(buf, fd->name, &st, /*nextoff*/0);
+        filler(buf, fd->name, &st, /*nextoff*/0, fuse_fill_dir_flags::FUSE_FILL_DIR_PLUS);
     }
     qDebug() << "after for";
 
     int status = result->status;
 
     return status;
-    //------------------------------------------------------------------------------------
-
-
-}
-
-static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)
-{
-    qDebug() << "[xmp_mknod] path: " << path;
-
-    int res;
-
-    /* On Linux this could just be 'mknod(path, mode, rdev)' but this
-       is more portable */
-    // if (S_ISREG(mode)) {
-    //     res = open(path, O_CREAT | O_EXCL | O_WRONLY, mode);
-    //     if (res >= 0)
-    //         res = close(res);
-    // } else if (S_ISFIFO(mode))
-    //     res = mkfifo(path, mode);
-    // else
-    //     res = mknod(path, mode, rdev);
-    // if (res == -1)
-    //     return -errno;
-
-    return 0;
 }
 
 static int xmp_mkdir(const char *path, fuse_mode_t mode)
 {
     qDebug() << "[xmp_mkdir] path: " << path;
 
-    struct fuse_context *context = fuse_get_context();
-    FUSEClient *client = (FUSEClient *)context->private_data;
+    FUSEClient *client = (FUSEClient *)fuse_get_context()->private_data;
     assert(client && "[xmp_mkdir] FUSEClient not found");
 
     Ref<StatusResult> result = client->FD_mkdir(path, mode);
@@ -258,8 +177,7 @@ static int xmp_unlink(const char *path)
 {
     qDebug() << "[xmp_unlink] path: " << path;
 
-    struct fuse_context *context = fuse_get_context();
-    FUSEClient *client = (FUSEClient *)context->private_data;
+    FUSEClient *client = (FUSEClient *)fuse_get_context()->private_data;
     assert(client && "[xmp_unlink] FUSEClient not found");
 
     Ref<StatusResult> result = client->FD_unlink(path);
@@ -271,8 +189,7 @@ static int xmp_rmdir(const char *path)
 {
     qDebug() << "[xmp_rmdir] path: " << path;
 
-    struct fuse_context *context = fuse_get_context();
-    FUSEClient *client = (FUSEClient *)context->private_data;
+    FUSEClient *client = (FUSEClient *)fuse_get_context()->private_data;
     assert(client && "[xmp_rmdir] FUSEClient not found");
 
     Ref<StatusResult> result = client->FD_rmdir(path);
@@ -280,23 +197,13 @@ static int xmp_rmdir(const char *path)
     return result->status;
 }
 
-static int xmp_symlink(const char *from, const char *to)
-{
-    qDebug() << "[xmp_symlink] from: " << from;
-
-    int res;
-
-
-
-    return 0;
-}
-
-static int xmp_rename(const char *from, const char *to)
+static int xmp_rename(const char *from, const char *to, unsigned int flags)
 {
     qDebug() << "[xmp_rename] from: " << from << "to:" << to;
 
-    struct fuse_context *context = fuse_get_context();
-    FUSEClient *client = (FUSEClient *)context->private_data;
+    if (flags) return -EINVAL;
+
+    FUSEClient *client = (FUSEClient *)fuse_get_context()->private_data;
     assert(client && "[xmp_rename] FUSEClient not found");
 
     Ref<StatusResult> result = client->FD_rename(from, to);
@@ -304,46 +211,13 @@ static int xmp_rename(const char *from, const char *to)
     return result->status;
 }
 
-static int xmp_link(const char *from, const char *to)
+static int xmp_truncate(const char *path, off_t size, struct fuse_file_info *fi)
 {
-    qDebug() << "[xmp_link] path: " << from;
+    (void)fi;
 
-    int res;
-
-
-    return 0;
-}
-
-static int xmp_chmod(const char *path, mode_t mode)
-{
-    qDebug() << "[xmp_chmod] path: " << path;
-
-    int res;
-
-    res = chmod(path, mode);
-    if (res == -1)
-        return -errno;
-
-    return 0;
-}
-
-static int xmp_chown(const char *path, fuse_uid_t uid, fuse_gid_t gid)
-{
-    qDebug() << "[xmp_chown] path: " << path;
-
-    int res;
-
-
-
-    return 0;
-}
-
-static int xmp_truncate(const char *path, off_t size)
-{
     qDebug() << "[xmp_truncate] path: " << path << "size:" << size;
 
-    struct fuse_context *context = fuse_get_context();
-    FUSEClient *client = (FUSEClient *)context->private_data;
+    FUSEClient *client = (FUSEClient *)fuse_get_context()->private_data;
     assert(client && "[xmp_truncate] FUSEClient not found");
 
     Ref<StatusResult> result = client->FD_truncate(path, size);
@@ -351,26 +225,11 @@ static int xmp_truncate(const char *path, off_t size)
     return result->status;
 }
 
-#ifdef HAVE_UTIMENSAT
-static int xmp_utimens(const char *path, const struct timespec ts[2])
-{
-    int res;
-
-    /* don't use utime/utimes since they follow symlinks */
-    res = utimensat(0, path, ts, AT_SYMLINK_NOFOLLOW);
-    if (res == -1)
-        return -errno;
-
-    return 0;
-}
-#endif
-
 static int xmp_create(const char *path, fuse_mode_t mode, struct fuse_file_info *fi)
 {
     qDebug() << "[xmp_create] path: " << path;
 
-    struct fuse_context *context = fuse_get_context();
-    FUSEClient *client = (FUSEClient *)context->private_data;
+    FUSEClient *client = (FUSEClient *)fuse_get_context()->private_data;
     assert(client && "[xmp_create] FUSEClient not found");
 
     qDebug() << "[xmp_create] flags:" << fi->flags;
@@ -391,11 +250,11 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 }
 
 static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
-                    struct fuse_file_info *fi) {
+                    struct fuse_file_info *fi)
+{
     (void)fi;
 
-    struct fuse_context *context = fuse_get_context();
-    FUSEClient *client = (FUSEClient *)context->private_data;
+    FUSEClient *client = (FUSEClient *)fuse_get_context()->private_data;
     assert(client && "[xmp_read] FUSEClient not found");
 
     Ref<ReadResult> result = client->FD_read(path, size, offset);
@@ -412,15 +271,11 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 static int xmp_write(const char *path, const char *buf, size_t size,
                      off_t offset, struct fuse_file_info *fi)
 {
+    (void)fi;
+
     qDebug() << "[xmp_write] path: " << path;
 
-    (void) fi;
-
-    //------------------------------------------------------------------------------------
-    // Network tests
-    //------------------------------------------------------------------------------------
-    struct fuse_context *context = fuse_get_context();
-    FUSEClient *client = (FUSEClient *)context->private_data;
+    FUSEClient *client = (FUSEClient *)fuse_get_context()->private_data;
     assert(client && "[xmp_write] FUSEClient not found");
 
     Ref<StatusResult> result = client->FD_write(path, buf, size, offset);
@@ -428,22 +283,14 @@ static int xmp_write(const char *path, const char *buf, size_t size,
     qDebug() << "[xmp_write] incoming result status:" << result->status;
 
     return result->status;
-    //------------------------------------------------------------------------------------
-
-
-    return 0;
 }
 
 static int xmp_statfs(const char *path, struct fuse_statvfs *stbuf)
 {
     qDebug() << "[xmp_statfs] path: " << path;
 
-    //------------------------------------------------------------------------------------
-    // Network tests
-    //------------------------------------------------------------------------------------
-    struct fuse_context *context = fuse_get_context();
-    qDebug() << "[xmp_statfs] context:" << context << context->private_data;
-    FUSEClient *client = g_Client; // (FUSEClient*)context->private_data;
+    FUSEClient *client = (FUSEClient *)fuse_get_context()->private_data;
+    assert(client && "[xmp_statfs] FUSEClient not found");
 
     Ref<StatfsResult> result = client->FD_statfs(path);
 
@@ -463,10 +310,6 @@ static int xmp_statfs(const char *path, struct fuse_statvfs *stbuf)
     }
 
     return result->status;
-
-    //------------------------------------------------------------------------------------
-
-
 }
 
 static int xmp_release(const char *path, struct fuse_file_info *fi)
@@ -495,110 +338,9 @@ static int xmp_fsync(const char *path, int isdatasync,
     return 0;
 }
 
-#ifdef HAVE_POSIX_FALLOCATE
-static int xmp_fallocate(const char *path, int mode,
-                         off_t offset, off_t length, struct fuse_file_info *fi)
-{
-    int fd;
-    int res;
-
-    (void) fi;
-
-    if (mode)
-        return -EOPNOTSUPP;
-
-    fd = open(path, O_WRONLY);
-    if (fd == -1)
-        return -errno;
-
-    res = -posix_fallocate(fd, offset, length);
-
-    close(fd);
-    return res;
-}
-#endif
-
-#ifdef HAVE_SETXATTR
-/* xattr operations are optional and can safely be left unimplemented */
-static int xmp_setxattr(const char *path, const char *name, const char *value,
-                        size_t size, int flags)
-{
-    int res = lsetxattr(path, name, value, size, flags);
-    if (res == -1)
-        return -errno;
-    return 0;
-}
-
-static int xmp_getxattr(const char *path, const char *name, char *value,
-                        size_t size)
-{
-    int res = lgetxattr(path, name, value, size);
-    if (res == -1)
-        return -errno;
-    return res;
-}
-
-static int xmp_listxattr(const char *path, char *list, size_t size)
-{
-    int res = llistxattr(path, list, size);
-    if (res == -1)
-        return -errno;
-    return res;
-}
-
-static int xmp_removexattr(const char *path, const char *name)
-{
-    int res = lremovexattr(path, name);
-    if (res == -1)
-        return -errno;
-    return 0;
-}
-#endif /* HAVE_SETXATTR */
-
-/*
- * List of fuse operations that are the same for macFUSE and Dokan FUSE
- *
-    getattr
-    readlink
-    getdir
-    mknod
-    mkdir
-    unlink
-    rmdir
-    symlink
-    rename
-    link
-    chmod
-    chown
-    truncate
-  ? utime
-    open
-    read
-    write
-    statfs
-  - flush
-    release
-    fsync
-  ? setxattr
-  ? getxattr
-  ? listxattr
-  ? removexattr
-  - opendir
-    readdir
-  - releasedir
-  - fsyncdir
-    access
-  - create
-  - ftruncate
-  - fgetattr
-  - lock
-  - utimens
-  - bmap
- */
-
 // WinFsp FUSE: https://github.com/winfsp/winfsp/blob/master/tst/winfsp-tests/fuse-test.c
 
-static struct fuse_operations xmp_oper = {
+static const struct fuse_operations xmp_oper = {
     // Minimal v1 operation set.
     .getattr	= xmp_getattr,
     .readlink	= xmp_readlink,
@@ -613,74 +355,95 @@ static struct fuse_operations xmp_oper = {
     .statfs		= xmp_statfs,
     .release	= xmp_release,
     .fsync		= xmp_fsync,
-#ifdef HAVE_UTIMENSAT
-    .utimens	= xmp_utimens,
-#endif
     .readdir	= xmp_readdir,
     .access		= xmp_access,
     .create		= xmp_create,
 };
 
-// What was used during navigation:
-// + xmp_getattr
-// + xmp_open
-// + xmp_release // This method is optional and can safely be left unimplemented
-// + xmp_read
-// + xmp_readdir
-// + xmp_statfs
-
 static void Start(VirtDisk *self, Connection *conn)
 {
     conn->socket = new QTcpSocket();
+
+    QObject::connect(conn->socket, &QTcpSocket::stateChanged, self, &VirtDisk::onSocketStateChanged);
+    QObject::connect(conn->socket, &QTcpSocket::disconnected, self, &VirtDisk::onSocketDisconnected);
+
     qDebug() << "[Start] try to connect";
     conn->socket->connectToHost(QHostAddress(conn->machineAddress), conn->machinePort);
     if (!conn->socket->waitForConnected())
     {
-        qDebug()
-        << "[Start] socket connection error: "
-        << conn->socket->errorString();
+        qDebug() << "[Start] socket connection error:" << conn->socket->errorString();
+        return;
+    }
+    qDebug() << "[Start] socket connected";
+
+    conn->socket->setSocketOption(QAbstractSocket::KeepAliveOption, 1);
+    conn->socket->setSocketOption(QAbstractSocket::LowDelayOption,  1);
+
+    std::string volname = QString("volname=%1").arg(conn->machineName).toStdString();
+
+    char *argv[] = {"FileDonkey", "-o", volname.data()};
+    int argc = sizeof(argv) / sizeof(argv[0]);
+    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+
+    self->f = fuse_new(&args, &xmp_oper, sizeof(xmp_oper), self->client);
+    if (!self->f)
+    {
+        qDebug() << "[Start] fuse_new failed";
+        fuse_opt_free_args(&args);
         return;
     }
 
-    qDebug() << "[Start] socket connected";
+    struct fuse_session *se = fuse_get_session(self->f);
 
-    g_Client = self->client;
-
-    int argc = 4;
-    char *argv[] = {"FileDonkey", "M:", "-o", "volname=MacBook Pro"};
-    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
-    int err = -1;
-
-    if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
-        (ch = fuse_mount(mountpoint, &args)) != NULL) {
-        f = fuse_new(ch, &args, &xmp_oper,
-                     sizeof(xmp_oper), self->client);
-
-
-        se = fuse_get_session(f);
-        fuse_set_signal_handlers(se);
-
-
-        qDebug() << "before fuse_loop call";
-        fuse_loop(f);
-        qDebug() << "after fuse_loop call";
-
-
-
-        fuse_exit(f);
-        fuse_unmount(mountpoint, ch);
+    if (fuse_mount(self->f, self->mountpoint) != 0)
+    {
+        qDebug() << "[Start] fuse_mount failed";
+        fuse_destroy(self->f);
+        fuse_opt_free_args(&args);
+        return;
     }
 
+    if (fuse_set_signal_handlers(se) != 0)
+    {
+        qDebug() << "[Start] fuse_set_signal_handlers failed";
+        fuse_unmount(self->f);
+        fuse_destroy(self->f);
+        fuse_opt_free_args(&args);
+        return;
+    }
+
+    int rc = fuse_loop(self->f);
+    qDebug() << "[Start] fuse_loop returned" << rc;
+
+    fuse_remove_signal_handlers(se);
+    fuse_unmount(self->f);
+    fuse_destroy(self->f);
     fuse_opt_free_args(&args);
+
+    self->f = nullptr;
+}
+
+void VirtDisk::onSocketDisconnected()
+{
+    qDebug() << "[VirtDisk::onSocketDisconnected] disconnect socket";
+    unmount();
+}
+
+void VirtDisk::onSocketStateChanged(QAbstractSocket::SocketState socketState)
+{
+    qDebug() << "[VirtDisk::onSocketStateChanged] new state:" << socketState;
 }
 
 void VirtDisk::mount(const QString &mountPoint)
 {
-
-
     thread = std::thread(Start, this, &conn);
 }
 
-
+void VirtDisk::unmount()
+{
+    fuse_exit(f);
+    thread.join();
+    qDebug() << "joined";
+}
 
 #endif

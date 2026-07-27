@@ -3,7 +3,7 @@
 
 #if defined(_WIN32)
 
-#include <fuse/fuse.h>
+#include <fuse.h>
 
 int lstat(const char* path, struct fuse_stat* buf);
 

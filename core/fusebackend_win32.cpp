@@ -12,7 +12,7 @@
 #include <QRandomGenerator>
 
 #include <stdlib.h>
-#include <fuse/winfsp_fuse.h>
+#include <winfsp_fuse.h>
 #include <stdlib.h>
 #include <dirent.h>
 #include <fileapi.h>

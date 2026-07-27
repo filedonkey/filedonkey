@@ -3,7 +3,7 @@
 
 #if defined(_WIN32)
 
-#include <fuse/winfsp_fuse.h>
+#include <winfsp_fuse.h>
 
 int mkdir(const char *path, fuse_mode_t mode);
 int rmdir(const char *path);

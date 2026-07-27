@@ -185,6 +185,10 @@ void MainWindow::onConnection()
     {
         qDebug() << "[MainWindow::onConnection] Befor next pending connection";
         QTcpSocket *newConnection = server->nextPendingConnection();
+
+        newConnection->setSocketOption(QAbstractSocket::KeepAliveOption, 1);
+        newConnection->setSocketOption(QAbstractSocket::LowDelayOption,  1);
+
         connect(newConnection, SIGNAL(readyRead()), this, SLOT(onSocketReadyRead()));
         connect(newConnection, SIGNAL(disconnected()), this, SLOT(onSocketDisconnected()));
     }
@@ -234,6 +238,7 @@ void MainWindow::onSocketReadyRead()
     QByteArray response = handler(payload);
 
     newConnection->write(response);
+    newConnection->flush();
 
     incoming.remove(0, header->datagramSize);
     state.headerParsed = false;
@@ -242,7 +247,10 @@ void MainWindow::onSocketReadyRead()
 void MainWindow::onSocketDisconnected()
 {
     QTcpSocket *socket = (QTcpSocket*)QObject::sender();
-    if (!socket) return;
+    if (!socket) {
+        qDebug() << "[onSocketDisconnected] socket ptr is null" << (u64)socket;
+        return;
+    }
 
     qDebug() << "[onSocketDisconnected] disconnect socket:" << (u64)socket;
 

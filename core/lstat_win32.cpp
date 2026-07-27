@@ -1,8 +1,8 @@
 #if defined(_WIN32)
 
 #include <windows.h>
-#include <fuse/fuse.h>
-#include <fuse/winfsp_fuse.h>
+#include <fuse.h>
+#include <winfsp_fuse.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/timeb.h>

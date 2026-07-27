@@ -1,7 +1,7 @@
 win32 {
     WinFsp = $$system(echo %ProgramFiles(x86)%)\WinFsp
 
-    INCLUDEPATH += "$${WinFsp}\inc"
+    INCLUDEPATH += "$${WinFsp}\inc\fuse3"
     LIBS += "$${WinFsp}\lib\winfsp-x64.lib"
     QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
 

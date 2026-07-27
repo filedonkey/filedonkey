@@ -3,7 +3,7 @@
 
 #if defined(_WIN32)
 
-#include <fuse/winfsp_fuse.h>
+#include <winfsp_fuse.h>
 
 int statvfs(const char* path, struct fuse_statvfs* buf);
 

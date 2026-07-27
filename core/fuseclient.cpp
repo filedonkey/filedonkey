@@ -268,6 +268,7 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
         request.append(payload);
 
         socket->write(request);
+        socket->flush();
 
         uploaded += request.size();
         emit uploadedChanged(uploaded);

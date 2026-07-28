@@ -24,8 +24,6 @@ SOURCES += \
     readlink_win32.cpp \
     statvfs_win32.cpp \
     virtdisk.cpp \
-    virtdisk_linux.cpp \
-    virtdisk_macos.cpp \
     virtdisk_win32.cpp
 
 HEADERS += \

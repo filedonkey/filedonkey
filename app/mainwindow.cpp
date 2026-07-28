@@ -197,9 +197,13 @@ void MainWindow::onConnection()
 void MainWindow::onSocketReadyRead()
 {
     QTcpSocket *newConnection = (QTcpSocket*)QObject::sender();
+    QByteArray data = newConnection->readAll();
+
+    if (data.length() == 4 && data.toStdString() == "ping")
+        return;
 
     SocketState &state = socketStates[newConnection];
-    state.buffer.append(newConnection->readAll());
+    state.buffer.append(data);
     DatagramHeader *header = &state.header;
     QByteArray &incoming = state.buffer;
 

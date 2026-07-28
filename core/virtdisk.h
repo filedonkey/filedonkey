@@ -3,11 +3,11 @@
 
 #include "connection.h"
 #include "fuseclient.h"
+#include "timer.h"
 
 #include <QString>
-#include <thread>
 
-// #include <fuse.h>
+#include <thread>
 
 class VirtDisk : public QObject
 {
@@ -23,6 +23,7 @@ public:
 
     struct fuse *f;
     std::string mountpoint;
+    Timer timer;
 
 public slots:
     void onSocketDisconnected();

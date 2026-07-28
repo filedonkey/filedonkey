@@ -1,8 +1,3 @@
-FUSE operations:
-  + rename
-  + rmdir
-  + mkdir
-  + truncate
-
 Bugs:
-  - fusebackend_win32.cpp readdir etc., returns ??? symbols instead of proper Cyrillic chars 
+  - fusebackend_win32.cpp readdir etc., returns ??? symbols instead of proper Cyrillic chars
+  - after other peer is no longer alive and virtdisk has been unmounted and user closed the app, it terminates abnormally

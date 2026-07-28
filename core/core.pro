@@ -23,6 +23,7 @@ SOURCES += \
     pwrite_win32.cpp \
     readlink_win32.cpp \
     statvfs_win32.cpp \
+    timer.cpp \
     virtdisk.cpp
 
 HEADERS += \
@@ -37,6 +38,7 @@ HEADERS += \
     pwrite_win32.h \
     readlink_win32.h \
     statvfs_win32.h \
+    timer.h \
     virtdisk.h
 
 CONFIG += lrelease

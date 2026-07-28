@@ -391,6 +391,11 @@ static void Start(VirtDisk *self, Connection *conn)
     conn->socket->setSocketOption(QAbstractSocket::KeepAliveOption, 1);
     conn->socket->setSocketOption(QAbstractSocket::LowDelayOption,  1);
 
+    self->timer.start([=]() {
+        conn->socket->write("ping");
+        conn->socket->flush();
+    }, std::chrono::seconds(3));
+
     std::string mount_name_option;
 
 #if defined(__APPLE__) || defined (_WIN32)
@@ -426,7 +431,7 @@ static void Start(VirtDisk *self, Connection *conn)
         qDebug() << "[Start] can't find a free drive letter";
         return;
     }
-    self->mountpoint = QString("%1:").arg(driveLetter).arg(conn->machineName).toStdString();
+    self->mountpoint = QString("%1:").arg(driveLetter).toStdString();
 #else
     QString base = QDir::homePath();
 
@@ -500,6 +505,7 @@ void VirtDisk::mount(const QString &mountPoint)
 
 void VirtDisk::unmount()
 {
+    timer.stop();
     fuse_exit(f);
     thread.join();
 
@@ -511,5 +517,5 @@ void VirtDisk::unmount()
     rmdir(mountpoint.c_str());
 #endif
 
-    qDebug() << "joined";
+    qDebug() << "unmounted";
 }

@@ -44,14 +44,14 @@ VirtDisk::~VirtDisk()
     unmount();
 }
 
-static int xmp_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
+static int fd_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
 {
     (void)fi;
 
-    qDebug() << "[xmp_getattr] path:" << path;
+    qDebug() << "[fd_getattr] path:" << path;
 
     FUSEClient *client = (FUSEClient *)fuse_get_context()->private_data;
-    assert(client && "[xmp_getattr] FUSEClient not found");
+    assert(client && "[fd_getattr] FUSEClient not found");
 
     Ref<GetattrResult> result = client->FD_getattr(path);
 
@@ -78,7 +78,7 @@ static int xmp_getattr(const char *path, struct stat *stbuf, struct fuse_file_in
         qDebug() << "\tst_atimespec" << stbuf->st_atimespec.tv_sec << stbuf->st_atimespec.tv_nsec;
         qDebug() << "\tst_mtimespec" << stbuf->st_mtimespec.tv_sec << stbuf->st_mtimespec.tv_nsec;
         qDebug() << "\tst_ctimespec" << stbuf->st_ctimespec.tv_sec << stbuf->st_ctimespec.tv_nsec;
-#elif
+#else
         stbuf->st_atim.tv_sec = result->st_atim.tv_sec;
         stbuf->st_atim.tv_nsec = result->st_atim.tv_nsec;
         stbuf->st_mtim.tv_sec = result->st_mtim.tv_sec;

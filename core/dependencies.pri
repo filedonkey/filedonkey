@@ -3,7 +3,7 @@ win32 {
 
     INCLUDEPATH += "$${WinFsp}\inc\fuse3"
     LIBS += "$${WinFsp}\lib\winfsp-x64.lib"
-    QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
+    DEFINES += _FILE_OFFSET_BITS=64
 
     WINFSP_DLL = $$shell_path($${WinFsp}/bin/winfsp-x64.dll)
     CONFIG(debug, debug|release) {
@@ -16,13 +16,13 @@ win32 {
 }
 
 macx {
-    INCLUDEPATH += "/usr/local/include/fuse"
-    LIBS += "/usr/local/lib/libfuse-t.dylib"
-    QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
+    INCLUDEPATH += "/Library/Application Support/fuse-t/include/fuse3"
+    LIBS += -L"/Library/Application Support/fuse-t/lib" -lfuse3
+    DEFINES += _FILE_OFFSET_BITS=64
 }
 
 linux {
     INCLUDEPATH += /usr/include/fuse3
     LIBS += -L/usr/lib/x86_64-linux-gnu -lfuse3 -lpthread -ldl
-    QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
+    DEFINES += -_FILE_OFFSET_BITS=64
 }

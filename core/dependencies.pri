@@ -24,5 +24,5 @@ macx {
 linux {
     INCLUDEPATH += /usr/include/fuse3
     LIBS += -L/usr/lib/x86_64-linux-gnu -lfuse3 -lpthread -ldl
-    DEFINES += -_FILE_OFFSET_BITS=64
+    DEFINES += _FILE_OFFSET_BITS=64
 }

@@ -34,6 +34,12 @@
 #include <QDir>
 #include <QTcpSocket>
 
+#if defined(__linux__) || defined(_WIN32)
+#define st_atimespec st_atim
+#define st_mtimespec st_mtim
+#define st_ctimespec st_ctim
+#endif
+
 VirtDisk::VirtDisk(const Connection& conn) : conn(conn)
 {
     client = new FUSEClient(&this->conn);
@@ -67,7 +73,6 @@ static int fd_getattr(const char *path, struct stat *stbuf, struct fuse_file_inf
         stbuf->st_size = result->st_size;
         stbuf->st_blksize = result->st_blksize;
         stbuf->st_blocks = result->st_blocks;
-#if defined(__APPLE__)
         stbuf->st_atimespec.tv_sec = result->st_atim.tv_sec;
         stbuf->st_atimespec.tv_nsec = result->st_atim.tv_nsec;
         stbuf->st_mtimespec.tv_sec = result->st_mtim.tv_sec;
@@ -78,19 +83,6 @@ static int fd_getattr(const char *path, struct stat *stbuf, struct fuse_file_inf
         qDebug() << "\tst_atimespec" << stbuf->st_atimespec.tv_sec << stbuf->st_atimespec.tv_nsec;
         qDebug() << "\tst_mtimespec" << stbuf->st_mtimespec.tv_sec << stbuf->st_mtimespec.tv_nsec;
         qDebug() << "\tst_ctimespec" << stbuf->st_ctimespec.tv_sec << stbuf->st_ctimespec.tv_nsec;
-#else
-        stbuf->st_atim.tv_sec = result->st_atim.tv_sec;
-        stbuf->st_atim.tv_nsec = result->st_atim.tv_nsec;
-        stbuf->st_mtim.tv_sec = result->st_mtim.tv_sec;
-        stbuf->st_mtim.tv_nsec = result->st_mtim.tv_nsec;
-        stbuf->st_ctim.tv_sec = result->st_ctim.tv_sec;
-        stbuf->st_ctim.tv_nsec = result->st_ctim.tv_nsec;
-
-        qDebug() << "\tst_atim" << stbuf->st_atim.tv_sec << stbuf->st_atim.tv_nsec;
-        qDebug() << "\tst_mtim" << stbuf->st_mtim.tv_sec << stbuf->st_mtim.tv_nsec;
-        qDebug() << "\tst_ctim" << stbuf->st_ctim.tv_sec << stbuf->st_ctim.tv_nsec;
-#endif
-
         // qDebug() << "\tst_birthtimespec" << stbuf->st_birthtim.tv_sec << stbuf->st_birthtim.tv_nsec;
         qDebug() << "\tst_blksize" << stbuf->st_blksize;
         qDebug() << "\tst_blocks" << stbuf->st_blocks;
@@ -374,14 +366,11 @@ static void Start(VirtDisk *self, Connection *conn)
 
 #if defined(__APPLE__)
     base += "/.filedonkey";
+    mkdir(base.toStdString().c_str(), 0755);
 #endif
 
     self->mountpoint = QString("%1/%2").arg(base).arg(conn->machineName).toStdString();
     qDebug() << "[Start] mountpoint directory:" << self->mountpoint.c_str();
-
-#if defined(__APPLE__)
-    mkdir(base.toStdString().c_str(), 0755);
-#endif
 
     int mntdir_rc = mkdir(self->mountpoint.c_str(), 0755);
     if (mntdir_rc == -1) {

@@ -1,8 +1,6 @@
-#if defined(__linux__) || defined(__APPLE__)
-
 // REFERENCES
 //
-// [Linux] https://github.com/libfuse/libfuse/blob/master/example/passthrough.c
+// [linux] https://github.com/libfuse/libfuse/blob/master/example/passthrough.c
 // [macos] https://github.com/macos-fuse-t/libfuse/blob/master/example/fusexmp_fh.c
 // [win32] https://github.com/winfsp/winfsp/blob/master/tst/passthrough-fuse3/passthrough-fuse3.c
 
@@ -28,11 +26,25 @@
 #include <dirent.h>
 #include <errno.h>
 #include <sys/time.h>
-#include <sys/mount.h>
 
 #include <QHostAddress>
 #include <QDir>
 #include <QTcpSocket>
+
+#if defined(__linux__) || defined(__APPLE__)
+#include <sys/mount.h>
+#endif
+
+#if defined (_WIN32)
+#include <fileapi.h>
+#include <winfsp_fuse.h>
+
+#define mkdir(path, mode) _mkdir(path)
+
+#define stat    fuse_stat
+#define mode_t  fuse_mode_t
+#define statvfs fuse_statvfs
+#endif
 
 #if defined(__linux__) || defined(_WIN32)
 #define st_atimespec st_atim
@@ -80,10 +92,15 @@ static int fd_getattr(const char *path, struct stat *stbuf, struct fuse_file_inf
         stbuf->st_ctimespec.tv_sec = result->st_ctim.tv_sec;
         stbuf->st_ctimespec.tv_nsec = result->st_ctim.tv_nsec;
 
+#if defined (_WIN32)
+        if (QString(path) == QString("/")) {
+            stbuf->st_mode = 16895;
+        }
+#endif
+
         qDebug() << "\tst_atimespec" << stbuf->st_atimespec.tv_sec << stbuf->st_atimespec.tv_nsec;
         qDebug() << "\tst_mtimespec" << stbuf->st_mtimespec.tv_sec << stbuf->st_mtimespec.tv_nsec;
         qDebug() << "\tst_ctimespec" << stbuf->st_ctimespec.tv_sec << stbuf->st_ctimespec.tv_nsec;
-        // qDebug() << "\tst_birthtimespec" << stbuf->st_birthtim.tv_sec << stbuf->st_birthtim.tv_nsec;
         qDebug() << "\tst_blksize" << stbuf->st_blksize;
         qDebug() << "\tst_blocks" << stbuf->st_blocks;
         qDebug() << "\tst_dev" << stbuf->st_dev;
@@ -146,6 +163,17 @@ static int fd_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
         st.st_ino = fd->st_ino;
         st.st_mode = fd->st_mode;
+#if defined (_WIN32)
+        st.st_size = 146;
+        st.st_blksize = 4096;
+        st.st_blocks = 2;
+        st.st_atim.tv_sec = 1763752599;
+        st.st_atim.tv_nsec = 302761200;
+        st.st_mtim.tv_sec = 1747514473;
+        st.st_mtim.tv_nsec = 21076073;
+        st.st_ctim.tv_sec = 1747514473;
+        st.st_ctim.tv_nsec = 21076073;
+#endif
 
         filler(buf, fd->name, &st, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_PLUS);
     }
@@ -230,7 +258,11 @@ static int fd_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     qDebug() << "[fd_create] flags:" << fi->flags;
     qDebug() << "[fd_create] mode:" << mode;
 
+#if defined (_WIN32)
+    Ref<StatusResult> result = client->FD_create(path, 33188, 32961);
+#else
     Ref<StatusResult> result = client->FD_create(path, mode, fi->flags);
+#endif
 
     qDebug() << "[fd_create] status: " << result->status;
 
@@ -300,6 +332,15 @@ static int fd_statfs(const char *path, struct statvfs *stbuf)
     return result->status;
 }
 
+static int fd_open(const char *path, struct fuse_file_info *fi)
+{
+    (void)fi;
+
+    qDebug() << "[fd_open] path: " << path;
+
+    return 0;
+}
+
 static const struct fuse_operations fd_oper = {
     .getattr	= fd_getattr,
     .readlink	= fd_readlink,
@@ -308,12 +349,28 @@ static const struct fuse_operations fd_oper = {
     .rmdir		= fd_rmdir,
     .rename		= fd_rename,
     .truncate	= fd_truncate,
+    .open		= fd_open,
     .read		= fd_read,
     .write		= fd_write,
     .statfs		= fd_statfs,
     .readdir	= fd_readdir,
     .create		= fd_create,
 };
+
+#if defined (_WIN32)
+static char FindFreeDriveLetter()
+{
+    DWORD mask = GetLogicalDrives();
+
+    for (char drive = 'D'; drive <= 'Z'; ++drive)
+    {
+        if ((mask & (1u << (drive - 'A'))) == 0)
+            return drive;
+    }
+
+    return '\0'; // no free drive letter
+}
+#endif
 
 static void Start(VirtDisk *self, Connection *conn)
 {
@@ -336,7 +393,7 @@ static void Start(VirtDisk *self, Connection *conn)
 
     std::string mount_name_option;
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) || defined (_WIN32)
     mount_name_option = QString("volname=%1").arg(conn->machineName).toStdString();
 #elif defined(__linux__)
     mount_name_option = QString("fsname=%1").arg(conn->machineName).toStdString();
@@ -362,6 +419,15 @@ static void Start(VirtDisk *self, Connection *conn)
 
     struct fuse_session *se = fuse_get_session(self->f);
 
+#if defined (_WIN32)
+    char driveLetter = FindFreeDriveLetter();
+    if (!driveLetter)
+    {
+        qDebug() << "[Start] can't find a free drive letter";
+        return;
+    }
+    self->mountpoint = QString("%1:").arg(driveLetter).arg(conn->machineName).toStdString();
+#else
     QString base = QDir::homePath();
 
 #if defined(__APPLE__)
@@ -386,6 +452,7 @@ static void Start(VirtDisk *self, Connection *conn)
         mkdir(self->mountpoint.c_str(), 0755);
     }
     qDebug() << "[Start] mntdir_rc rc:" << mntdir_rc << "errno:" << errno;
+#endif // _WIN32
 
     if (fuse_mount(self->f, self->mountpoint.c_str()) != 0)
     {
@@ -438,12 +505,11 @@ void VirtDisk::unmount()
 
 #if defined(__APPLE__)
     system(QString("diskutil unmount %1").arg(mountpoint.c_str()).toStdString().c_str());
+    rmdir(mountpoint.c_str());
 #elif defined(__linux__)
     system(QString("fusermount3 -u %1").arg(mountpoint.c_str()).toStdString().c_str());
+    rmdir(mountpoint.c_str());
 #endif
 
-    rmdir(mountpoint.c_str());
     qDebug() << "joined";
 }
-
-#endif // __linux__ || __APPLE__

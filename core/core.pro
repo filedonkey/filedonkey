@@ -23,8 +23,7 @@ SOURCES += \
     pwrite_win32.cpp \
     readlink_win32.cpp \
     statvfs_win32.cpp \
-    virtdisk.cpp \
-    virtdisk_win32.cpp
+    virtdisk.cpp
 
 HEADERS += \
     connection.h \

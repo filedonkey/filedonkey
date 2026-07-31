@@ -7,6 +7,7 @@
 #include "virtdisk.h"
 #include "fuseclient.h"
 #include "fusebackend_types.h"
+#include "tcpkeepalive.h"
 
 #include <cassert>
 #include <thread>
@@ -377,7 +378,12 @@ static void Start(VirtDisk *self, Connection *conn)
     conn->socket = new QTcpSocket();
 
     QObject::connect(conn->socket, &QTcpSocket::stateChanged, self, &VirtDisk::onSocketStateChanged);
-    QObject::connect(conn->socket, &QTcpSocket::disconnected, self, &VirtDisk::onSocketDisconnected);
+    // QObject::connect(conn->socket, &QTcpSocket::disconnected, self, &VirtDisk::onSocketDisconnected);
+
+    QObject::connect(conn->socket, &QTcpSocket::disconnected, [self]() {
+        qDebug() << "[Start] socket disconnected";
+        fuse_exit(self->f);
+    });
 
     qDebug() << "[Start] try to connect";
     conn->socket->connectToHost(QHostAddress(conn->machineAddress), conn->machinePort);
@@ -388,13 +394,12 @@ static void Start(VirtDisk *self, Connection *conn)
     }
     qDebug() << "[Start] socket connected";
 
-    conn->socket->setSocketOption(QAbstractSocket::KeepAliveOption, 1);
-    conn->socket->setSocketOption(QAbstractSocket::LowDelayOption,  1);
+    if (!setTcpKeepAlive(conn->socket, 3, 3, 3))
+    {
+        qDebug() << "[Start] failed to configure TCP keepalive";
+    }
 
-    self->timer.start([=]() {
-        conn->socket->write("ping");
-        conn->socket->flush();
-    }, std::chrono::seconds(3));
+    conn->socket->setSocketOption(QAbstractSocket::LowDelayOption,  1);
 
     std::string mount_name_option;
 
@@ -505,7 +510,6 @@ void VirtDisk::mount(const QString &mountPoint)
 
 void VirtDisk::unmount()
 {
-    timer.stop();
     fuse_exit(f);
     thread.join();
 

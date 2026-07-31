@@ -275,7 +275,7 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
 
         qDebug() << "[FUSEClient::Fetch] after write";
 
-        socket->waitForReadyRead();
+        socket->waitForReadyRead(5000);
 
         qDebug() << "[FUSEClient::Fetch] socket bytesAvailable:" << socket->bytesAvailable();
 

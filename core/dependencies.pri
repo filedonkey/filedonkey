@@ -3,6 +3,7 @@ win32 {
 
     INCLUDEPATH += "$${WinFsp}\inc\fuse3"
     LIBS += "$${WinFsp}\lib\winfsp-x64.lib"
+    LIBS += -lws2_32
     DEFINES += _FILE_OFFSET_BITS=64
 
     WINFSP_DLL = $$shell_path($${WinFsp}/bin/winfsp-x64.dll)

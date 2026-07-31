@@ -3,7 +3,6 @@
 
 #include "connection.h"
 #include "fuseclient.h"
-#include "timer.h"
 
 #include <QString>
 
@@ -23,7 +22,6 @@ public:
 
     struct fuse *f;
     std::string mountpoint;
-    Timer timer;
 
 public slots:
     void onSocketDisconnected();

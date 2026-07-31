@@ -28,6 +28,14 @@ typedef std::string  str;
 typedef std::wstring wstr;
 typedef const char*  cstr;
 
+constexpr u64 KB = 1000;
+constexpr u64 MB = 1000 * KB;
+constexpr u64 GB = 1000 * MB;
+
+constexpr u64 KiB = 1024;
+constexpr u64 MiB = 1024 * KiB;
+constexpr u64 GiB = 1024 * MiB;
+
 //------------------------------------------------------------------------------------
 // Refs
 //------------------------------------------------------------------------------------

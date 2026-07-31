@@ -199,53 +199,71 @@ void MainWindow::onSocketReadyRead()
     QTcpSocket *newConnection = (QTcpSocket*)QObject::sender();
     QByteArray data = newConnection->readAll();
 
-    if (data.length() == 4 && data.toStdString() == "ping")
-        return;
+    QByteArray &incoming = socketBuffers[newConnection];
+    incoming.append(data);
 
-    SocketState &state = socketStates[newConnection];
-    state.buffer.append(data);
-    DatagramHeader *header = &state.header;
-    QByteArray &incoming = state.buffer;
-
-    if (!state.headerParsed)
+    while (true)
     {
         if ((u64)incoming.size() < sizeof(DatagramHeader))
             return;
 
-        memcpy(&state.header, state.buffer.constData(), sizeof(DatagramHeader));
-        // DatagramHeader::ReadFrom(&header, incoming.data());
-        state.headerParsed = true;
+        DatagramHeader header;
+        memcpy(&header, incoming.constData(), sizeof(DatagramHeader));
+
+        constexpr u64 MaxDatagramSize = 64 * MiB;
+        if ((u64)header.datagramSize < sizeof(DatagramHeader) || (u64)header.datagramSize > MaxDatagramSize)
+        {
+            qDebug() << "[MainWindow::onSocketReadyRead] Error: invalid datagram size:" << header.datagramSize;
+            return;
+        }
+
+        // Just ignore ping message, no response is needed
+        if (strncmp(header.messageType, "ping", strlen("ping")) == 0)
+        {
+            incoming.remove(0, header.datagramSize);
+            continue;
+        }
+
+        if (strncmp(header.messageType, "request", strlen("request")) != 0)
+        {
+            qDebug() << "[MainWindow::onSocketReadyRead] Error: Invalid message type:" << header.messageType;
+            return;
+        }
+
+        if (header.protocolVersion != 1)
+        {
+            qDebug() << "[MainWindow::onSocketReadyRead] Error: Unsupported protocol version:"
+                     << header.protocolVersion;
+            return;
+        }
+
+        if (incoming.size() < header.datagramSize)
+            return;
+
+        if (strncmp(header.virtDiskType, "fuse", strlen("fuse")) != 0)
+        {
+            qDebug() << "[MainWindow::onSocketReadyRead] Error: invalid virt disk type:" << header.virtDiskType;
+            return;
+        }
+
+        QString operationName(header.operationName);
+
+        if (!fuseHandlers.contains(operationName))
+        {
+            qDebug() << "[MainWindow::onSocketReadyRead] Error: invalid operation name:" << header.operationName;
+            return;
+        }
+
+        RequestHandler handler = fuseHandlers[operationName];
+        const qsizetype payloadSize = header.datagramSize - sizeof(DatagramHeader);
+        QByteArray payload = incoming.sliced(sizeof(DatagramHeader), payloadSize);
+        QByteArray response = handler(payload);
+
+        newConnection->write(response);
+        newConnection->flush();
+
+        incoming.remove(0, header.datagramSize);
     }
-
-    assert(strcmp(header->messageType, "request") == 0);
-    assert(header->protocolVersion == 1);
-
-    if (incoming.size() < header->datagramSize)
-        return;
-
-    if (strcmp(header->virtDiskType, "fuse") != 0)
-    {
-        qDebug() << "[MainWindow::onSocketReadyRead] Error: invalid virt disk type:" << header->virtDiskType;
-        return;
-    }
-
-    QString operationName(header->operationName);
-
-    if (!fuseHandlers.contains(operationName))
-    {
-        qDebug() << "[MainWindow::onSocketReadyRead] Error: invalid operation name:" << header->operationName;
-        return;
-    }
-
-    RequestHandler handler = fuseHandlers[operationName];
-    QByteArray payload = incoming.sliced(sizeof(DatagramHeader));
-    QByteArray response = handler(payload);
-
-    newConnection->write(response);
-    newConnection->flush();
-
-    incoming.remove(0, header->datagramSize);
-    state.headerParsed = false;
 }
 
 void MainWindow::onSocketDisconnected()
@@ -258,7 +276,7 @@ void MainWindow::onSocketDisconnected()
 
     qDebug() << "[onSocketDisconnected] disconnect socket:" << (u64)socket;
 
-    socketStates.remove(socket);
+    socketBuffers.remove(socket);
     socket->deleteLater();
 }
 

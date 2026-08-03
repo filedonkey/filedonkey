@@ -13,66 +13,15 @@
 
 #include <stdlib.h>
 #include <winfsp_fuse.h>
-#include <stdlib.h>
-#include <dirent.h>
+#include <errno.h>
 #include <fileapi.h>
 #include <errhandlingapi.h>
 #include <handleapi.h>
 #include <wchar.h>
 #include <winnls.h>
+#include <string>
 #include <vector>
 
-Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
-{
-    auto absolutePath = normalizePath(path);
-
-    Ref<ReaddirResult> result = MakeRef<ReaddirResult>();
-
-    std::vector<FindData> findDataList;
-    DIR *dp;
-    struct dirent *de;
-
-    dp = opendir(absolutePath.string().c_str());
-    if (dp == NULL)
-    {
-        result->status = -errno;
-        return result;
-    }
-
-    while ((de = readdir(dp)) != NULL)
-    {
-        if (de->d_name[0] == '.') continue;
-
-        size_t dientPathLen = strlen(dp->dd_name) + strlen(de->d_name);
-        char *direntPath = (char *)alloca(dientPathLen);
-        memset(direntPath, 0, dientPathLen);
-        memcpy(direntPath, dp->dd_name, strlen(dp->dd_name));
-        memcpy(direntPath + (strlen(dp->dd_name) - 1), de->d_name, strlen(de->d_name));
-
-        int wchars_needed = MultiByteToWideChar(CP_UTF8, 0, direntPath, -1, NULL, 0);
-        if (wchars_needed <= 0)
-        {
-            result->status = -1;
-            return result;
-        }
-
-        wchar_t *wpath = (wchar_t *)alloca(wchars_needed * sizeof(wchar_t));
-        if (MultiByteToWideChar(CP_UTF8, 0, direntPath, -1, wpath, wchars_needed) <= 0)
-        {
-            result->status = -1;
-            return result;
-        }
-
-        WIN32_FILE_ATTRIBUTE_DATA fileData;
-        BOOL success = GetFileAttributesExW(wpath, GetFileExInfoStandard, &fileData);
-
-        if (fileData.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) continue;
-
-        FindData &findData = findDataList.emplace_back();
-        memset(&findData, 0, sizeof(FindData));
-
-        if (success)
-        {
 #define WIN_S_IFLNK  0120000  // symbolic link
 #define WIN_S_IFDIR  0040000  // directory
 #define WIN_S_IFREG  0100000  // regular file
@@ -84,38 +33,118 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 #define WIN_S_IROTH  0000004  // others have read permission
 #define WIN_S_IWOTH  0000002  // others have write permission
 
-            bool isSymLink = (fileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
-            if (isSymLink)
-            {
-                findData.st_mode |= WIN_S_IFLNK;
-            }
-            else if (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-            {
-                findData.st_mode |= WIN_S_IFDIR;
-            }
-            else
-            {
-                findData.st_mode |= WIN_S_IFREG;
-            }
+static std::wstring utf8ToWide(const std::string &utf8)
+{
+    if (utf8.empty()) return std::wstring();
 
-            findData.st_mode |= WIN_S_IRUSR; // Owner can read
-            findData.st_mode |= WIN_S_IWUSR; // Owner can write
-            findData.st_mode |= WIN_S_IRGRP; // Group can read
-            findData.st_mode |= WIN_S_IWGRP; // Group can write
-            findData.st_mode |= WIN_S_IROTH; // Group can read
-            findData.st_mode |= WIN_S_IWOTH; // Group can write
-        }
+    int wchars = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), (int)utf8.size(), NULL, 0);
+    if (wchars <= 0) return std::wstring();
 
-        qDebug() << "[FD_readdir] dd_name" << dp->dd_name << strlen(dp->dd_name);
-        qDebug() << "[FD_readdir] d_name" << de->d_name << strlen(de->d_name);
-        qDebug() << "[FD_readdir] direntPath" << direntPath << strlen(direntPath);
+    std::wstring wide(wchars, L'\0');
+    if (MultiByteToWideChar(CP_UTF8, 0, utf8.data(), (int)utf8.size(), wide.data(), wchars) <= 0)
+        return std::wstring();
 
-        findData.st_ino = QRandomGenerator::global()->generate64(); // de->d_ino;
-        // findData.stat.st_mode = st_mode; // de->d_type << 12;
-        memcpy(findData.name, de->d_name, strlen(de->d_name));
+    return wide;
+}
+
+static int openUtf8(const std::string &path, int flags, int mode)
+{
+    std::wstring wide = utf8ToWide(path);
+    if (wide.empty())
+    {
+        errno = EINVAL;
+        return -1;
     }
 
-    closedir(dp);
+    return _wopen(wide.c_str(), flags, mode);
+}
+
+static std::string wideToUtf8(const wchar_t *wide)
+{
+    if (!wide || !*wide) return std::string();
+
+    int bytes = WideCharToMultiByte(CP_UTF8, 0, wide, -1, NULL, 0, NULL, NULL);
+    if (bytes <= 1) return std::string();
+
+    std::string utf8(bytes - 1, '\0'); // bytes includes the terminator
+    if (WideCharToMultiByte(CP_UTF8, 0, wide, -1, utf8.data(), bytes, NULL, NULL) <= 0)
+        return std::string();
+
+    return utf8;
+}
+
+Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
+{
+    std::string absolutePath = normalizePath(path);
+
+    Ref<ReaddirResult> result = MakeRef<ReaddirResult>();
+
+    // Enumerate with the wide API. The CRT's opendir/readdir speak the ANSI codepage, so any
+    // name outside it came back mangled - an en dash arrived as the single byte 0x96 - and
+    // then travelled the wire as invalid UTF-8. Names stay UTF-16 until the one
+    // WideCharToMultiByte(CP_UTF8) below, which is the only place an encoding is chosen.
+    std::wstring pattern = utf8ToWide(absolutePath);
+    if (pattern.empty())
+    {
+        result->status = -EINVAL;
+        return result;
+    }
+
+    if (pattern.back() != L'/' && pattern.back() != L'\\') pattern += L'\\';
+    pattern += L'*';
+
+    WIN32_FIND_DATAW findDataW;
+    HANDLE handle = FindFirstFileW(pattern.c_str(), &findDataW);
+    if (handle == INVALID_HANDLE_VALUE)
+    {
+        result->status = -ENOENT;
+        return result;
+    }
+
+    std::vector<FindData> findDataList;
+
+    do
+    {
+        if (findDataW.cFileName[0] == L'.') continue;
+        if (findDataW.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) continue;
+
+        std::string name = wideToUtf8(findDataW.cFileName);
+
+        // FindData::name is a fixed buffer, and one UTF-16 char can become four UTF-8 bytes,
+        // so a name that does not fit is skipped rather than truncated mid sequence.
+        if (name.empty() || name.size() >= sizeof(FindData::name)) continue;
+
+        FindData &findData = findDataList.emplace_back();
+        memset(&findData, 0, sizeof(FindData));
+
+        bool isSymLink = (findDataW.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 &&
+                         findDataW.dwReserved0 == IO_REPARSE_TAG_SYMLINK;
+        if (isSymLink)
+        {
+            findData.st_mode |= WIN_S_IFLNK;
+        }
+        else if (findDataW.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        {
+            findData.st_mode |= WIN_S_IFDIR;
+        }
+        else
+        {
+            findData.st_mode |= WIN_S_IFREG;
+        }
+
+        findData.st_mode |= WIN_S_IRUSR; // Owner can read
+        findData.st_mode |= WIN_S_IWUSR; // Owner can write
+        findData.st_mode |= WIN_S_IRGRP; // Group can read
+        findData.st_mode |= WIN_S_IWGRP; // Group can write
+        findData.st_mode |= WIN_S_IROTH; // Group can read
+        findData.st_mode |= WIN_S_IWOTH; // Group can write
+
+        findData.st_ino = QRandomGenerator::global()->generate64();
+        memcpy(findData.name, name.c_str(), name.size());
+    }
+    while (FindNextFileW(handle, &findDataW));
+
+    FindClose(handle);
 
     result->status = 0;
     result->count = findDataList.size();
@@ -132,7 +161,7 @@ Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
 
     Ref<ReadResult> result = MakeRef<ReadResult>(size);
 
-    int fd = open(absolutePath.string().c_str(), O_RDONLY);
+    int fd = openUtf8(absolutePath, O_RDONLY, 0);
     if (fd == -1)
     {
         result->status = -errno;
@@ -158,7 +187,7 @@ Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
 
     Ref<ReadlinkResult> result = MakeRef<ReadlinkResult>(size);
 
-    int res = readlink(absolutePath.string().c_str(), result->data, size - 1);
+    int res = readlink(absolutePath.c_str(), result->data, size - 1);
     if (res == -1)
     {
         result->status = -errno;
@@ -178,7 +207,7 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 
     struct fuse_statvfs stbuf;
 
-    int res = statvfs(absolutePath.string().c_str(), &stbuf);
+    int res = statvfs(absolutePath.c_str(), &stbuf);
     if (res == -1)
     {
         result->status = -errno;
@@ -208,7 +237,7 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 
     struct fuse_stat stbuf;
 
-    int res = lstat(absolutePath.string().c_str(), &stbuf);
+    int res = lstat(absolutePath.c_str(), &stbuf);
     if (res == -1)
     {
         result->status = -errno;
@@ -243,7 +272,7 @@ Ref<StatusResult> FUSEBackend::FD_write(const char *path, const char *buf, u64 s
 
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
-    int fd = open(absolutePath.string().c_str(), O_WRONLY);
+    int fd = openUtf8(absolutePath, O_WRONLY, 0);
     if (fd == -1)
     {
         qDebug() << "[FUSEBackend::FD_write] can't open file to write";
@@ -276,7 +305,7 @@ Ref<StatusResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
     qDebug() << "[FUSEBackend::FD_create] flags:" << flags;
     qDebug() << "[FUSEBackend::FD_create] mode:" << mode;
 
-    int fd = open(absolutePath.string().c_str(), O_CREAT | O_WRONLY, mode);
+    int fd = openUtf8(absolutePath, O_CREAT | O_WRONLY, mode);
 
     qDebug() << "[FUSEBackend::FD_create] fd:" << fd;
 
@@ -296,7 +325,7 @@ Ref<StatusResult> FUSEBackend::FD_unlink(const char *path)
 
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
-    int res = unlink(absolutePath.string().c_str());
+    int res = unlink(absolutePath.c_str());
     if (res == -1)
     {
         result->status = -errno;
@@ -313,7 +342,7 @@ Ref<StatusResult> FUSEBackend::FD_rename(const char *from, const char *to)
 
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
-    int res = rename(absoluteOldPath.string().c_str(), absoluteNewPath.string().c_str());
+    int res = rename(absoluteOldPath.c_str(), absoluteNewPath.c_str());
     if (res == -1)
     {
         result->status = -errno;
@@ -331,7 +360,7 @@ Ref<StatusResult> FUSEBackend::FD_mkdir(const char *path, u32 mode)
 
     qDebug() << "[FUSEBackend::FD_mkdir] mode:" << mode;
 
-    int res = mkdir(absolutePath.string().c_str(), mode);
+    int res = mkdir(absolutePath.c_str(), mode);
     if (res == -1)
     {
         result->status = -errno;
@@ -347,7 +376,7 @@ Ref<StatusResult> FUSEBackend::FD_rmdir(const char *path)
 
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
-    int res = rmdir(absolutePath.string().c_str());
+    int res = rmdir(absolutePath.c_str());
     if (res == -1)
     {
         result->status = -errno;
@@ -363,7 +392,7 @@ Ref<StatusResult> FUSEBackend::FD_truncate(const char *path, i64 size)
 
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
-    int res = truncate(absolutePath.string().c_str(), size);
+    int res = truncate(absolutePath.c_str(), size);
     if (res == -1)
     {
         result->status = -errno;

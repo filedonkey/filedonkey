@@ -8,7 +8,7 @@
 #include <QDir>
 #include <QStorageInfo>
 
-#include <filesystem>
+#include <cctype>
 
 class FUSEBackend
 {
@@ -28,19 +28,32 @@ public:
     Ref<StatusResult>   FD_rmdir(const char *path);
     Ref<StatusResult>   FD_truncate(const char *path, i64 size);
 
-    std::filesystem::path normalizePath(const char *path)
+    std::string normalizePath(const char *path)
     {
-        return publicDir / std::filesystem::path(path).relative_path();
+        std::string relative = path ? path : "";
+
+        // Drop a Windows root name ("D:").
+        if (relative.size() >= 2 && relative[1] == ':' && isalpha((unsigned char)relative[0]))
+            relative.erase(0, 2);
+
+        size_t start = relative.find_first_not_of("/\\");
+        relative = (start == std::string::npos) ? std::string() : relative.substr(start);
+
+        std::string result = publicDir;
+        if (!result.empty() && result.back() != '/' && result.back() != '\\' && !relative.empty())
+            result += '/';
+
+        return result + relative;
     }
 
-    static std::filesystem::path defualtPublicDir()
+    static std::string defualtPublicDir()
     {
         // On Linux and MacOS this resolves to user folder.
         // On Windows: to first non system disk or to system
         // disk if it is the only one exists.
 
         QByteArray homePath = qgetenv("HOME");
-        if (homePath.length()) return std::filesystem::path(homePath.toStdString());
+        if (homePath.length()) return homePath.toStdString();
 
         const QList<QStorageInfo> volumes = QStorageInfo::mountedVolumes();
 
@@ -51,14 +64,14 @@ public:
             if (volumes.length() > 1 && storage.isRoot())
                 continue;
 
-            return std::filesystem::path(storage.rootPath().toStdString());
+            return storage.rootPath().toStdString();
         }
 
-        return std::filesystem::path(QDir::homePath().toStdString());
+        return QDir::homePath().toStdString();
     }
 
 private:
-    std::filesystem::path publicDir;
+    std::string publicDir;
 };
 
 #endif // FUSEBACKEND_H

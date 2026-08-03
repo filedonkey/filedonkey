@@ -21,7 +21,7 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
     struct dirent *de;
 
 
-    dp = opendir(absolutePath.string().c_str());
+    dp = opendir(absolutePath.c_str());
     if (dp == NULL)
     {
         result->status = -errno;
@@ -57,7 +57,7 @@ Ref<ReadResult> FUSEBackend::FD_read(cstr path, u64 size, i64 offset)
 
     Ref<ReadResult> result = MakeRef<ReadResult>(size);
 
-    int fd = open(absolutePath.string().c_str(), O_RDONLY);
+    int fd = open(absolutePath.c_str(), O_RDONLY);
     if (fd == -1)
     {
         result->status = -errno;
@@ -83,7 +83,7 @@ Ref<ReadlinkResult> FUSEBackend::FD_readlink(const char *path, u64 size)
 
     Ref<ReadlinkResult> result = MakeRef<ReadlinkResult>(size);
 
-    int res = readlink(absolutePath.string().c_str(), result->data, size - 1);
+    int res = readlink(absolutePath.c_str(), result->data, size - 1);
     if (res == -1)
     {
         result->status = -errno;
@@ -103,7 +103,7 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 
     struct statvfs stbuf;
 
-    int res = statvfs(absolutePath.string().c_str(), &stbuf);
+    int res = statvfs(absolutePath.c_str(), &stbuf);
     if (res == -1)
     {
         result->status = -errno;
@@ -112,7 +112,7 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 
     struct statfs stfsbuf;
 
-    res = statfs(absolutePath.string().c_str(), &stfsbuf);
+    res = statfs(absolutePath.c_str(), &stfsbuf);
     if (res == -1)
     {
         result->f_bsize = stbuf.f_bsize;
@@ -147,7 +147,7 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 
     struct stat stbuf;
 
-    int res = lstat(absolutePath.string().c_str(), &stbuf);
+    int res = lstat(absolutePath.c_str(), &stbuf);
     if (res == -1)
     {
         result->status = -errno;
@@ -180,7 +180,7 @@ Ref<StatusResult> FUSEBackend::FD_write(const char *path, const char *buf, u64 s
 
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
-    int fd = open(absolutePath.string().c_str(), O_WRONLY);
+    int fd = open(absolutePath.c_str(), O_WRONLY);
     if (fd == -1)
     {
         result->status = -errno;
@@ -206,7 +206,7 @@ Ref<StatusResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
 
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
-    int fd = open(absolutePath.string().c_str(), 2562, 33188);
+    int fd = open(absolutePath.c_str(), 2562, 33188);
     if (fd == -1)
     {
         result->status = -errno;
@@ -223,7 +223,7 @@ Ref<StatusResult> FUSEBackend::FD_unlink(const char *path)
 
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
-    int res = unlink(absolutePath.string().c_str());
+    int res = unlink(absolutePath.c_str());
     if (res == -1)
     {
         result->status = -errno;
@@ -240,7 +240,7 @@ Ref<StatusResult> FUSEBackend::FD_rename(const char *from, const char *to)
 
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
-    int res = rename(absoluteOldPath.string().c_str(), absoluteNewPath.string().c_str());
+    int res = rename(absoluteOldPath.c_str(), absoluteNewPath.c_str());
     if (res == -1)
     {
         result->status = -errno;
@@ -258,7 +258,7 @@ Ref<StatusResult> FUSEBackend::FD_mkdir(const char *path, u32 mode)
 
     qDebug() << "[FUSEBackend::FD_mkdir] mode:" << mode;
 
-    int res = mkdir(absolutePath.string().c_str(), mode);
+    int res = mkdir(absolutePath.c_str(), mode);
     if (res == -1)
     {
         result->status = -errno;
@@ -274,7 +274,7 @@ Ref<StatusResult> FUSEBackend::FD_rmdir(const char *path)
 
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
-    int res = rmdir(absolutePath.string().c_str());
+    int res = rmdir(absolutePath.c_str());
     if (res == -1)
     {
         result->status = -errno;
@@ -290,7 +290,7 @@ Ref<StatusResult> FUSEBackend::FD_truncate(const char *path, i64 size)
 
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
-    int res = truncate(absolutePath.string().c_str(), size);
+    int res = truncate(absolutePath.c_str(), size);
     if (res == -1)
     {
         result->status = -errno;

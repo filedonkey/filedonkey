@@ -79,10 +79,16 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    handlerPool.clear();
+    handlerPool.waitForDone();
+
     delete ui;
     delete server;
     delete broadcaster;
-    delete virtDisk;
+
+    qDeleteAll(virtDisks);
+    virtDisks.clear();
+
     delete fuseBackend;
 
     for (auto& conn : connections)
@@ -169,7 +175,8 @@ void MainWindow::onBroadcasting()
 
         connections.insert(newConn.machineId, newConn);
 
-        virtDisk = new VirtDisk(newConn);
+        VirtDisk *virtDisk = new VirtDisk(newConn);
+        virtDisks.insert(newConn.machineId, virtDisk);
         connect(virtDisk->client, SIGNAL(uploadedChanged(u64)), this, SLOT(onUploaded(u64)));
         connect(virtDisk->client, SIGNAL(downloadedChanged(u64)), this, SLOT(onDownloaded(u64)));
         virtDisk->mount("M:\\");
@@ -241,16 +248,32 @@ void MainWindow::onSocketReadyRead()
             return;
         }
 
-        RequestHandler handler = fuseHandlers[header.operationType];
         const qsizetype payloadSize = header.datagramSize - sizeof(DatagramHeader);
         QByteArray payload = incoming.sliced(sizeof(DatagramHeader), payloadSize);
-        QByteArray response = handler(header.requestId, payload);
 
-        newConnection->write(response);
-        newConnection->flush();
+        dispatchRequest(newConnection, header, payload);
 
         incoming.remove(0, header.datagramSize);
     }
+}
+
+void MainWindow::dispatchRequest(QTcpSocket *socket, const DatagramHeader &header, const QByteArray &payload)
+{
+    RequestHandler handler = fuseHandlers[header.operationType];
+    u64 requestId = header.requestId;
+
+    QPointer<QTcpSocket> guard(socket);
+
+    handlerPool.start([this, guard, handler, requestId, payload]() {
+        QByteArray response = handler(requestId, payload);
+
+        QMetaObject::invokeMethod(this, [guard, response]() {
+            if (!guard) return;
+
+            guard->write(response);
+            guard->flush();
+        }, Qt::QueuedConnection);
+    });
 }
 
 void MainWindow::onSocketDisconnected()

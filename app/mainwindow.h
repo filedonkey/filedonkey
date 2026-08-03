@@ -9,7 +9,9 @@
 
 #include <QMainWindow>
 #include <QMap>
+#include <QPointer>
 #include <QTcpServer>
+#include <QThreadPool>
 #include <QUdpSocket>
 #include <QTcpSocket>
 #include <QSystemTrayIcon>
@@ -50,6 +52,8 @@ private:
     void createTrayIcon();
     void setTryaIcon();
 
+    void dispatchRequest(QTcpSocket *socket, const DatagramHeader &header, const QByteArray &payload);
+
     QByteArray readdirHandler(u64 requestId, QByteArray payload);
     QByteArray readHandler(u64 requestId, QByteArray payload);
     QByteArray writeHandler(u64 requestId, QByteArray payload);
@@ -77,7 +81,9 @@ private:
     QMap<OperationType, RequestHandler> fuseHandlers;
 
     QMap<QTcpSocket*, QByteArray> socketBuffers;
-    VirtDisk *virtDisk = nullptr;
+    QMap<QString, VirtDisk*> virtDisks;
     FUSEBackend *fuseBackend = nullptr;
+
+    QThreadPool handlerPool;
 };
 #endif // MAINWINDOW_H

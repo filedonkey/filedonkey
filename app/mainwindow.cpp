@@ -46,23 +46,6 @@ MainWindow::MainWindow(QWidget *parent)
     createTrayIcon();
 
     fuseBackend = new FUSEBackend();
-
-    //------------------------------------------------------------------------------------
-    // For local testing
-    //------------------------------------------------------------------------------------
-    // Connection conn = {
-    //     .machineId      = "test_machine_id",
-    //     .machineName    = "test_machine_name",
-    //     .machineAddress = "test_machine_address",
-    //     .machinePort    = 0,
-    //     .socket         = nullptr,
-    // };
-    // virtDisk = new VirtDisk(conn);
-    // virtDisk->mount("M:\\");
-
-    // return;
-    //------------------------------------------------------------------------------------
-
     fuseHandlers.insert(OperationType::readdir,  std::bind(&MainWindow::readdirHandler,  this, _1, _2));
     fuseHandlers.insert(OperationType::read,     std::bind(&MainWindow::readHandler,     this, _1, _2));
     fuseHandlers.insert(OperationType::write,    std::bind(&MainWindow::writeHandler,    this, _1, _2));
@@ -140,6 +123,22 @@ void MainWindow::broadcast()
     }
 }
 
+void MainWindow::invite(const QHostAddress &address)
+{
+    QUdpSocket broadcaster;
+    QJsonObject root;
+    QJsonObject machine;
+
+    machine["id"]   = QSysInfo::machineUniqueId().constData();
+    machine["name"] = QSysInfo::machineHostName();
+    machine["port"] = server->serverPort();
+
+    root["machine"] = machine;
+
+    QByteArray datagram = QJsonDocument(root).toJson(QJsonDocument::Compact);
+    broadcaster.writeDatagram(datagram, address, UDP_PORT);
+}
+
 void MainWindow::onBroadcasting()
 {
     qDebug() << "[MainWindow::onBroadcasting] Connected";
@@ -174,6 +173,8 @@ void MainWindow::onBroadcasting()
         connect(virtDisk->client, SIGNAL(uploadedChanged(u64)), this, SLOT(onUploaded(u64)));
         connect(virtDisk->client, SIGNAL(downloadedChanged(u64)), this, SLOT(onDownloaded(u64)));
         virtDisk->mount("M:\\");
+
+        invite(senderAddress);
     }
 }
 

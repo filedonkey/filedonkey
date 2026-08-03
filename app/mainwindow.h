@@ -46,6 +46,7 @@ public slots:
 
 private:
     void broadcast();
+    void invite(const QHostAddress &address);
     void createTrayIcon();
     void setTryaIcon();
 

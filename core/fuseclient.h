@@ -5,10 +5,18 @@
 #include "connection.h"
 #include "fusebackend_types.h"
 
+#include <QDateTime>
+
 struct FetchResult
 {
     DatagramHeader header;
     QByteArray payload;
+};
+
+struct CacheValue
+{
+    QDateTime expirationDate;
+    QByteArray response;
 };
 
 class FUSEClient : public QObject
@@ -37,11 +45,13 @@ signals:
 
 private:
     FetchResult Fetch(OperationType operationType, const QByteArray &payload);
+    FetchResult errorResponse(OperationType operationType, u64 requestId);
 
     Connection *conn;
     u64 uploaded;
     u64 downloaded;
     u64 lastRequestId;
+    QHash<QString, CacheValue> netCache;
 };
 
 #endif // FUSECLIENT_H

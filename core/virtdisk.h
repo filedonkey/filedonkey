@@ -20,7 +20,7 @@ public:
 
     FUSEClient *client;
 
-    struct fuse *f;
+    struct fuse *f = nullptr;
     std::string mountpoint;
 
 public slots:

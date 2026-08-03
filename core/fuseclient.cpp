@@ -1,17 +1,13 @@
 #include "fuseclient.h"
 
-#include <QDateTime>
+#include <algorithm>
+#include <errno.h>
+
 #include <QList>
 
+#define SOCKET_WAIT_TIMEOUT  5000
+
 static u64 savedBytes = 0;
-
-struct CacheValue
-{
-    QDateTime expirationDate;
-    QByteArray response;
-};
-
-static QHash<QString, CacheValue> netCache;
 
 Ref<ReaddirResult> FUSEClient::FD_readdir(const char *path)
 {
@@ -279,13 +275,24 @@ FetchResult FUSEClient::Fetch(OperationType operationType, const QByteArray &pay
 
         qDebug() << "[FUSEClient::Fetch] after write";
 
-        socket->waitForReadyRead(5000);
+        if (!socket->waitForReadyRead(SOCKET_WAIT_TIMEOUT))
+        {
+            qDebug() << "[FUSEClient::Fetch] Error: socket read waiting timeout";
+            return errorResponse(operationType, requestId);
+        }
 
         qDebug() << "[FUSEClient::Fetch] socket bytesAvailable:" << socket->bytesAvailable();
 
         QByteArray incoming = socket->readAll();
         downloaded += incoming.size();
         emit downloadedChanged(downloaded);
+
+        if ((u64)incoming.size() < sizeof(DatagramHeader))
+        {
+            qDebug() << "[FUSEClient::Fetch] Error: incoming datagram size is not valid";
+            return errorResponse(operationType, requestId);
+        }
+
         u64 datagramSize = *((u64 *)incoming.data());
 
         QLocale locale(QLocale::English, QLocale::UnitedStates);
@@ -296,7 +303,11 @@ FetchResult FUSEClient::Fetch(OperationType operationType, const QByteArray &pay
         int count = 0;
         while ((u64)incoming.size() < datagramSize)
         {
-            socket->waitForReadyRead();
+            if (!socket->waitForReadyRead(SOCKET_WAIT_TIMEOUT))
+            {
+                qDebug() << "[FUSEClient::Fetch] Error: socket read waiting timeout";
+                return errorResponse(operationType, requestId);
+            }
             QByteArray data = socket->readAll();
             downloaded += data.size();
             emit downloadedChanged(downloaded);
@@ -352,5 +363,27 @@ FetchResult FUSEClient::Fetch(OperationType operationType, const QByteArray &pay
     else
     {
         qDebug() << "[FUSEClient::Fetch] connection is invalid";
+        return errorResponse(operationType, 0);
     }
+}
+
+FetchResult FUSEClient::errorResponse(OperationType operationType, u64 requestId)
+{
+    constexpr qsizetype MaxResultSize = (qsizetype)std::max({sizeof(StatusResult),
+                                                             sizeof(ReaddirResult),
+                                                             sizeof(ReadResult),
+                                                             sizeof(ReadlinkResult),
+                                                             sizeof(StatfsResult),
+                                                             sizeof(GetattrResult)});
+
+    QByteArray payload(MaxResultSize, '\0');
+
+    StatusResult fuseResult;
+    fuseResult.status = -EIO;
+    memcpy(payload.data(), &fuseResult, sizeof(StatusResult));
+
+    DatagramHeader header(MessageType::Response, operationType, requestId);
+    header.datagramSize += payload.size();
+
+    return { .header = header, .payload = payload };
 }

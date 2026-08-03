@@ -380,9 +380,9 @@ static void Start(VirtDisk *self, Connection *conn)
     QObject::connect(conn->socket, &QTcpSocket::stateChanged, self, &VirtDisk::onSocketStateChanged);
     // QObject::connect(conn->socket, &QTcpSocket::disconnected, self, &VirtDisk::onSocketDisconnected);
 
-    QObject::connect(conn->socket, &QTcpSocket::disconnected, [self]() {
+    QObject::connect(conn->socket, &QTcpSocket::disconnected, self, [self]() {
         qDebug() << "[Start] socket disconnected";
-        fuse_exit(self->f);
+        if (self->f) fuse_exit(self->f);
     });
 
     qDebug() << "[Start] try to connect";
@@ -510,8 +510,8 @@ void VirtDisk::mount(const QString &mountPoint)
 
 void VirtDisk::unmount()
 {
-    fuse_exit(f);
-    thread.join();
+    if (f) fuse_exit(f);
+    if (thread.joinable()) thread.join();
 
 #if defined(__APPLE__)
     system(QString("diskutil unmount %1").arg(mountpoint.c_str()).toStdString().c_str());

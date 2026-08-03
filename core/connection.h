@@ -5,37 +5,87 @@
 
 #include <QTcpSocket>
 
+enum class MessageType : u32
+{
+    Request  = 0,
+    Response = 1,
+};
+
+enum class OperationType : u32
+{
+    readdir  = 0,
+    read     = 1,
+    write    = 2,
+    readlink = 3,
+    statfs   = 4,
+    getattr  = 5,
+    create   = 6,
+    unlink   = 7,
+    rename   = 8,
+    mkdir    = 9,
+    rmdir    = 10,
+    truncate = 11,
+};
+
+inline const char *ToString(MessageType messageType)
+{
+    switch (messageType)
+    {
+        case MessageType::Request:  return "request";
+        case MessageType::Response: return "response";
+    }
+    return "unknown";
+}
+
+inline const char *ToString(OperationType operationType)
+{
+    switch (operationType)
+    {
+        case OperationType::readdir:  return "readdir";
+        case OperationType::read:     return "read";
+        case OperationType::write:    return "write";
+        case OperationType::readlink: return "readlink";
+        case OperationType::statfs:   return "statfs";
+        case OperationType::getattr:  return "getattr";
+        case OperationType::create:   return "create";
+        case OperationType::unlink:   return "unlink";
+        case OperationType::rename:   return "rename";
+        case OperationType::mkdir:    return "mkdir";
+        case OperationType::rmdir:    return "rmdir";
+        case OperationType::truncate: return "truncate";
+    }
+    return "unknown";
+}
+
 struct DatagramHeader
 {
-    i64 datagramSize;
-    char messageType[32];
+    u64 datagramSize;
+    u64 requestId;
     u32 protocolVersion;
-    char virtDiskType[32];
-    char operationName[32];
+    MessageType messageType;
+    OperationType operationType;
 
     DatagramHeader()
     {
         memset(this, 0, sizeof(DatagramHeader));
     }
 
-    DatagramHeader(const char *messageType,
-                   const char *virtDiskType,
-                   const char *operationName,
+    DatagramHeader(MessageType messageType,
+                   OperationType operationType,
+                   u64 requestId = 0,
                    u32 protocolVersion = 1)
     {
         memset(this, 0, sizeof(DatagramHeader));
 
-        memcpy(this->messageType, messageType, strlen(messageType));
-        memcpy(this->virtDiskType, virtDiskType, strlen(virtDiskType));
-        memcpy(this->operationName, operationName, strlen(operationName));
-
+        this->datagramSize    = sizeof(DatagramHeader);
+        this->requestId       = requestId;
         this->protocolVersion = protocolVersion;
-        this->datagramSize = sizeof(DatagramHeader);
+        this->messageType     = messageType;
+        this->operationType   = operationType;
     }
 
     static void ReadFrom(DatagramHeader **header, const char *data)
     {
-        // memcpy(&header, data, sizeof(DatagramHeader));
         *header = (DatagramHeader *)data;
     }
 };

@@ -22,7 +22,7 @@ class MainWindow;
 }
 QT_END_NAMESPACE
 
-using RequestHandler = std::function<QByteArray(QByteArray)>;
+using RequestHandler = std::function<QByteArray(u64, QByteArray)>;
 
 class MainWindow : public QMainWindow
 {
@@ -49,18 +49,18 @@ private:
     void createTrayIcon();
     void setTryaIcon();
 
-    QByteArray readdirHandler(QByteArray payload);
-    QByteArray readHandler(QByteArray payload);
-    QByteArray writeHandler(QByteArray payload);
-    QByteArray readlinkHandler(QByteArray payload);
-    QByteArray statfsHandler(QByteArray payload);
-    QByteArray getattrHandler(QByteArray payload);
-    QByteArray createHandler(QByteArray payload);
-    QByteArray unlinkHandler(QByteArray payload);
-    QByteArray renameHandler(QByteArray payload);
-    QByteArray mkdirHandler(QByteArray payload);
-    QByteArray rmdirHandler(QByteArray payload);
-    QByteArray truncateHandler(QByteArray payload);
+    QByteArray readdirHandler(u64 requestId, QByteArray payload);
+    QByteArray readHandler(u64 requestId, QByteArray payload);
+    QByteArray writeHandler(u64 requestId, QByteArray payload);
+    QByteArray readlinkHandler(u64 requestId, QByteArray payload);
+    QByteArray statfsHandler(u64 requestId, QByteArray payload);
+    QByteArray getattrHandler(u64 requestId, QByteArray payload);
+    QByteArray createHandler(u64 requestId, QByteArray payload);
+    QByteArray unlinkHandler(u64 requestId, QByteArray payload);
+    QByteArray renameHandler(u64 requestId, QByteArray payload);
+    QByteArray mkdirHandler(u64 requestId, QByteArray payload);
+    QByteArray rmdirHandler(u64 requestId, QByteArray payload);
+    QByteArray truncateHandler(u64 requestId, QByteArray payload);
 
     Ui::MainWindow  *ui = nullptr;
     QAction         *restoreAction;
@@ -73,7 +73,7 @@ private:
     QUdpSocket     *broadcaster = nullptr;
 
     QMap<QString, Connection> connections;
-    QMap<QString, RequestHandler> fuseHandlers;
+    QMap<OperationType, RequestHandler> fuseHandlers;
 
     QMap<QTcpSocket*, QByteArray> socketBuffers;
     VirtDisk *virtDisk = nullptr;

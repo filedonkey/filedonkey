@@ -16,7 +16,7 @@ class FUSEClient : public QObject
     Q_OBJECT
 
 public:
-    FUSEClient(Connection *conn) : conn(conn), uploaded(0), downloaded(0) {};
+    FUSEClient(Connection *conn) : conn(conn), uploaded(0), downloaded(0), lastRequestId(0) {};
 
     Ref<ReaddirResult>  FD_readdir(const char *path);
     Ref<ReadResult>     FD_read(const char *path, u64 size, i64 offset);
@@ -36,11 +36,12 @@ signals:
     void downloadedChanged(u64 downloaded);
 
 private:
-    FetchResult Fetch(const char *operationName, const QByteArray &payload);
+    FetchResult Fetch(OperationType operationType, const QByteArray &payload);
 
     Connection *conn;
     u64 uploaded;
     u64 downloaded;
+    u64 lastRequestId;
 };
 
 #endif // FUSECLIENT_H

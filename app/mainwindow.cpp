@@ -63,19 +63,18 @@ MainWindow::MainWindow(QWidget *parent)
     // return;
     //------------------------------------------------------------------------------------
 
-    fuseHandlers.insert("readdir",  std::bind(&MainWindow::readdirHandler,  this, _1));
-    fuseHandlers.insert("read",     std::bind(&MainWindow::readHandler,     this, _1));
-    fuseHandlers.insert("write",    std::bind(&MainWindow::writeHandler,    this, _1));
-    fuseHandlers.insert("readlink", std::bind(&MainWindow::readlinkHandler, this, _1));
-    fuseHandlers.insert("statfs",   std::bind(&MainWindow::statfsHandler,   this, _1));
-    fuseHandlers.insert("getattr",  std::bind(&MainWindow::getattrHandler,  this, _1));
-    fuseHandlers.insert("create",   std::bind(&MainWindow::createHandler,   this, _1));
-    fuseHandlers.insert("unlink",   std::bind(&MainWindow::unlinkHandler,   this, _1));
-    fuseHandlers.insert("rename",   std::bind(&MainWindow::renameHandler,   this, _1));
-    fuseHandlers.insert("rename",   std::bind(&MainWindow::renameHandler,   this, _1));
-    fuseHandlers.insert("mkdir",    std::bind(&MainWindow::mkdirHandler,    this, _1));
-    fuseHandlers.insert("rmdir",    std::bind(&MainWindow::rmdirHandler,    this, _1));
-    fuseHandlers.insert("truncate", std::bind(&MainWindow::truncateHandler, this, _1));
+    fuseHandlers.insert(OperationType::readdir,  std::bind(&MainWindow::readdirHandler,  this, _1, _2));
+    fuseHandlers.insert(OperationType::read,     std::bind(&MainWindow::readHandler,     this, _1, _2));
+    fuseHandlers.insert(OperationType::write,    std::bind(&MainWindow::writeHandler,    this, _1, _2));
+    fuseHandlers.insert(OperationType::readlink, std::bind(&MainWindow::readlinkHandler, this, _1, _2));
+    fuseHandlers.insert(OperationType::statfs,   std::bind(&MainWindow::statfsHandler,   this, _1, _2));
+    fuseHandlers.insert(OperationType::getattr,  std::bind(&MainWindow::getattrHandler,  this, _1, _2));
+    fuseHandlers.insert(OperationType::create,   std::bind(&MainWindow::createHandler,   this, _1, _2));
+    fuseHandlers.insert(OperationType::unlink,   std::bind(&MainWindow::unlinkHandler,   this, _1, _2));
+    fuseHandlers.insert(OperationType::rename,   std::bind(&MainWindow::renameHandler,   this, _1, _2));
+    fuseHandlers.insert(OperationType::mkdir,    std::bind(&MainWindow::mkdirHandler,    this, _1, _2));
+    fuseHandlers.insert(OperationType::rmdir,    std::bind(&MainWindow::rmdirHandler,    this, _1, _2));
+    fuseHandlers.insert(OperationType::truncate, std::bind(&MainWindow::truncateHandler, this, _1, _2));
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
     if (!server->listen(QHostAddress::Any, TCP_PORT))
@@ -211,22 +210,16 @@ void MainWindow::onSocketReadyRead()
         memcpy(&header, incoming.constData(), sizeof(DatagramHeader));
 
         constexpr u64 MaxDatagramSize = 64 * MiB;
-        if ((u64)header.datagramSize < sizeof(DatagramHeader) || (u64)header.datagramSize > MaxDatagramSize)
+        if (header.datagramSize < sizeof(DatagramHeader) || header.datagramSize > MaxDatagramSize)
         {
             qDebug() << "[MainWindow::onSocketReadyRead] Error: invalid datagram size:" << header.datagramSize;
             return;
         }
 
-        // Just ignore ping message, no response is needed
-        if (strncmp(header.messageType, "ping", strlen("ping")) == 0)
+        if (header.messageType != MessageType::Request)
         {
-            incoming.remove(0, header.datagramSize);
-            continue;
-        }
-
-        if (strncmp(header.messageType, "request", strlen("request")) != 0)
-        {
-            qDebug() << "[MainWindow::onSocketReadyRead] Error: Invalid message type:" << header.messageType;
+            qDebug() << "[MainWindow::onSocketReadyRead] Error: Invalid message type:"
+                     << ToString(header.messageType);
             return;
         }
 
@@ -237,27 +230,20 @@ void MainWindow::onSocketReadyRead()
             return;
         }
 
-        if (incoming.size() < header.datagramSize)
+        if ((u64)incoming.size() < header.datagramSize)
             return;
 
-        if (strncmp(header.virtDiskType, "fuse", strlen("fuse")) != 0)
+        if (!fuseHandlers.contains(header.operationType))
         {
-            qDebug() << "[MainWindow::onSocketReadyRead] Error: invalid virt disk type:" << header.virtDiskType;
+            qDebug() << "[MainWindow::onSocketReadyRead] Error: invalid operation type:"
+                     << ToString(header.operationType);
             return;
         }
 
-        QString operationName(header.operationName);
-
-        if (!fuseHandlers.contains(operationName))
-        {
-            qDebug() << "[MainWindow::onSocketReadyRead] Error: invalid operation name:" << header.operationName;
-            return;
-        }
-
-        RequestHandler handler = fuseHandlers[operationName];
+        RequestHandler handler = fuseHandlers[header.operationType];
         const qsizetype payloadSize = header.datagramSize - sizeof(DatagramHeader);
         QByteArray payload = incoming.sliced(sizeof(DatagramHeader), payloadSize);
-        QByteArray response = handler(payload);
+        QByteArray response = handler(header.requestId, payload);
 
         newConnection->write(response);
         newConnection->flush();
@@ -280,14 +266,14 @@ void MainWindow::onSocketDisconnected()
     socket->deleteLater();
 }
 
-QByteArray MainWindow::readdirHandler(QByteArray payload)
+QByteArray MainWindow::readdirHandler(u64 requestId, QByteArray payload)
 {
     const char *path = payload.data();
     qDebug() << "[MainWindow::readdirHandler] fuse readdir path:" << path;
     Ref<ReaddirResult> result = fuseBackend->FD_readdir(path);
     qDebug() << "[MainWindow::readdirHandler] result status:" << result->status;
 
-    DatagramHeader header("response", "fuse", "readdir");
+    DatagramHeader header(MessageType::Response, OperationType::readdir, requestId);
     header.datagramSize += sizeof(ReaddirResult) + result->dataSize;
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
@@ -297,7 +283,7 @@ QByteArray MainWindow::readdirHandler(QByteArray payload)
     return response;
 }
 
-QByteArray MainWindow::readHandler(QByteArray payload)
+QByteArray MainWindow::readHandler(u64 requestId, QByteArray payload)
 {
     u64 size = *(u64 *)(payload.data());
     i64 offset = *(i64 *)(payload.sliced(sizeof(u64)).data());
@@ -308,7 +294,7 @@ QByteArray MainWindow::readHandler(QByteArray payload)
     Ref<ReadResult> result = fuseBackend->FD_read(path.data(), size, offset);
     qDebug() << "[MainWindow::readHandler] result status:" << result->status;
 
-    DatagramHeader header("response", "fuse", "read");
+    DatagramHeader header(MessageType::Response, OperationType::read, requestId);
     header.datagramSize += sizeof(ReadResult) + result->size;
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
@@ -318,7 +304,7 @@ QByteArray MainWindow::readHandler(QByteArray payload)
     return response;
 }
 
-QByteArray MainWindow::writeHandler(QByteArray payload)
+QByteArray MainWindow::writeHandler(u64 requestId, QByteArray payload)
 {
     qDebug() << "[MainWindow::writeHandler] incoming payload length:" << payload.length();
     u64 size = *(u64 *)(payload.data());
@@ -335,7 +321,7 @@ QByteArray MainWindow::writeHandler(QByteArray payload)
     Ref<StatusResult> result = fuseBackend->FD_write(path.data(), buf.data(), buf.length() /* size */, offset);
     qDebug() << "[MainWindow::writeHandler] result status:" << result->status;
 
-    DatagramHeader header("response", "fuse", "write");
+    DatagramHeader header(MessageType::Response, OperationType::write, requestId);
     header.datagramSize += sizeof(StatusResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
@@ -344,7 +330,7 @@ QByteArray MainWindow::writeHandler(QByteArray payload)
     return response;
 }
 
-QByteArray MainWindow::readlinkHandler(QByteArray payload)
+QByteArray MainWindow::readlinkHandler(u64 requestId, QByteArray payload)
 {
     u64 size = *(u64 *)(payload.data());
     QByteArray path = payload.sliced(sizeof(u64));
@@ -353,7 +339,7 @@ QByteArray MainWindow::readlinkHandler(QByteArray payload)
     Ref<ReadlinkResult> result = fuseBackend->FD_readlink(path.data(), size);
     qDebug() << "[MainWindow::readlinkHandler] result status:" << result->status;
 
-    DatagramHeader header("response", "fuse", "readlink");
+    DatagramHeader header(MessageType::Response, OperationType::readlink, requestId);
     header.datagramSize += sizeof(ReadlinkResult) + result->size;
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
@@ -363,14 +349,14 @@ QByteArray MainWindow::readlinkHandler(QByteArray payload)
     return response;
 }
 
-QByteArray MainWindow::statfsHandler(QByteArray payload)
+QByteArray MainWindow::statfsHandler(u64 requestId, QByteArray payload)
 {
     const char *path = payload.data();
     qDebug() << "[MainWindow::statfsHandler] fuse statfs path:" << path;
     Ref<StatfsResult> result = fuseBackend->FD_statfs(path);
     qDebug() << "[MainWindow::statfsHandler] result status:" << result->status;
 
-    DatagramHeader header("response", "fuse", "statfs");
+    DatagramHeader header(MessageType::Response, OperationType::statfs, requestId);
     header.datagramSize += sizeof(StatfsResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
@@ -379,14 +365,14 @@ QByteArray MainWindow::statfsHandler(QByteArray payload)
     return response;
 }
 
-QByteArray MainWindow::getattrHandler(QByteArray payload)
+QByteArray MainWindow::getattrHandler(u64 requestId, QByteArray payload)
 {
     const char *path = payload.data();
     qDebug() << "[MainWindow::getattrHandler] fuse getattr path:" << path;
     Ref<GetattrResult> result = fuseBackend->FD_getattr(path);
     qDebug() << "[MainWindow::getattrHandler] result status:" << result->status;
 
-    DatagramHeader header("response", "fuse", "getattr");
+    DatagramHeader header(MessageType::Response, OperationType::getattr, requestId);
     header.datagramSize += sizeof(GetattrResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
@@ -395,7 +381,7 @@ QByteArray MainWindow::getattrHandler(QByteArray payload)
     return response;
 }
 
-QByteArray MainWindow::createHandler(QByteArray payload)
+QByteArray MainWindow::createHandler(u64 requestId, QByteArray payload)
 {
     u32 mode = *(u32 *)(payload.data());
     i32 flags = *(i32 *)(payload.sliced(sizeof(u32)).data());
@@ -406,7 +392,7 @@ QByteArray MainWindow::createHandler(QByteArray payload)
     Ref<StatusResult> result = fuseBackend->FD_create(path.data(), mode, flags);
     qDebug() << "[MainWindow::createHandler] result status:" << result->status;
 
-    DatagramHeader header("response", "fuse", "create");
+    DatagramHeader header(MessageType::Response, OperationType::create, requestId);
     header.datagramSize += sizeof(StatusResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
@@ -415,14 +401,14 @@ QByteArray MainWindow::createHandler(QByteArray payload)
     return response;
 }
 
-QByteArray MainWindow::unlinkHandler(QByteArray payload)
+QByteArray MainWindow::unlinkHandler(u64 requestId, QByteArray payload)
 {
     const char *path = payload.data();
     qDebug() << "[MainWindow::unlinkHandler] fuse unlink path:" << path;
     Ref<StatusResult> result = fuseBackend->FD_unlink(path);
     qDebug() << "[MainWindow::unlinkHandler] result status:" << result->status;
 
-    DatagramHeader header("response", "fuse", "unlink");
+    DatagramHeader header(MessageType::Response, OperationType::unlink, requestId);
     header.datagramSize += sizeof(StatusResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
@@ -431,7 +417,7 @@ QByteArray MainWindow::unlinkHandler(QByteArray payload)
     return response;
 }
 
-QByteArray MainWindow::renameHandler(QByteArray payload)
+QByteArray MainWindow::renameHandler(u64 requestId, QByteArray payload)
 {
     const char *oldpath = payload.data();
     const char *newpath = payload.data() + strlen(oldpath) + 1;
@@ -441,7 +427,7 @@ QByteArray MainWindow::renameHandler(QByteArray payload)
     Ref<StatusResult> result = fuseBackend->FD_rename(oldpath, newpath);
     qDebug() << "[MainWindow::renameHandler] result status:" << result->status;
 
-    DatagramHeader header("response", "fuse", "rename");
+    DatagramHeader header(MessageType::Response, OperationType::rename, requestId);
     header.datagramSize += sizeof(StatusResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
@@ -450,7 +436,7 @@ QByteArray MainWindow::renameHandler(QByteArray payload)
     return response;
 }
 
-QByteArray MainWindow::mkdirHandler(QByteArray payload)
+QByteArray MainWindow::mkdirHandler(u64 requestId, QByteArray payload)
 {
     u32 mode = *(u32 *)(payload.data());
     QByteArray path = payload.sliced(sizeof(u32));
@@ -459,7 +445,7 @@ QByteArray MainWindow::mkdirHandler(QByteArray payload)
     Ref<StatusResult> result = fuseBackend->FD_mkdir(path.data(), mode);
     qDebug() << "[MainWindow::mkdirHandler] result status:" << result->status;
 
-    DatagramHeader header("response", "fuse", "mkdir");
+    DatagramHeader header(MessageType::Response, OperationType::mkdir, requestId);
     header.datagramSize += sizeof(StatusResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
@@ -468,14 +454,14 @@ QByteArray MainWindow::mkdirHandler(QByteArray payload)
     return response;
 }
 
-QByteArray MainWindow::rmdirHandler(QByteArray payload)
+QByteArray MainWindow::rmdirHandler(u64 requestId, QByteArray payload)
 {
     const char *path = payload.data();
     qDebug() << "[MainWindow::rmdirHandler] fuse rmdir path:" << path;
     Ref<StatusResult> result = fuseBackend->FD_rmdir(path);
     qDebug() << "[MainWindow::rmdirHandler] result status:" << result->status;
 
-    DatagramHeader header("response", "fuse", "rmdir");
+    DatagramHeader header(MessageType::Response, OperationType::rmdir, requestId);
     header.datagramSize += sizeof(StatusResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));
@@ -484,7 +470,7 @@ QByteArray MainWindow::rmdirHandler(QByteArray payload)
     return response;
 }
 
-QByteArray MainWindow::truncateHandler(QByteArray payload)
+QByteArray MainWindow::truncateHandler(u64 requestId, QByteArray payload)
 {
     i64 size = *(i64 *)(payload.data());
     QByteArray path = payload.sliced(sizeof(i64));
@@ -493,7 +479,7 @@ QByteArray MainWindow::truncateHandler(QByteArray payload)
     Ref<StatusResult> result = fuseBackend->FD_truncate(path.data(), size);
     qDebug() << "[MainWindow::truncateHandler] result status:" << result->status;
 
-    DatagramHeader header("response", "fuse", "truncate");
+    DatagramHeader header(MessageType::Response, OperationType::truncate, requestId);
     header.datagramSize += sizeof(StatusResult);
 
     QByteArray response((char *)&header, sizeof(DatagramHeader));

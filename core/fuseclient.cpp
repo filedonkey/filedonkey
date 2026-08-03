@@ -16,7 +16,7 @@ static QHash<QString, CacheValue> netCache;
 Ref<ReaddirResult> FUSEClient::FD_readdir(const char *path)
 {
     QByteArray payload((char *)path, strlen(path));
-    FetchResult incoming = Fetch("readdir", payload);
+    FetchResult incoming = Fetch(OperationType::readdir, payload);
 
     Ref<ReaddirResult> result = MakeRef<ReaddirResult>(incoming.payload.data());
 
@@ -34,7 +34,7 @@ Ref<ReadResult> FUSEClient::FD_read(const char *path, u64 size, i64 offset)
     payload.append((char *)(&offset), sizeof(offset));
     payload.append((char *)path, strlen(path));
 
-    FetchResult incoming = Fetch("read", payload);
+    FetchResult incoming = Fetch(OperationType::read, payload);
 
     Ref<ReadResult> result = MakeRef<ReadResult>(incoming.payload.data());
 
@@ -62,7 +62,7 @@ Ref<StatusResult> FUSEClient::FD_write(const char *path, const char *buf, u64 si
     qDebug() << "[FUSEClient::FD_write] path:" << path;
     qDebug() << "[FUSEClient::FD_write] payload length:" << payload.length();
 
-    FetchResult incoming = Fetch("write", payload);
+    FetchResult incoming = Fetch(OperationType::write, payload);
 
     Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
 
@@ -76,7 +76,7 @@ Ref<ReadlinkResult> FUSEClient::FD_readlink(const char *path, u64 size)
     QByteArray payload((char *)&size, sizeof(u64));
     payload.append((char *)path, strlen(path));
 
-    FetchResult incoming = Fetch("readlink", payload);
+    FetchResult incoming = Fetch(OperationType::readlink, payload);
 
     Ref<ReadlinkResult> result = MakeRef<ReadlinkResult>(incoming.payload.data());
 
@@ -89,7 +89,7 @@ Ref<ReadlinkResult> FUSEClient::FD_readlink(const char *path, u64 size)
 Ref<StatfsResult> FUSEClient::FD_statfs(const char *path)
 {
     QByteArray payload((char *)path, strlen(path));
-    FetchResult incoming = Fetch("statfs", payload);
+    FetchResult incoming = Fetch(OperationType::statfs, payload);
 
     Ref<StatfsResult> result = MakeRef<StatfsResult>(incoming.payload.data());
 
@@ -104,7 +104,7 @@ Ref<StatfsResult> FUSEClient::FD_statfs(const char *path)
 Ref<GetattrResult> FUSEClient::FD_getattr(const char *path)
 {
     QByteArray payload((char *)path, strlen(path));
-    FetchResult incoming = Fetch("getattr", payload);
+    FetchResult incoming = Fetch(OperationType::getattr, payload);
 
     Ref<GetattrResult> result = MakeRef<GetattrResult>(incoming.payload.data());
 
@@ -123,7 +123,7 @@ Ref<StatusResult> FUSEClient::FD_create(const char *path, u32 mode, i32 flags)
     payload.append((char *)(&flags), sizeof(flags));
     payload.append((char *)path, strlen(path));
 
-    FetchResult incoming = Fetch("create", payload);
+    FetchResult incoming = Fetch(OperationType::create, payload);
 
     Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
 
@@ -137,7 +137,7 @@ Ref<StatusResult> FUSEClient::FD_create(const char *path, u32 mode, i32 flags)
 Ref<StatusResult> FUSEClient::FD_unlink(const char *path)
 {
     QByteArray payload((char *)path, strlen(path));
-    FetchResult incoming = Fetch("unlink", payload);
+    FetchResult incoming = Fetch(OperationType::unlink, payload);
 
     Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
 
@@ -153,7 +153,7 @@ Ref<StatusResult> FUSEClient::FD_rename(const char *from, const char *to)
     QByteArray payload;
     payload.append((char *)from, strlen(from) + 1);
     payload.append((char *)to, strlen(to) + 1);
-    FetchResult incoming = Fetch("rename", payload);
+    FetchResult incoming = Fetch(OperationType::rename, payload);
 
     Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
 
@@ -170,7 +170,7 @@ Ref<StatusResult> FUSEClient::FD_mkdir(const char *path, u32 mode)
     payload.append((char *)(&mode), sizeof(mode));
     payload.append((char *)path, strlen(path));
 
-    FetchResult incoming = Fetch("mkdir", payload);
+    FetchResult incoming = Fetch(OperationType::mkdir, payload);
 
     Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
 
@@ -184,7 +184,7 @@ Ref<StatusResult> FUSEClient::FD_mkdir(const char *path, u32 mode)
 Ref<StatusResult> FUSEClient::FD_rmdir(const char *path)
 {
     QByteArray payload((char *)path, strlen(path));
-    FetchResult incoming = Fetch("rmdir", payload);
+    FetchResult incoming = Fetch(OperationType::rmdir, payload);
 
     Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
 
@@ -201,7 +201,7 @@ Ref<StatusResult> FUSEClient::FD_truncate(const char *path, i64 size)
     payload.append((char *)(&size), sizeof(size));
     payload.append((char *)path, strlen(path));
 
-    FetchResult incoming = Fetch("truncate", payload);
+    FetchResult incoming = Fetch(OperationType::truncate, payload);
 
     Ref<StatusResult> result = MakeRef<StatusResult>(incoming.payload.data());
 
@@ -212,17 +212,19 @@ Ref<StatusResult> FUSEClient::FD_truncate(const char *path, i64 size)
     return result;
 }
 
-FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &payload)
+FetchResult FUSEClient::Fetch(OperationType operationType, const QByteArray &payload)
 {
     //------------------------------------------------------------------------------------
     // Caching
     //------------------------------------------------------------------------------------
-    static QList<QString> operationsAllowedToCache = {"getattr", "statfs", "readdir"};
-    bool shouldBeCached = operationsAllowedToCache.contains(QString(operationName));
+    static QList<OperationType> operationsAllowedToCache = {OperationType::getattr,
+                                                            OperationType::statfs,
+                                                            OperationType::readdir};
+    bool shouldBeCached = operationsAllowedToCache.contains(operationType);
 
     if (shouldBeCached)
     {
-        QString cacheKey = QString("%1%2%3").arg(conn->machineId).arg(operationName).arg(payload);
+        QString cacheKey = QString("%1%2%3").arg(conn->machineId).arg(ToString(operationType)).arg(payload);
 
         if (netCache.contains(cacheKey))
         {
@@ -262,7 +264,9 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
 
     if (socket)
     {
-        DatagramHeader header("request", "fuse", operationName);
+        u64 requestId = ++lastRequestId;
+
+        DatagramHeader header(MessageType::Request, operationType, requestId);
         header.datagramSize += payload.size();
         QByteArray request((char *)&header, sizeof(DatagramHeader));
         request.append(payload);
@@ -282,7 +286,7 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
         QByteArray incoming = socket->readAll();
         downloaded += incoming.size();
         emit downloadedChanged(downloaded);
-        qsizetype datagramSize = *((qsizetype *)incoming.data());
+        u64 datagramSize = *((u64 *)incoming.data());
 
         QLocale locale(QLocale::English, QLocale::UnitedStates);
         qDebug() << "[FUSEClient::Fetch] datagram size:"
@@ -290,7 +294,7 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
 
         incoming.reserve(datagramSize);
         int count = 0;
-        while (incoming.size() < datagramSize)
+        while ((u64)incoming.size() < datagramSize)
         {
             socket->waitForReadyRead();
             QByteArray data = socket->readAll();
@@ -300,7 +304,7 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
             count++;
         }
 
-        assert(incoming.size() == datagramSize);
+        assert((u64)incoming.size() == datagramSize);
 
         qDebug() << QString("[FUSEClient::Fetch] uploaded: %1    downloaded: %2")
                         .arg(locale.formattedDataSize(uploaded))
@@ -313,7 +317,7 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
         //--------------------------------------------------------------------------------
         if (shouldBeCached)
         {
-            QString key = QString("%1%2%3").arg(conn->machineId).arg(operationName).arg(payload);
+            QString key = QString("%1%2%3").arg(conn->machineId).arg(ToString(operationType)).arg(payload);
             CacheValue value = {
                 .expirationDate = QDateTime::currentDateTimeUtc().addSecs(15),
                 .response = incoming
@@ -329,12 +333,14 @@ FetchResult FUSEClient::Fetch(const char *operationName, const QByteArray &paylo
         DatagramHeader *inHeader;
         DatagramHeader::ReadFrom(&inHeader, incoming.data());
 
-        qDebug() << "[FUSEClient::Fetch] incoming message type:" << inHeader->messageType;
+        qDebug() << "[FUSEClient::Fetch] incoming message type:" << ToString(inHeader->messageType);
         qDebug() << "[FUSEClient::Fetch] incoming protocol version:" << inHeader->protocolVersion;
-        qDebug() << "[FUSEClient::Fetch] incoming virt disk type:" << inHeader->virtDiskType;
-        qDebug() << "[FUSEClient::Fetch] incoming operation name:" << inHeader->operationName;
+        qDebug() << "[FUSEClient::Fetch] incoming operation type:" << ToString(inHeader->operationType);
+        qDebug() << "[FUSEClient::Fetch] incoming request id:" << inHeader->requestId;
 
-        assert(strcmp(header.operationName, inHeader->operationName) == 0);
+        assert(inHeader->messageType == MessageType::Response);
+        assert(inHeader->operationType == operationType);
+        assert(inHeader->requestId == requestId);
 
         FetchResult result = {
             .header = *inHeader,

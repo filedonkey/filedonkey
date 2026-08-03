@@ -3,7 +3,7 @@
 
 #include "core.h"
 
-#include <QTcpSocket>
+#include <QString>
 
 enum class MessageType : u32
 {
@@ -95,8 +95,7 @@ struct Connection
     QString machineId;
     QString machineName;
     QString machineAddress;
-    qint64 machinePort;
-    QTcpSocket *socket = nullptr;
+    i64 machinePort;
 };
 
 #endif // CONNECTION_H

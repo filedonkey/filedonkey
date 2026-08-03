@@ -42,6 +42,7 @@ public slots:
     void onConnection();
     void onSocketReadyRead();
     void onSocketDisconnected();
+    void onVirtDiskStopped();
     void onUpgradeToPro();
     void onUploaded(u64 uploaded);
     void onDownloaded(u64 downloaded);

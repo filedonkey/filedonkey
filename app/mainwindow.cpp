@@ -86,17 +86,14 @@ MainWindow::~MainWindow()
     delete server;
     delete broadcaster;
 
+    // Signal them all first so they wind down in parallel; qDeleteAll then joins each in turn.
+    for (VirtDisk *virtDisk : std::as_const(virtDisks)) virtDisk->stop();
+
     qDeleteAll(virtDisks);
     virtDisks.clear();
 
     delete fuseBackend;
 
-    for (auto& conn : connections)
-    {
-        if (!conn.socket) continue;
-        conn.socket->close();
-        delete conn.socket;
-    }
     connections.clear();
 }
 
@@ -162,7 +159,6 @@ void MainWindow::onBroadcasting()
             .machineName    = machine["name"].toString(),
             .machineAddress = senderAddress.toString(),
             .machinePort    = machine["port"].toInteger(),
-            .socket         = nullptr,
         };
 
         if (connections.contains(newConn.machineId)) return;
@@ -177,6 +173,7 @@ void MainWindow::onBroadcasting()
 
         VirtDisk *virtDisk = new VirtDisk(newConn);
         virtDisks.insert(newConn.machineId, virtDisk);
+        connect(virtDisk, &VirtDisk::stopped, this, &MainWindow::onVirtDiskStopped);
         connect(virtDisk->client, SIGNAL(uploadedChanged(u64)), this, SLOT(onUploaded(u64)));
         connect(virtDisk->client, SIGNAL(downloadedChanged(u64)), this, SLOT(onDownloaded(u64)));
         virtDisk->mount("M:\\");
@@ -286,8 +283,45 @@ void MainWindow::onSocketDisconnected()
 
     qDebug() << "[onSocketDisconnected] disconnect socket:" << (u64)socket;
 
+    // This socket is the peer's client talking to our server. Its drop is noticed straight away
+    // because it lives on this thread's event loop. Our own VirtDisk talks to that peer over a
+    // separate socket owned by the fuse thread, which has no event loop, so nothing there
+    // notices until a Fetch times out. Hand the news over rather than waiting those 5 seconds.
+    QHostAddress peerAddress = socket->peerAddress();
+
+    for (auto it = connections.constBegin(); it != connections.constEnd(); ++it)
+    {
+        if (!QHostAddress(it->machineAddress).isEqual(peerAddress)) continue;
+
+        VirtDisk *virtDisk = virtDisks.value(it.key(), nullptr);
+        if (virtDisk)
+        {
+            qDebug() << "[onSocketDisconnected] stopping virtdisk for:" << it->machineName;
+            virtDisk->stop();   // returns at once; onVirtDiskStopped() does the cleanup
+        }
+        break;
+    }
+
     socketBuffers.remove(socket);
     socket->deleteLater();
+}
+
+void MainWindow::onVirtDiskStopped()
+{
+    VirtDisk *virtDisk = qobject_cast<VirtDisk *>(QObject::sender());
+    if (!virtDisk) return;
+
+    QString machineId = virtDisks.key(virtDisk);
+
+    qDebug() << "[onVirtDiskStopped] virtdisk stopped for machine:" << machineId;
+
+    virtDisks.remove(machineId);
+
+    // Forget the peer too, otherwise onBroadcasting's contains() check would refuse to mount it
+    // again when it comes back.
+    connections.remove(machineId);
+
+    virtDisk->deleteLater();
 }
 
 QByteArray MainWindow::readdirHandler(u64 requestId, QByteArray payload)

@@ -6,6 +6,7 @@
 #include "fusebackend_types.h"
 
 #include <QDateTime>
+#include <QTcpSocket>
 
 struct FetchResult
 {
@@ -25,6 +26,11 @@ class FUSEClient : public QObject
 
 public:
     FUSEClient(Connection *conn) : conn(conn), uploaded(0), downloaded(0), lastRequestId(0) {};
+
+    // Set by VirtDisk once it has dialled the peer, and cleared before the socket is destroyed.
+    // Only the fuse thread touches it: it is set there before fuse_loop starts and cleared there
+    // after fuse_loop returns, so no request can be in flight either side of a change.
+    void setSocket(QTcpSocket *socket) { this->socket = socket; }
 
     Ref<ReaddirResult>  FD_readdir(const char *path);
     Ref<ReadResult>     FD_read(const char *path, u64 size, i64 offset);
@@ -48,6 +54,7 @@ private:
     FetchResult errorResponse(OperationType operationType, u64 requestId);
 
     Connection *conn;
+    QTcpSocket *socket = nullptr;
     u64 uploaded;
     u64 downloaded;
     u64 lastRequestId;

@@ -60,7 +60,12 @@ VirtDisk::VirtDisk(const Connection& conn) : conn(conn)
 
 VirtDisk::~VirtDisk()
 {
+    // unmount() first: it joins the fuse thread, so no fuse callback can still be holding the
+    // client (fuse_new was handed it as private_data) by the time it is freed.
     unmount();
+
+    delete client;
+    client = nullptr;
 }
 
 static int fd_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
@@ -373,33 +378,37 @@ static char FindFreeDriveLetter()
 }
 #endif
 
-static void Start(VirtDisk *self, Connection *conn)
+static void StartImpl(VirtDisk *self, Connection *conn)
 {
-    conn->socket = new QTcpSocket();
+    self->socket = new QTcpSocket();
 
-    QObject::connect(conn->socket, &QTcpSocket::stateChanged, self, &VirtDisk::onSocketStateChanged);
-    // QObject::connect(conn->socket, &QTcpSocket::disconnected, self, &VirtDisk::onSocketDisconnected);
+    QObject::connect(self->socket, &QTcpSocket::stateChanged, self, &VirtDisk::onSocketStateChanged);
+    // QObject::connect(self->socket, &QTcpSocket::disconnected, self, &VirtDisk::onSocketDisconnected);
 
-    QObject::connect(conn->socket, &QTcpSocket::disconnected, self, [self]() {
+    QObject::connect(self->socket, &QTcpSocket::disconnected, self, [self]() {
         qDebug() << "[Start] socket disconnected";
         if (self->f) fuse_exit(self->f);
     });
 
     qDebug() << "[Start] try to connect";
-    conn->socket->connectToHost(QHostAddress(conn->machineAddress), conn->machinePort);
-    if (!conn->socket->waitForConnected())
+    self->socket->connectToHost(QHostAddress(conn->machineAddress), conn->machinePort);
+    if (!self->socket->waitForConnected())
     {
-        qDebug() << "[Start] socket connection error:" << conn->socket->errorString();
+        qDebug() << "[Start] socket connection error:" << self->socket->errorString();
         return;
     }
     qDebug() << "[Start] socket connected";
 
-    if (!setTcpKeepAlive(conn->socket, 3, 3, 3))
+    if (!setTcpKeepAlive(self->socket, 3, 3, 3))
     {
         qDebug() << "[Start] failed to configure TCP keepalive";
     }
 
-    conn->socket->setSocketOption(QAbstractSocket::LowDelayOption,  1);
+    self->socket->setSocketOption(QAbstractSocket::LowDelayOption,  1);
+
+    // Only now, so a mount whose dial failed leaves the client without a socket and every Fetch
+    // fails fast instead of reaching for one that was never connected.
+    self->client->setSocket(self->socket);
 
     std::string mount_name_option;
 
@@ -434,6 +443,9 @@ static void Start(VirtDisk *self, Connection *conn)
     if (!driveLetter)
     {
         qDebug() << "[Start] can't find a free drive letter";
+        fuse_destroy(self->f);
+        self->f = nullptr;
+        fuse_opt_free_args(&args);
         return;
     }
     self->mountpoint = QString("%1:").arg(driveLetter).toStdString();
@@ -468,6 +480,7 @@ static void Start(VirtDisk *self, Connection *conn)
     {
         qDebug() << "[Start] fuse_mount failed";
         fuse_destroy(self->f);
+        self->f = nullptr;
         fuse_opt_free_args(&args);
         return;
     }
@@ -477,6 +490,7 @@ static void Start(VirtDisk *self, Connection *conn)
         qDebug() << "[Start] fuse_set_signal_handlers failed";
         fuse_unmount(self->f);
         fuse_destroy(self->f);
+        self->f = nullptr;
         fuse_opt_free_args(&args);
         return;
     }
@@ -490,6 +504,30 @@ static void Start(VirtDisk *self, Connection *conn)
     fuse_opt_free_args(&args);
 
     self->f = nullptr;
+}
+
+static void Start(VirtDisk *self, Connection *conn)
+{
+    StartImpl(self, conn);
+
+    // Closing our end is what makes the teardown symmetric: the peer's server notices the drop on
+    // its event loop and stops the VirtDisk facing us. Leaving it open would keep the connection
+    // established after our mount is gone, so the peer would never learn we went away. The socket
+    // was created on this thread and no Fetch can be in flight now that fuse_loop has returned,
+    // so this is the right place to destroy it.
+    if (self->socket)
+    {
+        self->client->setSocket(nullptr);
+        self->socket->close();
+        delete self->socket;
+        self->socket = nullptr;
+    }
+
+    // Queued to whoever owns this VirtDisk, so they can join and delete it now that the mount is
+    // gone. This thread is about to return, so that join costs nothing. Emitting from the wrapper
+    // rather than inside StartImpl covers its failure returns too - a VirtDisk that never got as
+    // far as mounting must still be cleaned up, or its peer can never be rediscovered.
+    emit self->stopped();
 }
 
 void VirtDisk::onSocketDisconnected()
@@ -506,6 +544,13 @@ void VirtDisk::onSocketStateChanged(QAbstractSocket::SocketState socketState)
 void VirtDisk::mount(const QString &mountPoint)
 {
     thread = std::thread(Start, this, &conn);
+}
+
+void VirtDisk::stop()
+{
+    qDebug() << "[VirtDisk::stop] asking the fuse loop to exit";
+
+    if (f) fuse_exit(f);
 }
 
 void VirtDisk::unmount()

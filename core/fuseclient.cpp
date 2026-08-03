@@ -256,8 +256,6 @@ FetchResult FUSEClient::Fetch(OperationType operationType, const QByteArray &pay
     qDebug() << "[FUSEClient::Fetch] machineId: " << conn->machineId;
     qDebug() << "[FUSEClient::Fetch] machineName: " << conn->machineName;
 
-    QTcpSocket *socket = conn->socket;
-
     if (socket)
     {
         u64 requestId = ++lastRequestId;

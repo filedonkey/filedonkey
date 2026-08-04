@@ -11,6 +11,7 @@
 
 #include <cassert>
 #include <mutex>
+#include <set>
 #include <thread>
 
 #define FUSE_USE_VERSION 31
@@ -368,18 +369,48 @@ static const struct fuse_operations fd_oper = {
 };
 
 #if defined (_WIN32)
-static char FindFreeDriveLetter()
+// Letters handed to mount threads that have not finished yet. Every peer gets a mount thread and
+// on startup they all begin together, so two of them pick a drive letter at about the same moment.
+// GetLogicalDrives() alone is not enough to keep them apart: fuse_mount() only records the mount
+// point, WinFsp does not take the letter until fuse_loop() starts the file system, so the letter
+// still reads as free for as long as it takes the other thread to get there. Both threads then
+// choose it and the second one dies in fuse_loop with "Cannot set WinFsp-FUSE file system mount
+// point" / STATUS_OBJECT_NAME_COLLISION (c0000035). Our own record covers that window; it is kept
+// until the mount is torn down and the letter is genuinely gone from GetLogicalDrives() again.
+static std::mutex driveLettersMutex;
+static std::set<char> reservedDriveLetters;
+
+static char ReserveFreeDriveLetter()
 {
+    std::lock_guard<std::mutex> lock(driveLettersMutex);
+
     DWORD mask = GetLogicalDrives();
 
     for (char drive = 'D'; drive <= 'Z'; ++drive)
     {
-        if ((mask & (1u << (drive - 'A'))) == 0)
-            return drive;
+        if (mask & (1u << (drive - 'A'))) continue;
+        if (reservedDriveLetters.count(drive)) continue;
+
+        reservedDriveLetters.insert(drive);
+        return drive;
     }
 
     return '\0'; // no free drive letter
 }
+
+// Hands the letter back on every path out of StartImpl, mount failures included.
+struct DriveLetterReservation
+{
+    char letter = '\0';
+
+    ~DriveLetterReservation()
+    {
+        if (!letter) return;
+
+        std::lock_guard<std::mutex> lock(driveLettersMutex);
+        reservedDriveLetters.erase(letter);
+    }
+};
 #endif
 
 static void StartImpl(VirtDisk *self, Connection *conn)
@@ -443,17 +474,11 @@ static void StartImpl(VirtDisk *self, Connection *conn)
     struct fuse_session *se = fuse_get_session(self->f);
 
 #if defined (_WIN32)
-    // One mount thread per peer, and on startup they all begin within milliseconds of each other:
-    // our broadcast goes out, every peer answers with an invite, and onBroadcasting() often drains
-    // both datagrams in the same pass. Picking a letter and claiming it is a check-then-act on the
-    // drive namespace - a letter only disappears from GetLogicalDrives() once fuse_mount has taken
-    // it - so unserialised both threads pick the same one and the second mount dies with
-    // STATUS_OBJECT_NAME_COLLISION (c0000035). The lock therefore has to span the mount, not just
-    // the search, and is dropped again before fuse_loop.
-    static std::mutex driveLetterMutex;
-    std::unique_lock<std::mutex> driveLetterLock(driveLetterMutex);
+    // Held until this function returns, i.e. until the mount is torn down again.
+    DriveLetterReservation reservation;
+    reservation.letter = ReserveFreeDriveLetter();
 
-    char driveLetter = FindFreeDriveLetter();
+    char driveLetter = reservation.letter;
     if (!driveLetter)
     {
         qDebug() << "[Start] can't find a free drive letter";
@@ -463,6 +488,8 @@ static void StartImpl(VirtDisk *self, Connection *conn)
         return;
     }
     self->mountpoint = QString("%1:").arg(driveLetter).toStdString();
+    qDebug() << "[Start] mounting" << conn->machineName << "on" << self->mountpoint.c_str()
+             << "drives in use:" << Qt::hex << GetLogicalDrives();
 #else
     // Mount inside a hidden directory, never straight into the home directory. FUSEBackend
     // exports $HOME and its readdir skips dotfiles, so this keeps our own mounts of the other
@@ -499,11 +526,6 @@ static void StartImpl(VirtDisk *self, Connection *conn)
         fuse_opt_free_args(&args);
         return;
     }
-
-#if defined (_WIN32)
-    // The letter is ours now and visible to the next thread's GetLogicalDrives().
-    driveLetterLock.unlock();
-#endif
 
     if (fuse_set_signal_handlers(se) != 0)
     {
@@ -662,6 +684,21 @@ void VirtDisk::stop()
 #endif
 
     if (f) fuse_exit(f);
+
+#if defined(__linux__)
+    // fuse_exit only raises a flag, and fuse_loop is blocked in a read on /dev/fuse that will not
+    // look at it until the next filesystem request arrives - for a mount nobody is touching, that
+    // can be never. Unmounting is what actually wakes it: the kernel closes the channel and the
+    // read returns. macOS gets this for free because the helper is stopped with a signal, which
+    // interrupts the read; on Linux nobody sends one. Without this the mount lingers with a dead
+    // socket behind it (ls reports ECONNABORTED, since our handlers are still answering), the fuse
+    // thread never emits stopped(), and so the peer is never removed from connections - when it
+    // comes back its broadcast is ignored and it is never remounted.
+    if (!mountpoint.empty())
+    {
+        system(QString("fusermount3 -u %1").arg(mountpoint.c_str()).toStdString().c_str());
+    }
+#endif
 }
 
 void VirtDisk::unmount()
@@ -681,13 +718,23 @@ void VirtDisk::unmount()
 #endif
 
     if (f) fuse_exit(f);
+
+#if defined(__linux__)
+    // Before the join, never after. The join waits for fuse_loop to return, and on Linux the
+    // unmount is the only thing that makes it return - see stop(). Unmounting afterwards, as this
+    // used to, is a deadlock: we wait for a loop that is waiting for the unmount we have not done.
+    if (!mountpoint.empty())
+    {
+        system(QString("fusermount3 -u %1").arg(mountpoint.c_str()).toStdString().c_str());
+    }
+#endif
+
     if (thread.joinable()) thread.join();
 
 #if defined(__APPLE__)
     system(QString("diskutil unmount %1").arg(mountpoint.c_str()).toStdString().c_str());
     rmdir(mountpoint.c_str());
 #elif defined(__linux__)
-    system(QString("fusermount3 -u %1").arg(mountpoint.c_str()).toStdString().c_str());
     rmdir(mountpoint.c_str());
 #endif
 

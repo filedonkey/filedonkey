@@ -28,8 +28,11 @@
 #include <errno.h>
 #include <sys/time.h>
 
+#include <QCoreApplication>
+#include <QElapsedTimer>
 #include <QHostAddress>
 #include <QDir>
+#include <QProcess>
 #include <QTcpSocket>
 
 #if defined(__linux__) || defined(__APPLE__)
@@ -544,18 +547,123 @@ void VirtDisk::onSocketStateChanged(QAbstractSocket::SocketState socketState)
 
 void VirtDisk::mount(const QString &mountPoint)
 {
+#if defined(__APPLE__)
+    // fuse-t serialises every session in a process on one global mutex (darwin_read_lock) and
+    // holds it across the blocking receive, so whichever session reads first keeps it forever
+    // and a second mount here would never be served - it just hangs in Finder. Give each mount
+    // a process of its own. Only the mount moves out: discovery and the inbound server that
+    // answers this peer's requests stay here.
+    worker = new QProcess(this);
+    worker->setProgram(QCoreApplication::applicationFilePath());
+    worker->setArguments({"--mount",
+                          conn.machineId,
+                          conn.machineName,
+                          conn.machineAddress,
+                          QString::number(conn.machinePort)});
+
+    // Its stdout is the stats channel; its qDebug goes to stderr and joins ours.
+    worker->setProcessChannelMode(QProcess::ForwardedErrorChannel);
+
+    connect(worker, &QProcess::readyReadStandardOutput, this, &VirtDisk::onWorkerOutput);
+
+    connect(worker, &QProcess::finished, this, [this]() {
+        qDebug() << "[VirtDisk::mount] mount helper exited for:" << conn.machineName;
+        emit stopped();
+    });
+
+    // finished() never comes if the helper could not be launched at all, and without a stopped()
+    // our owner would keep this VirtDisk and its connections entry forever - the peer could then
+    // never be rediscovered. Report it as a stop like any other.
+    connect(worker, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart) return;
+        qDebug() << "[VirtDisk::mount] mount helper failed to start:" << worker->errorString();
+        emit stopped();
+    });
+
+    worker->start();
+#else
     thread = std::thread(Start, this, &conn);
+#endif
 }
+
+int VirtDisk::runMountWorker()
+{
+    // The parent has no socket of its own for this peer, so hand it our running totals for the
+    // UI. Throttled: FUSEClient reports on every request, and a write per FUSE call would sit
+    // right on the read path.
+    u64 up = 0, down = 0;
+    QElapsedTimer sinceReport;
+    sinceReport.start();
+
+    auto report = [&](bool force) {
+        if (!force && sinceReport.elapsed() < 250) return;
+        sinceReport.restart();
+        printf("@stats %llu %llu\n", (unsigned long long)up, (unsigned long long)down);
+        fflush(stdout);
+    };
+
+    connect(client, &FUSEClient::uploadedChanged,   this, [&](u64 value) { up = value;   report(false); });
+    connect(client, &FUSEClient::downloadedChanged, this, [&](u64 value) { down = value; report(false); });
+
+    Start(this, &conn);
+
+    // Before the lambdas' captures go out of scope.
+    disconnect(client, nullptr, this, nullptr);
+
+    report(true);
+
+    return 0;
+}
+
+#if defined(__APPLE__)
+void VirtDisk::onWorkerOutput()
+{
+    while (worker->canReadLine())
+    {
+        const QByteArray line = worker->readLine().trimmed();
+        if (!line.startsWith("@stats ")) continue;
+
+        const QList<QByteArray> parts = line.split(' ');
+        if (parts.size() != 3) continue;
+
+        client->setTransferred(parts[1].toULongLong(), parts[2].toULongLong());
+    }
+}
+#endif
 
 void VirtDisk::stop()
 {
     qDebug() << "[VirtDisk::stop] asking the fuse loop to exit";
+
+#if defined(__APPLE__)
+    // SIGTERM, which libfuse's own signal handler turns into a session exit - the helper then
+    // unmounts and cleans up on its way out, and we hear about it through finished().
+    if (worker)
+    {
+        if (worker->state() != QProcess::NotRunning) worker->terminate();
+        return;
+    }
+#endif
 
     if (f) fuse_exit(f);
 }
 
 void VirtDisk::unmount()
 {
+#if defined(__APPLE__)
+    if (worker)
+    {
+        if (worker->state() != QProcess::NotRunning)
+        {
+            worker->terminate();
+            if (!worker->waitForFinished(5000)) worker->kill();
+        }
+
+        // The helper unmounted and removed its own mount point; nothing left for us to do.
+        return;
+    }
+#endif
+
     if (f) fuse_exit(f);
     if (thread.joinable()) thread.join();
 

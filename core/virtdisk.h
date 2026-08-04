@@ -4,6 +4,7 @@
 #include "connection.h"
 #include "fuseclient.h"
 
+#include <QProcess>
 #include <QString>
 #include <QTcpSocket>
 
@@ -24,6 +25,11 @@ public:
     // that has not timed out yet. Wait for stopped() before destroying the VirtDisk.
     void stop();
 
+    // Runs the mount on the calling thread and returns once the fuse loop is done. This is what
+    // the macOS helper process does; see mount() for why that process exists. Elsewhere mount()
+    // runs the same code on a thread of its own and nothing calls this.
+    int runMountWorker();
+
     FUSEClient *client;
 
     QTcpSocket *socket = nullptr;
@@ -41,6 +47,14 @@ public slots:
 
 private:
     void unmount();
+
+#if defined(__APPLE__)
+    // Reads the transfer totals the helper reports on its stdout, so the UI counters keep
+    // working now that the socket doing the transferring lives in another process.
+    void onWorkerOutput();
+
+    QProcess *worker = nullptr;
+#endif
 
     QString mountPoint;
     Connection conn;

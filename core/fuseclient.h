@@ -32,6 +32,18 @@ public:
     // after fuse_loop returns, so no request can be in flight either side of a change.
     void setSocket(QTcpSocket *socket) { this->socket = socket; }
 
+    // On macOS the mount, and with it the socket doing the transferring, lives in a helper
+    // process. It reports its totals back and VirtDisk hands them to us, so the UI keeps seeing
+    // one set of counters per peer no matter which side of the process boundary the work is on.
+    void setTransferred(u64 uploaded, u64 downloaded)
+    {
+        this->uploaded = uploaded;
+        this->downloaded = downloaded;
+
+        emit uploadedChanged(this->uploaded);
+        emit downloadedChanged(this->downloaded);
+    }
+
     Ref<ReaddirResult>  FD_readdir(const char *path);
     Ref<ReadResult>     FD_read(const char *path, u64 size, i64 offset);
     Ref<StatusResult>   FD_write(const char *path, const char *buf, u64 size, i64 offset);

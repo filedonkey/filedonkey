@@ -60,7 +60,11 @@ private:
     // working now that the socket doing the transferring lives in another process.
     void onWorkerOutput();
 
+    // Asks the mount helper to come down. Runs at most once.
+    void terminateWorker();
+
     QProcess *worker = nullptr;
+    bool terminatedWorker = false;
 #endif
 
     QString mountPoint;

@@ -41,6 +41,15 @@
 #include <sys/mount.h>
 #endif
 
+#if defined(__linux__)
+#include <spawn.h>
+#include <sys/wait.h>
+
+// Declared by unistd.h only under a feature test macro, and _XOPEN_SOURCE above is set too late to
+// count - the C++ headers have pulled in features.h by then.
+extern char **environ;
+#endif
+
 #if defined (_WIN32)
 #include <fileapi.h>
 #include <winfsp_fuse.h>
@@ -413,6 +422,33 @@ struct DriveLetterReservation
 };
 #endif
 
+#if !defined(_WIN32)
+// Never through a shell: the last component of the mount point is the peer's machine name, and that
+// comes off a broadcast anyone on the network can send. system() would take a peer announcing
+// itself as "x; rm -rf ~" at its word.
+static void UnmountAt(const std::string &mountpoint)
+{
+#if defined(__APPLE__)
+    // What diskutil would end up calling anyway: fuse-t serves the volume over NFS, so there is no
+    // disk behind it for DiskArbitration to do anything more about. Doing it here instead of in a
+    // child process also keeps us clear of fuse-t's SIGCHLD handler, which swallows the exit
+    // notification QProcess::execute() waits on - that leaves the helper stuck on a zombie forever.
+    // Forced because every caller is on a teardown path and the far side is already gone.
+    unmount(mountpoint.c_str(), MNT_FORCE);
+#elif defined(__linux__)
+    // No syscall to use here: umount2() wants root, and fusermount3 is the setuid helper that lets
+    // whoever mounted it take it back down. Spawned directly, and reaped here rather than through
+    // QProcess, for the same reason as above.
+    const char *argv[] = {"fusermount3", "-u", mountpoint.c_str(), nullptr};
+
+    pid_t pid = 0;
+    if (posix_spawnp(&pid, argv[0], nullptr, nullptr, (char *const *)argv, environ) != 0) return;
+
+    waitpid(pid, nullptr, 0);
+#endif
+}
+#endif
+
 static void StartImpl(VirtDisk *self, Connection *conn)
 {
     self->socket = new QTcpSocket();
@@ -506,11 +542,7 @@ static void StartImpl(VirtDisk *self, Connection *conn)
     if (mntdir_rc == -1) {
         qDebug() << "[Start] could'n create a mountpoint directory";
 
-#if defined(__APPLE__)
-        system(QString("diskutil unmount %1").arg(self->mountpoint.c_str()).toStdString().c_str());
-#elif defined(__linux__)
-        system(QString("fusermount3 -u %1").arg(self->mountpoint.c_str()).toStdString().c_str());
-#endif
+        UnmountAt(self->mountpoint);
 
         rmdir(self->mountpoint.c_str());
         mkdir(self->mountpoint.c_str(), 0755);
@@ -667,6 +699,24 @@ void VirtDisk::onWorkerOutput()
         client->setTransferred(parts[1].toULongLong(), parts[2].toULongLong());
     }
 }
+
+// SIGTERM, which libfuse's own signal handler turns into a session exit - the helper then unmounts
+// and cleans up on its way out, and we hear about it through finished().
+//
+// Only ever once, though. That handler is uninstalled by fuse_remove_signal_handlers() the moment
+// the loop ends, which puts SIGTERM back on its default disposition, so a second one arrives as a
+// plain kill and takes the helper out in the middle of its teardown - before it has unmounted and
+// removed its own mount point, which is then left behind. Everyone who tears a VirtDisk down asks
+// twice or more: MainWindow calls stop() when the peer's socket drops and again from its
+// destructor, and unmount() has to ask too for the paths that never went through stop().
+void VirtDisk::terminateWorker()
+{
+    if (!worker || terminatedWorker) return;
+    if (worker->state() == QProcess::NotRunning) return;
+
+    terminatedWorker = true;
+    worker->terminate();
+}
 #endif
 
 void VirtDisk::stop()
@@ -674,11 +724,9 @@ void VirtDisk::stop()
     qDebug() << "[VirtDisk::stop] asking the fuse loop to exit";
 
 #if defined(__APPLE__)
-    // SIGTERM, which libfuse's own signal handler turns into a session exit - the helper then
-    // unmounts and cleans up on its way out, and we hear about it through finished().
     if (worker)
     {
-        if (worker->state() != QProcess::NotRunning) worker->terminate();
+        terminateWorker();
         return;
     }
 #endif
@@ -708,7 +756,7 @@ void VirtDisk::unmountLinux()
     if (mountpoint.empty() || unmountedLinux) return;
 
     unmountedLinux = true;
-    system(QString("fusermount3 -u %1").arg(mountpoint.c_str()).toStdString().c_str());
+    UnmountAt(mountpoint);
 }
 #endif
 
@@ -717,11 +765,11 @@ void VirtDisk::unmount()
 #if defined(__APPLE__)
     if (worker)
     {
-        if (worker->state() != QProcess::NotRunning)
-        {
-            worker->terminate();
-            if (!worker->waitForFinished(5000)) worker->kill();
-        }
+        terminateWorker();
+
+        // Give it room to unmount and remove its own mount point before we go; a kill here is a
+        // last resort, and it costs exactly the cleanup we are waiting for.
+        if (worker->state() != QProcess::NotRunning && !worker->waitForFinished(5000)) worker->kill();
 
         // The helper unmounted and removed its own mount point; nothing left for us to do.
         return;
@@ -741,7 +789,7 @@ void VirtDisk::unmount()
     if (thread.joinable()) thread.join();
 
 #if defined(__APPLE__)
-    system(QString("diskutil unmount %1").arg(mountpoint.c_str()).toStdString().c_str());
+    UnmountAt(mountpoint);
     rmdir(mountpoint.c_str());
 #elif defined(__linux__)
     rmdir(mountpoint.c_str());

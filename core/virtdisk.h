@@ -48,6 +48,13 @@ public slots:
 private:
     void unmount();
 
+#if defined(__linux__)
+    // Brings the mount down, which is also how a blocked fuse_loop is woken. Runs at most once.
+    void unmountLinux();
+
+    bool unmountedLinux = false;
+#endif
+
 #if defined(__APPLE__)
     // Reads the transfer totals the helper reports on its stdout, so the UI counters keep
     // working now that the socket doing the transferring lives in another process.

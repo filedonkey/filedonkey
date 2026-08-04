@@ -686,20 +686,31 @@ void VirtDisk::stop()
     if (f) fuse_exit(f);
 
 #if defined(__linux__)
-    // fuse_exit only raises a flag, and fuse_loop is blocked in a read on /dev/fuse that will not
-    // look at it until the next filesystem request arrives - for a mount nobody is touching, that
-    // can be never. Unmounting is what actually wakes it: the kernel closes the channel and the
-    // read returns. macOS gets this for free because the helper is stopped with a signal, which
-    // interrupts the read; on Linux nobody sends one. Without this the mount lingers with a dead
-    // socket behind it (ls reports ECONNABORTED, since our handlers are still answering), the fuse
-    // thread never emits stopped(), and so the peer is never removed from connections - when it
-    // comes back its broadcast is ignored and it is never remounted.
-    if (!mountpoint.empty())
-    {
-        system(QString("fusermount3 -u %1").arg(mountpoint.c_str()).toStdString().c_str());
-    }
+    unmountLinux();
 #endif
 }
+
+#if defined(__linux__)
+// fuse_exit only raises a flag, and fuse_loop is blocked in a read on /dev/fuse that will not look
+// at it until the next filesystem request arrives - for a mount nobody is touching, that can be
+// never. Unmounting is what actually wakes it: the kernel closes the channel and the read returns.
+// macOS gets this for free because the helper is stopped with a signal, which interrupts the read;
+// on Linux nobody sends one. Without it the mount lingers with a dead socket behind it (ls reports
+// ECONNABORTED, since our handlers are still answering), the fuse thread never emits stopped(),
+// and so the peer is never removed from connections - when it comes back its broadcast is ignored
+// and it is never remounted.
+//
+// Both stop() and unmount() need that wake-up and either can run first, so this only does it once:
+// asking fusermount3 to unmount a path that is already gone earns an /etc/mtab complaint on
+// stderr. Both callers are on the GUI thread, so the flag needs no guarding.
+void VirtDisk::unmountLinux()
+{
+    if (mountpoint.empty() || unmountedLinux) return;
+
+    unmountedLinux = true;
+    system(QString("fusermount3 -u %1").arg(mountpoint.c_str()).toStdString().c_str());
+}
+#endif
 
 void VirtDisk::unmount()
 {
@@ -721,12 +732,10 @@ void VirtDisk::unmount()
 
 #if defined(__linux__)
     // Before the join, never after. The join waits for fuse_loop to return, and on Linux the
-    // unmount is the only thing that makes it return - see stop(). Unmounting afterwards, as this
-    // used to, is a deadlock: we wait for a loop that is waiting for the unmount we have not done.
-    if (!mountpoint.empty())
-    {
-        system(QString("fusermount3 -u %1").arg(mountpoint.c_str()).toStdString().c_str());
-    }
+    // unmount is the only thing that makes it return - see unmountLinux(). Unmounting afterwards,
+    // as this used to, is a deadlock: we wait for a loop that is waiting for the unmount we have
+    // not done yet.
+    unmountLinux();
 #endif
 
     if (thread.joinable()) thread.join();

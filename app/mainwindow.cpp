@@ -24,6 +24,8 @@
 #define UDP_PORT    4545
 #define TCP_PORT    5454
 
+#define BROADCAST_INTERVAL_MS 5000
+
 using namespace std::placeholders;
 
 MainWindow::MainWindow(QWidget *parent)
@@ -33,6 +35,8 @@ MainWindow::MainWindow(QWidget *parent)
     , broadcaster(new QUdpSocket(this))
 {
     ui->setupUi(this);
+
+    machineId = QString::fromUtf8(QSysInfo::machineUniqueId());
 
     restoreAction = new QAction(tr("&Restore"), this);
     connect(restoreAction, &QAction::triggered, this, &QWidget::showNormal);
@@ -69,10 +73,22 @@ MainWindow::MainWindow(QWidget *parent)
         qDebug() << "[Server] Started on port: " << server->serverPort();
     }
 
-    broadcast();
-
+    // Bind before announcing ourselves, never after: a peer answers our broadcast with an invite
+    // straight away, and until this socket owns UDP_PORT that reply lands on a port nobody is
+    // listening on and is dropped.
     connect(broadcaster, SIGNAL(readyRead()), this, SLOT(onBroadcasting()));
     broadcaster->bind(UDP_PORT, QUdpSocket::ShareAddress);
+
+    // Keep announcing ourselves rather than doing it once at startup. A peer that is still tearing
+    // down its side of our previous session - exactly what it is doing when this app has just been
+    // restarted - still has us in its connections and ignores the first broadcast, and nothing
+    // makes it announce itself again either, so that peer would stay invisible for the rest of the
+    // session. Repeating also gives a mount that failed a chance to come back.
+    discoveryTimer = new QTimer(this);
+    connect(discoveryTimer, &QTimer::timeout, this, &MainWindow::broadcast);
+    discoveryTimer->start(BROADCAST_INTERVAL_MS);
+
+    broadcast();
 
     ui->statusbar->addWidget(ui->networkWidget);
 }
@@ -103,7 +119,7 @@ void MainWindow::broadcast()
     QJsonObject root;
     QJsonObject machine;
 
-    machine["id"]   = QSysInfo::machineUniqueId().constData();
+    machine["id"]   = machineId;
     machine["name"] = QSysInfo::machineHostName();
     machine["port"] = server->serverPort();
 
@@ -132,7 +148,7 @@ void MainWindow::invite(const QHostAddress &address)
     QJsonObject root;
     QJsonObject machine;
 
-    machine["id"]   = QSysInfo::machineUniqueId().constData();
+    machine["id"]   = machineId;
     machine["name"] = QSysInfo::machineHostName();
     machine["port"] = server->serverPort();
 
@@ -161,7 +177,16 @@ void MainWindow::onBroadcasting()
             .machinePort    = machine["port"].toInteger(),
         };
 
-        if (connections.contains(newConn.machineId)) return;
+        // Our own announcements come straight back to us - we are bound to the port we broadcast
+        // to, and ShareAddress lets them through - and without this we mount ourselves, handing
+        // our own exported home directory back to us on a drive letter. Ordering the bind after
+        // the first broadcast used to hide this; it stops working the moment we broadcast again.
+        if (newConn.machineId == machineId) continue;
+
+        // continue, not return: a peer we already know is the common case now that we re-broadcast,
+        // and returning here would abandon every datagram still queued behind this one - including
+        // the invite of a peer we have never seen.
+        if (connections.contains(newConn.machineId)) continue;
 
         qDebug() << "[MainWindow::onBroadcasting] machine id: "     << newConn.machineId;
         qDebug() << "[MainWindow::onBroadcasting] machine name: "   << newConn.machineName;

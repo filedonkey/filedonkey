@@ -17,6 +17,7 @@
 #include <QSystemTrayIcon>
 #include <QMenu>
 #include <QAction>
+#include <QTimer>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -77,7 +78,9 @@ private:
 
     QTcpServer     *server = nullptr;
     QUdpSocket     *broadcaster = nullptr;
+    QTimer         *discoveryTimer = nullptr;
 
+    QString machineId;      // our own, so we can tell our announcements from a peer's
     QMap<QString, Connection> connections;
     QMap<OperationType, RequestHandler> fuseHandlers;
 

@@ -450,12 +450,13 @@ static void StartImpl(VirtDisk *self, Connection *conn)
     }
     self->mountpoint = QString("%1:").arg(driveLetter).toStdString();
 #else
-    QString base = QDir::homePath();
-
-#if defined(__APPLE__)
-    base += "/.filedonkey";
+    // Mount inside a hidden directory, never straight into the home directory. FUSEBackend
+    // exports $HOME and its readdir skips dotfiles, so this keeps our own mounts of the other
+    // peers out of what we serve. Mounted at $HOME/<machineName> they were listed like ordinary
+    // folders, and a peer browsing our disk would walk into them - we would then proxy its reads
+    // on to the machine behind that mount, so the same file got read off two machines at once.
+    QString base = QDir::homePath() + "/.filedonkey";
     mkdir(base.toStdString().c_str(), 0755);
-#endif
 
     self->mountpoint = QString("%1/%2").arg(base).arg(conn->machineName).toStdString();
     qDebug() << "[Start] mountpoint directory:" << self->mountpoint.c_str();

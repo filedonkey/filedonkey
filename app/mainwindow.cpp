@@ -160,7 +160,6 @@ void MainWindow::invite(const QHostAddress &address)
 
 void MainWindow::onBroadcasting()
 {
-    qDebug() << "[MainWindow::onBroadcasting] Connected";
     while (broadcaster->hasPendingDatagrams())
     {
         QNetworkDatagram netDG = broadcaster->receiveDatagram();

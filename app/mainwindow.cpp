@@ -103,7 +103,20 @@ MainWindow::~MainWindow()
     delete broadcaster;
 
     // Signal them all first so they wind down in parallel; qDeleteAll then joins each in turn.
-    for (VirtDisk *virtDisk : std::as_const(virtDisks)) virtDisk->stop();
+    //
+    // Cut ourselves out of what they emit on the way past, both the VirtDisk and the client behind
+    // it. Deleting a VirtDisk runs its unmount(), which waits for the mount helper to exit, and
+    // that wait pumps the helper's pipes: its stdout arrives as onWorkerOutput() and reaches
+    // onUploaded(), which writes to a label ui no longer owns, and its finished() reaches
+    // onVirtDiskStopped(), which removes entries from the very map qDeleteAll is walking - the
+    // next step lands on a freed node. Neither has anything to do here: everything is going, not
+    // just the one peer that stopped.
+    for (VirtDisk *virtDisk : std::as_const(virtDisks))
+    {
+        disconnect(virtDisk, nullptr, this, nullptr);
+        disconnect(virtDisk->client, nullptr, this, nullptr);
+        virtDisk->stop();
+    }
 
     qDeleteAll(virtDisks);
     virtDisks.clear();

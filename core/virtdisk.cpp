@@ -10,6 +10,7 @@
 #include "tcpkeepalive.h"
 
 #include <cassert>
+#include <mutex>
 #include <thread>
 
 #define FUSE_USE_VERSION 31
@@ -442,6 +443,16 @@ static void StartImpl(VirtDisk *self, Connection *conn)
     struct fuse_session *se = fuse_get_session(self->f);
 
 #if defined (_WIN32)
+    // One mount thread per peer, and on startup they all begin within milliseconds of each other:
+    // our broadcast goes out, every peer answers with an invite, and onBroadcasting() often drains
+    // both datagrams in the same pass. Picking a letter and claiming it is a check-then-act on the
+    // drive namespace - a letter only disappears from GetLogicalDrives() once fuse_mount has taken
+    // it - so unserialised both threads pick the same one and the second mount dies with
+    // STATUS_OBJECT_NAME_COLLISION (c0000035). The lock therefore has to span the mount, not just
+    // the search, and is dropped again before fuse_loop.
+    static std::mutex driveLetterMutex;
+    std::unique_lock<std::mutex> driveLetterLock(driveLetterMutex);
+
     char driveLetter = FindFreeDriveLetter();
     if (!driveLetter)
     {
@@ -488,6 +499,11 @@ static void StartImpl(VirtDisk *self, Connection *conn)
         fuse_opt_free_args(&args);
         return;
     }
+
+#if defined (_WIN32)
+    // The letter is ours now and visible to the next thread's GetLogicalDrives().
+    driveLetterLock.unlock();
+#endif
 
     if (fuse_set_signal_handlers(se) != 0)
     {

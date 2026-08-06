@@ -13,16 +13,9 @@ macx {
 }
 
 SOURCES += \
-    fusebackend_linux.cpp \
-    fusebackend_macos.cpp \
-    fusebackend_win32.cpp \
+    fusebackend.cpp \
     fuseclient.cpp \
-    lstat_win32.cpp \
     posix_win32.cpp \
-    pread_win32.cpp \
-    pwrite_win32.cpp \
-    readlink_win32.cpp \
-    statvfs_win32.cpp \
     tcpkeepalive.cpp \
     virtdisk.cpp
 
@@ -32,12 +25,7 @@ HEADERS += \
     fusebackend.h \
     fusebackend_types.h \
     fuseclient.h \
-    lstat_win32.h \
     posix_win32.h \
-    pread_win32.h \
-    pwrite_win32.h \
-    readlink_win32.h \
-    statvfs_win32.h \
     tcpkeepalive.h \
     virtdisk.h
 

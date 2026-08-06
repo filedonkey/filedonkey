@@ -1,13 +1,43 @@
-#ifdef linux
+// One backend for every platform, in the shape of WinFsp's own passthrough example
+// (tst/passthrough-fuse3/passthrough-fuse3.c): the calls below are the real POSIX ones on Linux
+// and macOS, and on Windows they come from posix_win32.h. Past the include block this file has
+// no idea which it is talking to.
 
 #include "fusebackend.h"
 
+#include <errno.h>
+#include <string.h>
 #include <vector>
+
+#if defined(_WIN32)
+#include "posix_win32.h"
+#else
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#endif
+
+// The two structures lstat() and statvfs() fill have no name in common: they are native on Linux
+// and macOS, and on Windows they are WinFsp's own, because Windows has nothing to be native to.
+// One local name for each is what lets the bodies below stay identical.
+#if defined(_WIN32)
+typedef struct fuse_stat    fd_stat;
+typedef struct fuse_statvfs fd_statvfs;
+#else
+typedef struct stat         fd_stat;
+typedef struct statvfs      fd_statvfs;
+#endif
+
+#if defined(__APPLE__)
+#include <sys/mount.h>
+#else
+// macOS spells the nanosecond stat fields st_*timespec; Linux and WinFsp spell them st_*tim.
+#define st_atimespec st_atim
+#define st_mtimespec st_mtim
+#define st_ctimespec st_ctim
+#endif
 
 Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 {
@@ -15,27 +45,31 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 
     Ref<ReaddirResult> result = MakeRef<ReaddirResult>();
 
-    std::vector<FindData> findDataList;
-    DIR *dp;
-    struct dirent *de;
-
-    dp = opendir(absolutePath.c_str());
+    DIR *dp = opendir(absolutePath.c_str());
     if (dp == NULL)
     {
         result->status = -errno;
         return result;
     }
 
+    std::vector<FindData> findDataList;
+
+    struct dirent *de;
     while ((de = readdir(dp)) != NULL)
     {
         if (de->d_name[0] == '.') continue;
+
+        // FindData::name is a fixed buffer, and a name that does not fit is skipped rather than
+        // truncated - half a name is a file the peer cannot open.
+        size_t nameLength = strlen(de->d_name);
+        if (nameLength >= sizeof(FindData::name)) continue;
 
         FindData &findData = findDataList.emplace_back();
         memset(&findData, 0, sizeof(FindData));
 
         findData.st_ino = de->d_ino;
-        findData.st_mode = de->d_type << 12;
-        memcpy(findData.name, de->d_name, strlen(de->d_name));
+        findData.st_mode = de->d_type << 12; // DT_* shifted up is the matching S_IF* file type
+        memcpy(findData.name, de->d_name, nameLength);
     }
 
     closedir(dp);
@@ -99,7 +133,7 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
 
     Ref<StatfsResult> result = MakeRef<StatfsResult>();
 
-    struct statvfs stbuf;
+    fd_statvfs stbuf;
 
     int res = statvfs(absolutePath.c_str(), &stbuf);
     if (res == -1)
@@ -107,7 +141,6 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
         result->status = -errno;
         return result;
     }
-
 
     result->f_bsize = stbuf.f_bsize;
     result->f_frsize = stbuf.f_frsize;
@@ -121,6 +154,13 @@ Ref<StatfsResult> FUSEBackend::FD_statfs(const char *path)
     result->f_flag = stbuf.f_flag;
     result->f_namemax = stbuf.f_namemax;
 
+#if defined(__APPLE__)
+    // statvfs on macOS reports f_bsize as the preferred I/O size rather than the allocation
+    // block, which does not agree with the block counts above. statfs has the real one.
+    struct statfs stfsbuf;
+    if (statfs(absolutePath.c_str(), &stfsbuf) != -1) result->f_bsize = stfsbuf.f_bsize;
+#endif
+
     return result;
 }
 
@@ -130,7 +170,7 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
 
     Ref<GetattrResult> result = MakeRef<GetattrResult>();
 
-    struct stat stbuf;
+    fd_stat stbuf;
 
     int res = lstat(absolutePath.c_str(), &stbuf);
     if (res == -1)
@@ -138,7 +178,6 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
         result->status = -errno;
         return result;
     }
-
 
     result->st_dev = stbuf.st_dev;
     result->st_ino = stbuf.st_ino;
@@ -150,12 +189,12 @@ Ref<GetattrResult> FUSEBackend::FD_getattr(const char *path)
     result->st_size = stbuf.st_size;
     result->st_blksize = stbuf.st_blksize;
     result->st_blocks = stbuf.st_blocks;
-    result->st_atim.tv_sec = stbuf.st_atim.tv_sec;
-    result->st_atim.tv_nsec = stbuf.st_atim.tv_nsec;
-    result->st_mtim.tv_sec = stbuf.st_mtim.tv_sec;
-    result->st_mtim.tv_nsec = stbuf.st_mtim.tv_nsec;
-    result->st_ctim.tv_sec = stbuf.st_ctim.tv_sec;
-    result->st_ctim.tv_nsec = stbuf.st_ctim.tv_nsec;
+    result->st_atim.tv_sec = stbuf.st_atimespec.tv_sec;
+    result->st_atim.tv_nsec = stbuf.st_atimespec.tv_nsec;
+    result->st_mtim.tv_sec = stbuf.st_mtimespec.tv_sec;
+    result->st_mtim.tv_nsec = stbuf.st_mtimespec.tv_nsec;
+    result->st_ctim.tv_sec = stbuf.st_ctimespec.tv_sec;
+    result->st_ctim.tv_nsec = stbuf.st_ctimespec.tv_nsec;
 
     return result;
 }
@@ -176,13 +215,13 @@ Ref<StatusResult> FUSEBackend::FD_write(const char *path, const char *buf, u64 s
     int res = pwrite(fd, buf, size, offset);
     if (res == -1)
     {
-        result->status = -errno;
         close(fd);
+        result->status = -errno;
         return result;
     }
 
-    result->status = res;
     close(fd);
+    result->status = res;
     return result;
 }
 
@@ -190,15 +229,16 @@ Ref<StatusResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
 {
     auto absolutePath = normalizePath(path);
 
+    // The flags are not usable: O_CREAT is 0x40 on Linux, 0x200 on macOS and 0x100 on Windows,
+    // and this number was chosen by whichever peer asked. Read literally, a macOS peer's create
+    // arrives on Linux as O_RDWR|O_TRUNC|O_NONBLOCK and quietly does not create anything. What
+    // was meant is the same on every platform, so say it here instead.
+    (void)flags;
+
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
-    qDebug() << "[FUSEBackend::FD_create] flags:" << flags;
-    qDebug() << "[FUSEBackend::FD_create] mode:" << mode;
-
-    int fd = open(absolutePath.c_str(), flags, mode);
-
-    qDebug() << "[FUSEBackend::FD_create] fd:" << fd;
-
+    // The file type bits travel with the mode; open() wants only the permissions.
+    int fd = open(absolutePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC, mode & 0777);
     if (fd == -1)
     {
         result->status = -errno;
@@ -248,8 +288,6 @@ Ref<StatusResult> FUSEBackend::FD_mkdir(const char *path, u32 mode)
 
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
-    qDebug() << "[FUSEBackend::FD_mkdir] mode:" << mode;
-
     int res = mkdir(absolutePath.c_str(), mode);
     if (res == -1)
     {
@@ -291,5 +329,3 @@ Ref<StatusResult> FUSEBackend::FD_truncate(const char *path, i64 size)
 
     return result;
 }
-
-#endif

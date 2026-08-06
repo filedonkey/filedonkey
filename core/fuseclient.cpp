@@ -64,6 +64,12 @@ Ref<StatusResult> FUSEClient::FD_write(const char *path, const char *buf, u64 si
 
     qDebug() << "[FUSEClient::FD_write] incoming result status:" << result->status;
 
+    // Every other operation that changes the disk drops the cache; a write changes it too. Left
+    // in, the cached getattr keeps reporting the size the file had up to fifteen seconds ago -
+    // zero, for a file just created - and an append seeks to that stale end and overwrites the
+    // beginning of the file instead of adding to it.
+    netCache.clear();
+
     return result;
 }
 

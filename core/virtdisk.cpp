@@ -494,6 +494,15 @@ static void StartImpl(VirtDisk *self, Connection *conn)
         "-o", mount_name_option.data(),
         "-o", "subtype=filedonkey",
         "-o", "auto_cache"
+#if defined (_WIN32)
+        // Own every file as whoever is logged in here. Without this WinFsp maps the peer's own
+        // uid and gid - 501 and 20 off a Mac - onto SIDs that are nobody on this machine, so the
+        // user matches only the "other" triple. WinFsp grants that triple FILE_WRITE_DATA but not
+        // FILE_WRITE_EA, and GENERIC_WRITE asks for both, so every editor that opens a file for
+        // writing the ordinary way is refused before the request ever reaches us. The owner ACE
+        // does carry FILE_WRITE_EA; this is what makes us the owner.
+        ,"-o", "uid=-1,gid=-1"
+#endif
     };
 
     int argc = sizeof(argv) / sizeof(argv[0]);

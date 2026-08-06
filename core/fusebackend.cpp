@@ -68,7 +68,14 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
         memset(&findData, 0, sizeof(FindData));
 
         findData.st_ino = de->d_ino;
-        findData.st_mode = de->d_type << 12; // DT_* shifted up is the matching S_IF* file type
+
+        // DT_* shifted up is the matching S_IF* file type. The permission bits have to be here
+        // too, and have to agree with FD_getattr: virtdisk's fd_readdir hands this mode to
+        // filler() with FUSE_FILL_DIR_PLUS, so the client caches it as the file's real
+        // attributes, and WinFsp and fuse-t both build their access checks out of it. A bare
+        // file type is mode 000 - the peer sees a disk it may not read or write.
+        findData.st_mode = (de->d_type << 12) | 0777;
+
         memcpy(findData.name, de->d_name, nameLength);
     }
 
@@ -237,8 +244,14 @@ Ref<StatusResult> FUSEBackend::FD_create(const char *path, u32 mode, i32 flags)
 
     Ref<StatusResult> result = MakeRef<StatusResult>();
 
+    // No O_TRUNC. A create that lands on a file which is already there must leave its contents
+    // alone: an editor saving through us can ask to create the file it is saving, and emptying it
+    // first means the save has destroyed the document before it writes a byte. This is what
+    // master did on Windows too - _wopen(O_CREAT|O_WRONLY) is CreateFileW's OPEN_ALWAYS, which
+    // does not truncate.
+    //
     // The file type bits travel with the mode; open() wants only the permissions.
-    int fd = open(absolutePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC, mode & 0777);
+    int fd = open(absolutePath.c_str(), O_CREAT | O_WRONLY, mode & 0777);
     if (fd == -1)
     {
         result->status = -errno;

@@ -15,6 +15,7 @@ macx {
 SOURCES += \
     fusebackend.cpp \
     fuseclient.cpp \
+    localnode.cpp \
     posix_win32.cpp \
     tcpkeepalive.cpp \
     virtdisk.cpp
@@ -25,6 +26,7 @@ HEADERS += \
     fusebackend.h \
     fusebackend_types.h \
     fuseclient.h \
+    localnode.h \
     posix_win32.h \
     tcpkeepalive.h \
     virtdisk.h

@@ -103,8 +103,8 @@ QToolButton#closeBtn {
  * 7px rather than 8 - the bar's radius measured inside its 1px border. */
 QToolButton#closeBtn { border-top-right-radius: 7px; }
 
-QToolButton#minimiseBtn:hover   { background: #2A2C31; color: #E8E9EC; }
-QToolButton#minimiseBtn:pressed { background: #2F3238; }
+QToolButton#minimiseBtn:hover   { background: #2F3238; color: #E8E9EC; }
+QToolButton#minimiseBtn:pressed { background: #2A2C31; color: #8D929A; }
 
 /* Maximise is present but dead - the window is a fixed size. It has to read as
  * unavailable at a glance rather than as a button that did nothing when
@@ -119,7 +119,7 @@ QToolButton#maximiseBtn:disabled {
 
 /* The one place the error red earns its keep so far. */
 QToolButton#closeBtn:hover   { background: #C42B1C; color: #FFFFFF; }
-QToolButton#closeBtn:pressed { background: #B2271A; color: #FFFFFF; }
+QToolButton#closeBtn:pressed { background: #B2271A; color: #b0b3b9; }
 
 /* ---------------------------------------------------------------- status bar */
 

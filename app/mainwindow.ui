@@ -55,14 +55,14 @@
      <item>
       <widget class="QLabel" name="uploadedLbl">
        <property name="text">
-        <string>⬆️ 0 bytes</string>
+        <string>↑ 0 bytes</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QLabel" name="downloadedLbl">
        <property name="text">
-        <string>⬇️ 0 bytes</string>
+        <string>↓ 0 bytes</string>
        </property>
       </widget>
      </item>

@@ -1,0 +1,200 @@
+/* FileDonkey - dark skin.
+ *
+ * Palette taken from the design mockups:
+ *
+ *   #1E1F22  panel / window          #E8E9EC  text, primary
+ *   #191A1D  deeper surfaces         #C7CBD1  text, bright secondary
+ *   #141518  deepest                 #A9AEB6  text, secondary
+ *   #26282C  rows, raised            #8D929A  text, muted
+ *   #2A2C31  hover                   #7E838B  text, micro-labels
+ *   #2F3238  controls                #5F646C  text, disabled
+ *   #34363B  borders, raised
+ *   #2B2D31  borders, hairline       #4EC97A  mounted   (unused so far)
+ *                                    #E0A33C  busy      (unused so far)
+ *                                    #E0564C  error     (unused so far)
+ *
+ * The accent three are listed for when there is a device list to put them on.
+ * Nothing in the current window has state to show, so nothing uses them yet.
+ */
+
+/* Type and colour for everything. Deliberately no background here: a bare
+ * QWidget background rule paints over every child widget in the app. */
+QWidget {
+    color: #E8E9EC;
+    font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif;
+    font-size: 13px;
+}
+
+/* The window frame is drawn by the three widgets stacked inside it, not by the
+ * window: #titleBar owns the top two corners, QStatusBar the bottom two, and
+ * #centralwidget the straight run between them. Each carries the same 1px
+ * #34363B outline down its own outer edges so the three read as one border.
+ *
+ * QMainWindow itself must paint nothing - it is translucent (see
+ * WA_TranslucentBackground in MainWindow) and any fill here would put the
+ * square corners straight back. */
+
+QMainWindow {
+    background: transparent;
+}
+
+/* The shadow caster. Never seen directly - the title bar, the content and the
+ * status bar cover it - so the only thing that matters here is that its shape
+ * matches theirs, or the blur it throws would not follow the frame's corners.
+ * The fill is the corner colour, so a rounding difference of a pixel at the
+ * radius reads as the frame rather than as a seam. */
+
+QWidget#windowShadow {
+    background: #191A1D;
+    border-radius: 8px;
+}
+
+QMainWindow > QWidget#centralwidget {
+    background: #1E1F22;
+    border-left: 1px solid #34363B;
+    border-right: 1px solid #34363B;
+}
+
+/* ----------------------------------------------------------------- title bar
+ * Same two tokens as the status bar, so the window is bookended by them. The
+ * native title bar is off - see Qt::FramelessWindowHint in MainWindow - and
+ * this sits in the slot the (empty) menu bar used to have. */
+
+QWidget#titleBar {
+    background: #191A1D;
+    border-top: 1px solid #34363B;
+    border-left: 1px solid #34363B;
+    border-right: 1px solid #34363B;
+    border-bottom: 1px solid #2B2D31;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+QLabel#titleBarTitle {
+    color: #A9AEB6;
+    font-size: 12px;
+}
+
+/* Size comes from the layout, not from here - see captionButton() in
+ * titlebar.cpp. Square, flush and full height, the way Windows draws them, so
+ * the hover fill runs the whole button rather than floating inside it. */
+
+QToolButton#minimiseBtn,
+QToolButton#maximiseBtn,
+QToolButton#closeBtn {
+    background: transparent;
+    border: none;
+
+    /* Full height means these run over the bar's own top border and bottom
+     * hairline, so a hover fill would otherwise punch a 46px hole in the
+     * window's outline. Carrying the same two lines themselves closes it. */
+    border-top: 1px solid #34363B;
+    border-bottom: 1px solid #2B2D31;
+
+    border-radius: 0px;
+    padding: 0px;
+    padding-bottom: 6px;
+    color: #8D929A;
+    font-size: 22px;
+}
+
+/* The one exception: this button's outer corner is the window's, so its hover
+ * fill has to follow the same curve or it squares the corner off on hover.
+ * 7px rather than 8 - the bar's radius measured inside its 1px border. */
+QToolButton#closeBtn { border-top-right-radius: 7px; }
+
+QToolButton#minimiseBtn:hover   { background: #2A2C31; color: #E8E9EC; }
+QToolButton#minimiseBtn:pressed { background: #2F3238; }
+
+/* Maximise is present but dead - the window is a fixed size. It has to read as
+ * unavailable at a glance rather than as a button that did nothing when
+ * clicked, so the glyph drops to the disabled grey used for dead menu entries.
+ * No hover or pressed rule: Qt sends neither to a disabled widget, and a
+ * highlight here would be the exact wrong signal anyway. */
+
+QToolButton#maximiseBtn:disabled {
+    color: #4A4E55;
+    background: transparent;
+}
+
+/* The one place the error red earns its keep so far. */
+QToolButton#closeBtn:hover   { background: #C42B1C; color: #FFFFFF; }
+QToolButton#closeBtn:pressed { background: #B2271A; color: #FFFFFF; }
+
+/* ---------------------------------------------------------------- status bar */
+
+QStatusBar {
+    background: #191A1D;
+    border-top: 1px solid #2B2D31;
+    border-left: 1px solid #34363B;
+    border-right: 1px solid #34363B;
+    border-bottom: 1px solid #34363B;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    min-height: 30px;
+}
+
+/* Without this every widget added to the bar gets a sunken 3D frame drawn
+ * around it by the native style. */
+QStatusBar::item { border: 0px; }
+
+/* -------------------------------------------------- the network strip itself
+ * "Network:" is the design's micro-label treatment - small, muted, semibold.
+ * The two counters are the stat-value treatment: mono digits on a raised chip
+ * so the numbers stop shifting the layout as they change width. */
+
+QLabel#networkLbl {
+    color: #7E838B;
+    font-size: 11px;
+    font-weight: 600;
+    padding-right: 2px;
+}
+
+QLabel#uploadedLbl,
+QLabel#downloadedLbl {
+    color: #E8E9EC;
+    font-family: "Inconsolata", "Cascadia Mono", Consolas, monospace;
+    font-size: 12px;
+    /* background: #26282C;
+    border: 1px solid #2F3238;
+    border-radius: 6px; */
+    padding: 2px 8px;
+}
+
+/* --------------------------------------------------------- tray context menu */
+
+QMenu {
+    background: #1E1F22;
+    border: 1px solid #34363B;
+    border-radius: 8px;
+    padding: 6px;
+}
+
+QMenu::item {
+    background: transparent;
+    color: #E8E9EC;
+    padding: 7px 30px 7px 12px;
+    border-radius: 6px;
+    margin: 1px 2px;
+}
+
+QMenu::item:selected { background: #2A2C31; }
+QMenu::item:disabled { color: #5F646C; }
+
+QMenu::separator {
+    height: 1px;
+    background: #2B2D31;
+    margin: 5px 8px;
+}
+
+/* -------------------------------------------------------------------- tooltip
+ * The tray icon has one ("FileDonkey"), and it is a top-level window of its
+ * own, so it needs styling here or it stays system-default. */
+
+QToolTip {
+    background: #26282C;
+    color: #E8E9EC;
+    border: 1px solid #34363B;
+    border-radius: 6px;
+    padding: 4px 8px;
+}

@@ -3,6 +3,7 @@
 
 #include "core.h"
 #include "localnode.h"
+#include "titlebar.h"
 
 #include <QMainWindow>
 #include <QSystemTrayIcon>
@@ -25,6 +26,7 @@ public:
 
 protected:
     void changeEvent(QEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 public slots:
     void onUpgradeToPro();
@@ -41,6 +43,9 @@ private:
     QAction         *upgradeToProAction;
     QSystemTrayIcon *trayIcon;
     QMenu           *trayIconMenu;
+
+    TitleBar        *titleBar = nullptr;
+    QWidget         *shadowLayer = nullptr;
 
     LocalNode       *node = nullptr;
 };

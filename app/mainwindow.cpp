@@ -144,13 +144,13 @@ void MainWindow::onUpgradeToPro()
 void MainWindow::onUploaded(u64 uploaded)
 {
     QLocale locale(QLocale::English, QLocale::UnitedStates);
-    this->ui->uploadedLbl->setText(QString("⬆️ %1").arg(locale.formattedDataSize(uploaded)));
+    this->ui->uploadedLbl->setText(QString("↑ %1").arg(locale.formattedDataSize(uploaded)));
 }
 
 void MainWindow::onDownloaded(u64 downloaded)
 {
     QLocale locale(QLocale::English, QLocale::UnitedStates);
-    this->ui->downloadedLbl->setText(QString("⬇️ %1").arg(locale.formattedDataSize(downloaded)));
+    this->ui->downloadedLbl->setText(QString("↓️ %1").arg(locale.formattedDataSize(downloaded)));
 }
 
 void MainWindow::createTrayIcon()

@@ -4,5 +4,11 @@
         <file>assets/filedonkey_tray_icon_light.ico</file>
         <file>assets/filedonkey_tray_icon_dark.ico</file>
         <file>assets/filedonkey.qss</file>
+        <file>assets/caption_minimise.svg</file>
+        <file>assets/caption_minimise_hover.svg</file>
+        <file>assets/caption_maximise.svg</file>
+        <file>assets/caption_close.svg</file>
+        <file>assets/caption_close_hover.svg</file>
+        <file>assets/caption_close_pressed.svg</file>
     </qresource>
 </RCC>

@@ -77,7 +77,12 @@ QLabel#titleBarTitle {
 
 /* Size comes from the layout, not from here - see captionButton() in
  * titlebar.cpp. Square, flush and full height, the way Windows draws them, so
- * the hover fill runs the whole button rather than floating inside it. */
+ * the hover fill runs the whole button rather than floating inside it.
+ *
+ * Only the fills live here. The glyphs are SVG icons, one file per state under
+ * assets/caption_*.svg, and an icon does not take its colour from `color:` -
+ * so the greys below are backgrounds, and the marks drawn on top of them are
+ * coloured in the files. The two palettes have to be read together. */
 
 QToolButton#minimiseBtn,
 QToolButton#maximiseBtn,
@@ -93,9 +98,6 @@ QToolButton#closeBtn {
 
     border-radius: 0px;
     padding: 0px;
-    padding-bottom: 6px;
-    color: #8D929A;
-    font-size: 22px;
 }
 
 /* The one exception: this button's outer corner is the window's, so its hover
@@ -103,23 +105,19 @@ QToolButton#closeBtn {
  * 7px rather than 8 - the bar's radius measured inside its 1px border. */
 QToolButton#closeBtn { border-top-right-radius: 7px; }
 
-QToolButton#minimiseBtn:hover   { background: #2F3238; color: #E8E9EC; }
-QToolButton#minimiseBtn:pressed { background: #2A2C31; color: #8D929A; }
+QToolButton#minimiseBtn:hover   { background: #2F3238; }
+QToolButton#minimiseBtn:pressed { background: #2A2C31; }
 
 /* Maximise is present but dead - the window is a fixed size. It has to read as
  * unavailable at a glance rather than as a button that did nothing when
- * clicked, so the glyph drops to the disabled grey used for dead menu entries.
- * No hover or pressed rule: Qt sends neither to a disabled widget, and a
- * highlight here would be the exact wrong signal anyway. */
-
-QToolButton#maximiseBtn:disabled {
-    color: #4A4E55;
-    background: transparent;
-}
+ * clicked, so its glyph is drawn in the disabled grey used for dead menu
+ * entries (#4A4E55, in caption_maximise.svg). Nothing to set here: the button
+ * keeps the transparent background above, and Qt sends a disabled widget
+ * neither hover nor pressed, which is what we want anyway. */
 
 /* The one place the error red earns its keep so far. */
-QToolButton#closeBtn:hover   { background: #C42B1C; color: #FFFFFF; }
-QToolButton#closeBtn:pressed { background: #B2271A; color: #b0b3b9; }
+QToolButton#closeBtn:hover   { background: #C42B1C; }
+QToolButton#closeBtn:pressed { background: #B2271A; }
 
 /* ---------------------------------------------------------------- status bar */
 

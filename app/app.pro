@@ -1,4 +1,7 @@
-QT       += core gui network
+# svg is here for the title bar's caption glyphs - see titlebar.cpp. It brings in the qsvgicon
+# engine plugin, without which QIcon returns an empty pixmap for a .svg and the buttons come up
+# blank rather than failing loudly.
+QT       += core gui network svg
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 

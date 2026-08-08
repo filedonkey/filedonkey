@@ -161,6 +161,44 @@ QLabel#downloadedLbl {
     padding: 2px 8px;
 }
 
+/* --------------------------------------------------------------- dialogs
+ * The no-tray close dialog is the only one so far. It needs styling rather
+ * than being left native: the QWidget rule at the top of this file already
+ * gives every label in it near-white text, so without a dark background here
+ * it would be pale text on the system's pale dialog.
+ *
+ * The frame stays native - a modal dialog with the system's own title bar is
+ * the right thing, and it is the only window in the app that has one. */
+
+QDialog, QMessageBox {
+    background: #1E1F22;
+}
+
+QMessageBox QLabel {
+    color: #E8E9EC;
+    background: transparent;
+}
+
+QPushButton {
+    background: #2F3238;
+    border: 1px solid #34363B;
+    border-radius: 6px;
+    color: #E8E9EC;
+    padding: 6px 16px;
+    min-width: 80px;
+}
+
+QPushButton:hover   { background: #34363B; }
+QPushButton:pressed { background: #26282C; }
+
+/* The default button is the safe one here (Hide), so it gets the emphasis. */
+QPushButton:default { border-color: #5F646C; }
+
+/* And the one that loses work gets the error red, but only on the way to
+ * being pressed - unarmed it sits with its neighbours. */
+QPushButton#dialogQuitBtn:hover   { background: #C42B1C; border-color: #C42B1C; color: #FFFFFF; }
+QPushButton#dialogQuitBtn:pressed { background: #B2271A; border-color: #B2271A; color: #FFFFFF; }
+
 /* --------------------------------------------------------- tray context menu */
 
 QMenu {

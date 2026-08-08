@@ -11,10 +11,12 @@ CONFIG += c++20
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
+    singleinstance.cpp \
     titlebar.cpp \
 
 HEADERS += \
     mainwindow.h \
+    singleinstance.h \
     titlebar.h \
 
 INCLUDEPATH += ../core

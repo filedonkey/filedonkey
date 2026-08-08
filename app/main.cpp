@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "singleinstance.h"
 #include "virtdisk.h"
 
 #include <QApplication>
@@ -73,6 +74,19 @@ int main(int argc, char *argv[])
 
     QApplication a(argc, argv);
 
+    // QSettings reads these; without them it files everything under an "Unknown Organization"
+    // that moves the moment the binary is renamed.
+    QCoreApplication::setOrganizationName("FileDonkey");
+    QCoreApplication::setApplicationName("FileDonkey");
+
+    // After the --mount branch above, deliberately: the mount helper is meant to run many at once,
+    // one per peer, and is not the instance this guards.
+    SingleInstance instance;
+    if (!instance.claim())
+    {
+        return 0;
+    }
+
 #if !defined(_WIN32)
     // Only the GUI process: the mount helper above already has libfuse's own handlers, installed
     // by fuse_set_signal_handlers(), and they are what a terminate() from here relies on.
@@ -91,9 +105,11 @@ int main(int argc, char *argv[])
 
     // QLoggingCategory::defaultCategory()->setEnabled(QtDebugMsg, false);
 
-    // QApplication::setQuitOnLastWindowClosed(false);
-
     MainWindow w;
+
+    // A second start hands its job to us rather than running: bring the window back for it.
+    QObject::connect(&instance, &SingleInstance::showRequested, &w, &MainWindow::restoreWindow);
+
     w.show();
     return a.exec();
 }

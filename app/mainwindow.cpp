@@ -2,11 +2,15 @@
 #include "ui_mainwindow.h"
 
 #include <QApplication>
+#include <QCloseEvent>
 #include <QDesktopServices>
 #include <QFile>
 #include <QGraphicsDropShadowEffect>
 #include <QLocale>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QResizeEvent>
+#include <QSettings>
 #include <QStyleHints>
 #include <QUrl>
 
@@ -100,8 +104,29 @@ MainWindow::MainWindow(QWidget *parent)
     microLabel.setLetterSpacing(QFont::AbsoluteSpacing, 0.5);
     ui->networkLbl->setFont(microLabel);
 
+    // Asked once, before anything decides what closing the window should mean.
+    trayAvailable = QSystemTrayIcon::isSystemTrayAvailable();
+    qDebug() << "[MainWindow] system tray available:" << trayAvailable;
+
+    // Closing a window never ends the application on its own - closeEvent() decides, and only it.
+    // Hiding the last window would otherwise be indistinguishable from closing it, and the Hide
+    // the no-tray dialog offers would quit instead.
+    qApp->setQuitOnLastWindowClosed(false);
+
     restoreAction = new QAction(tr("&Restore"), this);
-    connect(restoreAction, &QAction::triggered, this, &QWidget::showNormal);
+    connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreWindow);
+
+#if defined(Q_OS_MACOS)
+    // Clicking the Dock icon of an app with no window open should bring the window back, the way
+    // every mac app behaves. Qt surfaces that as the application going active - only act on it
+    // while the window is actually away, or every Cmd-Tab would yank it to the front.
+    connect(qApp, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) {
+        if (state == Qt::ApplicationActive && isHidden())
+        {
+            restoreWindow();
+        }
+    });
+#endif
 
     quitAction = new QAction(tr("&Quit"), this);
     connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
@@ -151,6 +176,94 @@ void MainWindow::onDownloaded(u64 downloaded)
 {
     QLocale locale(QLocale::English, QLocale::UnitedStates);
     this->ui->downloadedLbl->setText(QString("↓️ %1").arg(locale.formattedDataSize(downloaded)));
+}
+
+void MainWindow::restoreWindow()
+{
+    // showNormal() on its own leaves a hidden window behind whatever has focus, and a minimised
+    // one comes back minimised. Clearing the state first, then all three calls, is what actually
+    // puts it in front on every platform.
+    setWindowState((windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
+
+    show();
+    raise();
+    activateWindow();
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    // Always refused. Whether the application lives on is decided below and acted on directly,
+    // never by letting the close through and hoping it does the right thing.
+    event->ignore();
+
+    if (trayAvailable)
+    {
+        // The node keeps running, mounts and all, and the tray is how it stays reachable.
+        hide();
+        announceStillRunning();
+        return;
+    }
+
+    switch (askWhatCloseMeans())
+    {
+        case CloseChoice::Cancel:
+            break;
+
+        case CloseChoice::Hide:
+            hide();
+            break;
+
+        case CloseChoice::Quit:
+            qApp->quit();
+            break;
+    }
+}
+
+MainWindow::CloseChoice MainWindow::askWhatCloseMeans()
+{
+    QMessageBox box(this);
+    box.setIcon(QMessageBox::Warning);
+    box.setWindowTitle(tr("FileDonkey"));
+    box.setText(tr("Close the window, or quit FileDonkey?"));
+    box.setInformativeText(tr(
+        "There is no system tray on this desktop, so FileDonkey has nowhere to sit while it runs.\n\n"
+        "Quitting unmounts every connected device and drops all connections.\n\n"
+        "Hiding keeps them running. Start FileDonkey again to bring this window back."));
+
+    // AcceptRole and DestructiveRole rather than fixed positions: each platform orders its
+    // buttons its own way, and the roles are what let it.
+    QPushButton *hideButton = box.addButton(tr("Hide"), QMessageBox::AcceptRole);
+    QPushButton *quitButton = box.addButton(tr("Quit"), QMessageBox::DestructiveRole);
+    QPushButton *cancelButton = box.addButton(QMessageBox::Cancel);
+
+    // Named so the stylesheet can pick it out and give it the error red - it is the one button
+    // here that loses work.
+    quitButton->setObjectName("dialogQuitBtn");
+
+    box.setDefaultButton(hideButton);
+    box.setEscapeButton(cancelButton);
+
+    box.exec();
+
+    if (box.clickedButton() == quitButton) return CloseChoice::Quit;
+    if (box.clickedButton() == hideButton) return CloseChoice::Hide;
+
+    // Covers Cancel, Escape, and the window being dismissed by the desktop.
+    return CloseChoice::Cancel;
+}
+
+void MainWindow::announceStillRunning()
+{
+    QSettings settings;
+    if (settings.value("tray/closeNoticeShown", false).toBool()) return;
+
+    trayIcon->showMessage(tr("FileDonkey is still running"),
+                          tr("Your devices stay mounted. Open it again from the tray icon, "
+                             "or quit from the same menu."),
+                          QSystemTrayIcon::Information,
+                          6000);
+
+    settings.setValue("tray/closeNoticeShown", true);
 }
 
 void MainWindow::createTrayIcon()

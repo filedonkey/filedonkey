@@ -280,6 +280,18 @@ void MainWindow::createTrayIcon()
     setTryaIcon();
     trayIcon->setToolTip("FileDonkey");
     trayIcon->setContextMenu(trayIconMenu);
+
+    // A left click on the icon is what everyone tries first, so it does the same as Restore:
+    // brings the window back if it is away, and pulls it to the front if it is merely buried.
+    // Trigger only - the right click belongs to the context menu, and DoubleClick would arrive
+    // after a Trigger anyway on the platforms that send both.
+    connect(trayIcon, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {
+        if (reason == QSystemTrayIcon::Trigger)
+        {
+            restoreWindow();
+        }
+    });
+
     trayIcon->show();
 }
 

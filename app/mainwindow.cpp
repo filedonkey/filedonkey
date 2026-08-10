@@ -149,7 +149,11 @@ MainWindow::MainWindow(QWidget *parent)
     // The whole of the status bar. It used to carry the transfer counters, which have gone to the
     // rows that earned them - a device moves its own bytes, and one pair of labels down here could
     // only ever show whichever of them moved some last.
-    ui->statusbar->addWidget(deviceList->summaryWidget());
+    //
+    // As a permanent widget rather than a normal one, which is what puts it at the right-hand end:
+    // QStatusBar lays normal widgets out from the left and reserves the right for these. Nothing
+    // here ever calls showMessage(), so the left half the message would have claimed stays empty.
+    ui->statusbar->addPermanentWidget(deviceList->summaryWidget());
 
     node = new LocalNode(this);
 

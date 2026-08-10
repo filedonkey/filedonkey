@@ -1,4 +1,4 @@
-#include "devicelist.h"
+﻿#include "devicelist.h"
 
 #include <QDesktopServices>
 #include <QFontMetrics>
@@ -21,6 +21,11 @@
 #define BADGE_SIZE  30
 #define BADGE_GLYPH 16
 #define DOT_SIZE     6
+
+// How far the status bar's count has to rise to look level with the dot beside it, measured against
+// the 11px the stylesheet gives #deviceCountLbl. An optical correction, not a layout one - see where
+// it is applied in the DeviceList constructor for why a font makes text centred by its box sit low.
+#define DOT_TEXT_LIFT 1
 
 // Between the mount point and each counter on the second line. One number for the whole line, so
 // the gap after the mount point is the gap between the counters - they used to be set apart by
@@ -354,7 +359,9 @@ DeviceList::DeviceList(QWidget *parent)
     setObjectName("deviceList");
     setAttribute(Qt::WA_StyledBackground, true);
 
-    // The whole list in one line, for the status bar: the same dot the rows carry, and a count.
+    // The whole list in one line, for the status bar: a count, and the same dot the rows carry. The
+    // dot follows the words here, unlike on a row, because the line sits at the right-hand end of
+    // the bar - the dot is what lands closest to the window's corner and reads as the full stop.
     summary = new QWidget(this);
     summary->setObjectName("deviceSummary");
 
@@ -365,11 +372,19 @@ DeviceList::DeviceList(QWidget *parent)
     summaryLbl = new QLabel(summary);
     summaryLbl->setObjectName("deviceCountLbl");
 
+    // Centring the two on the bar is not enough to make them look level. A QLabel centres the whole
+    // line box, and a font keeps more room above its letters - for accents nothing here uses - than
+    // below them for descenders, so text centred by its box always sits a little low. Margin at the
+    // bottom takes that room back: the label grows downwards, so centring it puts the letters half
+    // the margin higher, which is what brings them level with the dot.
+    summaryLbl->setContentsMargins(0, 0, 0, DOT_TEXT_LIFT * 2);
+
     QHBoxLayout *summaryLayout = new QHBoxLayout(summary);
     summaryLayout->setContentsMargins(5, 5, 5, 5);
     summaryLayout->setSpacing(7);
+    summaryLayout->addWidget(summaryLbl, 0, Qt::AlignVCenter);
     summaryLayout->addWidget(summaryDot, 0, Qt::AlignVCenter);
-    summaryLayout->addWidget(summaryLbl);
+    summaryLayout->insertSpacing(-1, 4);
 
     QLabel *emptyTitle = new QLabel(tr("No devices yet"), this);
     emptyTitle->setObjectName("deviceEmptyTitle");
@@ -474,7 +489,11 @@ void DeviceList::refreshSummary()
 {
     emptyState->setVisible(rows.isEmpty());
 
-    summaryLbl->setText(rows.size() == 1 ? tr("1 device") : tr("%1 devices").arg(rows.size()));
+    // The same words the empty state above uses, so the bar and the list say one thing rather than
+    // the bar counting zero of something while the list explains there is nothing to count.
+    if (rows.isEmpty())        summaryLbl->setText(tr("No devices yet"));
+    else if (rows.size() == 1) summaryLbl->setText(tr("1 device"));
+    else                       summaryLbl->setText(tr("%1 devices").arg(rows.size()));
 
     // Green as soon as one mount is up, amber while they are all still coming up, and the default
     // grey of the stylesheet's dot rule when there is nothing to report.

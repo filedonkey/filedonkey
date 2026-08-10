@@ -32,8 +32,6 @@ protected:
 
 public slots:
     void onUpgradeToPro();
-    void onUploaded(u64 uploaded);
-    void onDownloaded(u64 downloaded);
 
     // Brings the window back from hidden or minimised and puts it in front. Wired to the tray's
     // Restore entry and to a second start of the application.

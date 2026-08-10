@@ -4,15 +4,16 @@
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLocale>
 #include <QPainter>
 #include <QScrollArea>
 #include <QStyle>
 #include <QVBoxLayout>
 
 // The row, in the order it is built: a platform badge, the machine name with its state dot beside
-// it, and a mono line under them for where the peer has been mounted. These are here rather than in
-// the stylesheet because QSS sizes the content box - the badge carries a 1px border, so a min-width
-// there would have to be this number minus two, kept in step by hand.
+// it, and a mono line under them carrying the mount point and what has moved across it. These are
+// here rather than in the stylesheet because QSS sizes the content box - the badge carries a 1px
+// border, so a min-width there would have to be this number minus two, kept in step by hand.
 #define BADGE_SIZE 30
 #define DOT_SIZE    6
 
@@ -28,8 +29,8 @@ void restyle(QWidget *widget, const char *name, const QVariant &value)
 }
 
 // A label that shortens what it draws rather than asking the layout for room it cannot have. The
-// window is a fixed size and the list has no horizontal scrollbar, so a long machine name or mount
-// path would otherwise be cut off mid-letter at the edge of the row.
+// window is a fixed size and the list has no horizontal scrollbar, so a long machine name would
+// otherwise be cut off mid-letter at the edge of the row.
 //
 // Elided at paint time and never through setText(): shortening the text would shrink the label's
 // own size hint, the layout would hand it less room next time round, and it would elide further on
@@ -39,9 +40,6 @@ class ElidedLabel : public QLabel
 {
 public:
     using QLabel::QLabel;
-
-    // Right for a name, middle for a mount point: the tail of a path is the part worth keeping.
-    Qt::TextElideMode elideMode = Qt::ElideRight;
 
     // What lets the layout shrink it at all. QLabel's own minimum for one unwrapped line is the
     // whole string, and that would push the row - and with it the window - wider.
@@ -58,17 +56,17 @@ protected:
         // The stylesheet's `color:` reaches a label through its palette, and QPainter's default pen
         // does not read it - drawing without this would put every label back to black.
         painter.setPen(palette().color(foregroundRole()));
-        painter.drawText(rect(), alignment(), fontMetrics().elidedText(text(), elideMode, width()));
+        painter.drawText(rect(), alignment(), fontMetrics().elidedText(text(), Qt::ElideRight, width()));
     }
 };
 
 } // namespace
 
-// One peer. Built once, from the connection that announced it, and changed only by setMounted()
-// when its mount finally comes up. Named in devicelist.h so the list can hold rows by pointer;
-// there is nothing else to it worth putting in a header.
+// One peer. Built once, from the connection that announced it, and changed after that only by the
+// mount coming up and by the bytes it then moves. Named in devicelist.h so the list can hold rows
+// by pointer; there is nothing else to it worth putting in a header.
 //
-// No Q_OBJECT and so no tr() of its own - the two strings it shows are translated in DeviceList's
+// No Q_OBJECT and so no tr() of its own - the strings it shows are translated in DeviceList's
 // context, where the rest of this file's are.
 class DeviceRow : public QWidget
 {
@@ -76,17 +74,24 @@ public:
     explicit DeviceRow(const Connection &conn, QWidget *parent = nullptr);
 
     void setMounted(const QString &mountPoint);
+    void setUploaded(u64 uploaded);
+    void setDownloaded(u64 downloaded);
+
     bool isMounted() const { return mounted; }
 
 private:
+    void refreshDetail();
     void refreshToolTip();
 
     Connection   conn;
     QLabel      *dotLbl    = nullptr;
+    QLabel      *mountLbl  = nullptr;
     ElidedLabel *detailLbl = nullptr;
 
     QString mountPoint;
-    bool    mounted = false;
+    bool    mounted    = false;
+    u64     uploaded   = 0;
+    u64     downloaded = 0;
 };
 
 DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
@@ -120,7 +125,6 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
 
     detailLbl = new ElidedLabel(this);
     detailLbl->setObjectName("deviceDetail");
-    detailLbl->elideMode = Qt::ElideMiddle;
 
     QHBoxLayout *titleLine = new QHBoxLayout;
     titleLine->setContentsMargins(0, 0, 0, 0);
@@ -132,11 +136,29 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
     titleLine->addWidget(dotLbl, 0, Qt::AlignVCenter);
     titleLine->addStretch(1);
 
+    QHBoxLayout *detailLine = new QHBoxLayout;
+    detailLine->setContentsMargins(0, 0, 0, 0);
+    detailLine->setSpacing(9);
+
+#if defined(Q_OS_WIN)
+    // Windows only, because only here is a mount point something worth reading: it is a drive
+    // letter, and it is where the user goes to find the device. Elsewhere it is a directory under
+    // ~/.filedonkey named after the machine, which says nothing the row has not said already.
+    mountLbl = new QLabel(this);
+    mountLbl->setObjectName("deviceMount");
+    mountLbl->hide();
+
+    detailLine->addWidget(mountLbl);
+#endif
+
+    detailLine->addWidget(detailLbl);
+    detailLine->addStretch(1);
+
     QVBoxLayout *textColumn = new QVBoxLayout;
     textColumn->setContentsMargins(0, 0, 0, 0);
     textColumn->setSpacing(3);
     textColumn->addLayout(titleLine);
-    textColumn->addWidget(detailLbl);
+    textColumn->addLayout(detailLine);
 
     QHBoxLayout *layout = new QHBoxLayout(this);
     layout->setContentsMargins(8, 9, 10, 9);
@@ -147,8 +169,8 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
     // Where every row starts: LocalNode emits peerAdded with the mount already under way, so there
     // is no moment at which a peer is known but nothing is being done about it.
     restyle(dotLbl, "state", "mounting");
-    detailLbl->setText(DeviceList::tr("mounting · %1").arg(conn.machineAddress));
 
+    refreshDetail();
     refreshToolTip();
 }
 
@@ -158,20 +180,53 @@ void DeviceRow::setMounted(const QString &mountPoint)
     this->mountPoint = mountPoint;
 
     restyle(dotLbl, "state", "mounted");
-    restyle(detailLbl, "state", "mounted");
 
-    // What fuse_mount was handed on Windows is the bare drive, "D:". The design writes it the way
-    // Explorer does; elsewhere the mount point is a path already and this leaves it alone.
-    QString shown = mountPoint;
-    if (shown.endsWith(':')) shown += '\\';
+    if (mountLbl)
+    {
+        // What fuse_mount was handed on Windows is the bare drive, "D:". The design writes it the
+        // way Explorer does.
+        QString shown = mountPoint;
+        if (shown.endsWith(':')) shown += '\\';
 
-    detailLbl->setText(shown);
+        mountLbl->setText(shown);
+        mountLbl->show();
+    }
 
+    refreshDetail();
     refreshToolTip();
 }
 
-// Everything the row knows, for the rows too narrow to show all of it - which on a window this
-// width is most of them once a mount point is a full path.
+void DeviceRow::setUploaded(u64 uploaded)
+{
+    this->uploaded = uploaded;
+    refreshDetail();
+}
+
+void DeviceRow::setDownloaded(u64 downloaded)
+{
+    this->downloaded = downloaded;
+    refreshDetail();
+}
+
+// Where the peer is until it is mounted, and what it has moved once it is. The counters do not
+// appear before the mount because nothing can have crossed it yet, and their arrival is what tells
+// the two states apart on the platforms with no mount point to show.
+void DeviceRow::refreshDetail()
+{
+    if (!mounted)
+    {
+        detailLbl->setText(DeviceList::tr("mounting · %1").arg(conn.machineAddress));
+        return;
+    }
+
+    QLocale locale(QLocale::English, QLocale::UnitedStates);
+
+    detailLbl->setText(QString("↑ %1   ↓ %2").arg(locale.formattedDataSize(uploaded),
+                                                  locale.formattedDataSize(downloaded)));
+}
+
+// Everything the row knows, including the parts it has no room to draw - the address it dropped
+// once the mount came up, and the mount point itself where that is not shown at all.
 void DeviceRow::refreshToolTip()
 {
     QString text = QString("%1\n%2:%3").arg(conn.machineName, conn.machineAddress).arg(conn.machinePort);
@@ -186,34 +241,22 @@ DeviceList::DeviceList(QWidget *parent)
     setObjectName("deviceList");
     setAttribute(Qt::WA_StyledBackground, true);
 
-    QLabel *headerLbl = new QLabel(tr("Devices").toUpper(), this);
-    headerLbl->setObjectName("deviceHeaderLbl");
+    // The whole list in one line, for the status bar: the same dot the rows carry, and a count.
+    summary = new QWidget(this);
+    summary->setObjectName("deviceSummary");
 
-    // The same micro-label treatment as "Network:" in the status bar, and tracked out here for the
-    // same reason: there is no letter-spacing in QSS.
-    QFont microLabel = headerLbl->font();
-    microLabel.setLetterSpacing(QFont::AbsoluteSpacing, 0.5);
-    headerLbl->setFont(microLabel);
+    summaryDot = new QLabel(summary);
+    summaryDot->setObjectName("deviceDot");
+    summaryDot->setFixedSize(DOT_SIZE, DOT_SIZE);
 
-    // The whole list's state in one dot, the same three colours the rows use.
-    countDot = new QLabel(this);
-    countDot->setObjectName("deviceDot");
-    countDot->setFixedSize(DOT_SIZE, DOT_SIZE);
+    summaryLbl = new QLabel(summary);
+    summaryLbl->setObjectName("deviceCountLbl");
 
-    countLbl = new QLabel(this);
-    countLbl->setObjectName("deviceCountLbl");
-
-    QHBoxLayout *header = new QHBoxLayout;
-    header->setContentsMargins(14, 11, 14, 10);
-    header->setSpacing(6);
-    header->addWidget(headerLbl);
-    header->addStretch(1);
-    header->addWidget(countDot, 0, Qt::AlignVCenter);
-    header->addWidget(countLbl);
-
-    QFrame *headerRule = new QFrame(this);
-    headerRule->setObjectName("deviceHeaderRule");
-    headerRule->setFixedHeight(1);
+    QHBoxLayout *summaryLayout = new QHBoxLayout(summary);
+    summaryLayout->setContentsMargins(5, 5, 5, 5);
+    summaryLayout->setSpacing(7);
+    summaryLayout->addWidget(summaryDot, 0, Qt::AlignVCenter);
+    summaryLayout->addWidget(summaryLbl);
 
     QLabel *emptyTitle = new QLabel(tr("No devices yet"), this);
     emptyTitle->setObjectName("deviceEmptyTitle");
@@ -228,7 +271,7 @@ DeviceList::DeviceList(QWidget *parent)
     emptyState = new QWidget(this);
 
     QVBoxLayout *emptyLayout = new QVBoxLayout(emptyState);
-    emptyLayout->setContentsMargins(28, 30, 28, 26);
+    emptyLayout->setContentsMargins(28, 34, 28, 26);
     emptyLayout->setSpacing(8);
     emptyLayout->addWidget(emptyTitle);
     emptyLayout->addWidget(emptyText);
@@ -244,7 +287,7 @@ DeviceList::DeviceList(QWidget *parent)
     rowsLayout->addWidget(emptyState);
     rowsLayout->addStretch(1);
 
-    // The window cannot be resized, so this is what makes the fourth device onwards reachable.
+    // The window cannot be resized, so this is what makes the fifth device onwards reachable.
     QScrollArea *scroll = new QScrollArea(this);
     scroll->setObjectName("deviceScroll");
     scroll->setWidget(rowsHost);
@@ -255,11 +298,9 @@ DeviceList::DeviceList(QWidget *parent)
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    layout->addLayout(header);
-    layout->addWidget(headerRule);
-    layout->addWidget(scroll, 1);
+    layout->addWidget(scroll);
 
-    refreshHeader();
+    refreshSummary();
 }
 
 void DeviceList::onPeerAdded(const Connection &conn)
@@ -275,7 +316,7 @@ void DeviceList::onPeerAdded(const Connection &conn)
     // hidden from here on.
     rowsLayout->insertWidget(rowsLayout->count() - 1, row);
 
-    refreshHeader();
+    refreshSummary();
 }
 
 void DeviceList::onPeerMounted(const QString &machineId, const QString &mountPoint)
@@ -285,7 +326,23 @@ void DeviceList::onPeerMounted(const QString &machineId, const QString &mountPoi
 
     row->setMounted(mountPoint);
 
-    refreshHeader();
+    refreshSummary();
+}
+
+void DeviceList::onPeerUploaded(const QString &machineId, u64 uploaded)
+{
+    DeviceRow *row = rows.value(machineId, nullptr);
+    if (!row) return;
+
+    row->setUploaded(uploaded);
+}
+
+void DeviceList::onPeerDownloaded(const QString &machineId, u64 downloaded)
+{
+    DeviceRow *row = rows.value(machineId, nullptr);
+    if (!row) return;
+
+    row->setDownloaded(downloaded);
 }
 
 void DeviceList::onPeerRemoved(const QString &machineId)
@@ -297,14 +354,14 @@ void DeviceList::onPeerRemoved(const QString &machineId)
     // own on the stack.
     delete row;
 
-    refreshHeader();
+    refreshSummary();
 }
 
-void DeviceList::refreshHeader()
+void DeviceList::refreshSummary()
 {
     emptyState->setVisible(rows.isEmpty());
 
-    countLbl->setText(rows.size() == 1 ? tr("1 device") : tr("%1 devices").arg(rows.size()));
+    summaryLbl->setText(rows.size() == 1 ? tr("1 device") : tr("%1 devices").arg(rows.size()));
 
     // Green as soon as one mount is up, amber while they are all still coming up, and the default
     // grey of the stylesheet's dot rule when there is nothing to report.
@@ -319,5 +376,5 @@ void DeviceList::refreshHeader()
         }
     }
 
-    restyle(countDot, "state", state);
+    restyle(summaryDot, "state", state);
 }

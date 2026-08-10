@@ -138,33 +138,23 @@ QStatusBar {
  * around it by the native style. */
 QStatusBar::item { border: 0px; }
 
-/* -------------------------------------------------- the network strip itself
- * "Network:" is the design's micro-label treatment - small, muted, semibold.
- * The two counters are the stat-value treatment: mono digits on a raised chip
- * so the numbers stop shifting the layout as they change width. */
+/* ------------------------------------------------- the status bar's contents
+ * One line, built by the device list and put here by the window: the same
+ * state dot the rows carry, and a count of them. The transfer counters that
+ * used to sit here are on the rows now - see #deviceDetail below. */
 
-QLabel#networkLbl {
-    color: #7E838B;
+QWidget#deviceSummary { background: transparent; }
+
+QLabel#deviceCountLbl {
+    color: #8D929A;
     font-size: 11px;
-    font-weight: 600;
-    padding-right: 2px;
-}
-
-QLabel#uploadedLbl,
-QLabel#downloadedLbl {
-    color: #E8E9EC;
-    font-family: "Inconsolata", "Cascadia Mono", Consolas, monospace;
-    font-size: 12px;
-    /* background: #26282C;
-    border: 1px solid #2F3238;
-    border-radius: 6px; */
-    padding: 2px 8px;
 }
 
 /* ---------------------------------------------------------- the device list
- * Everything between the title bar and the status bar. A header strip, a
- * hairline, and then a scrolling column of rows - or the empty state, while
- * nothing has been found.
+ * Everything between the title bar and the status bar: a scrolling column of
+ * rows, or the empty state while nothing has been found. It carries no heading
+ * of its own - the window is the list, and the count that would have titled it
+ * is in the status bar instead.
  *
  * Sizes that decide the shape of a thing - the 30px badge, the 6px dots - are
  * set in devicelist.cpp rather than here, because QSS sizes the content box
@@ -177,19 +167,6 @@ QScrollArea#deviceScroll {
     background: transparent;
     border: none;
 }
-
-QLabel#deviceHeaderLbl {
-    color: #7E838B;
-    font-size: 11px;
-    font-weight: 600;
-}
-
-QLabel#deviceCountLbl {
-    color: #8D929A;
-    font-size: 11px;
-}
-
-QFrame#deviceHeaderRule { background: #2B2D31; }
 
 /* Rows are transparent until the pointer is over them - the list reads as a
  * column of devices rather than as a stack of cards. */
@@ -220,11 +197,20 @@ QLabel#deviceName {
     font-weight: 600;
 }
 
-/* Mono for the same reason the transfer counters are: this line is an address
- * while the mount is coming up and a mount point once it is, and neither
- * should shift the row as it changes. It brightens when there is a real mount
- * point in it - see restyle() in devicelist.cpp, which is what makes a
- * property change like this one take effect. */
+/* The second line of a row. The mount point is the bright half and the one the
+ * eye is meant to land on - it is where the user goes to find the device -
+ * with the address, and then the transfer counters that replace it, muted
+ * beside it. Both are mono so neither shifts the row as its text changes: a
+ * count of bytes changes width constantly, and a drive letter is a fixed
+ * width the names above can be read against.
+ *
+ * #deviceMount exists on Windows only. See the note in devicelist.cpp. */
+
+QLabel#deviceMount {
+    color: #C7CBD1;
+    font-family: "Inconsolata", "Cascadia Mono", Consolas, monospace;
+    font-size: 11px;
+}
 
 QLabel#deviceDetail {
     color: #8D929A;
@@ -232,10 +218,8 @@ QLabel#deviceDetail {
     font-size: 11px;
 }
 
-QLabel#deviceDetail[state="mounted"] { color: #C7CBD1; }
-
-/* The state dots, on each row and once more in the header for the list as a
- * whole. 6px square from the code, so a 3px radius is what rounds them off. */
+/* The state dots, on each row and once more in the status bar for the list as
+ * a whole. 6px square from the code, so a 3px radius is what rounds them off. */
 
 QLabel#deviceDot {
     background: #5F646C;

@@ -32,11 +32,11 @@ public:
     ~LocalNode();
 
 signals:
-    // Forwarded from the FUSEClient of whichever VirtDisk moved the bytes. The counters are
-    // per-peer and currently land in one pair of labels; a per-peer view would want peerAdded's
-    // machineId alongside them.
-    void uploadedChanged(u64 uploaded);
-    void downloadedChanged(u64 downloaded);
+    // Forwarded from the FUSEClient of whichever VirtDisk moved the bytes, named so the device list
+    // can put them on the right row - the counters have always been per-peer, and until there was a
+    // list to show them in there was nowhere for the name to go.
+    void peerUploaded(const QString &machineId, u64 uploaded);
+    void peerDownloaded(const QString &machineId, u64 downloaded);
 
     // Emitted as peers come and go, and as their mounts come up, for the window's device list to
     // build on. A peer arrives as peerAdded with its mount already started, then either reaches

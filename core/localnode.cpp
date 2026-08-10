@@ -201,8 +201,17 @@ void LocalNode::onBroadcasting()
             emit peerMounted(id, mountPoint);
         });
 
-        connect(virtDisk->client, SIGNAL(uploadedChanged(u64)), this, SIGNAL(uploadedChanged(u64)));
-        connect(virtDisk->client, SIGNAL(downloadedChanged(u64)), this, SIGNAL(downloadedChanged(u64)));
+        // By value rather than by reading the client back: these are emitted from the fuse thread
+        // and delivered on this one, so the number has to travel with the signal. The function
+        // pointer form matters too - the string form named the argument "u64", which is no type Qt
+        // knows, and a queued delivery of it is dropped at the boundary with a warning.
+        connect(virtDisk->client, &FUSEClient::uploadedChanged, this, [this, id = newConn.machineId](u64 uploaded) {
+            emit peerUploaded(id, uploaded);
+        });
+
+        connect(virtDisk->client, &FUSEClient::downloadedChanged, this, [this, id = newConn.machineId](u64 downloaded) {
+            emit peerDownloaded(id, downloaded);
+        });
         virtDisk->mount("M:\\");
 
         emit peerAdded(newConn);

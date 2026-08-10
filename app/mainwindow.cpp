@@ -6,7 +6,6 @@
 #include <QDesktopServices>
 #include <QFile>
 #include <QGraphicsDropShadowEffect>
-#include <QLocale>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QResizeEvent>
@@ -99,12 +98,6 @@ MainWindow::MainWindow(QWidget *parent)
     titleBar->setTitle(windowTitle());
     setMenuWidget(titleBar);
 
-    // The design tracks its micro-labels out by half a pixel. There is no letter-spacing in
-    // QSS, so the one label that wants it gets it here.
-    QFont microLabel = ui->networkLbl->font();
-    microLabel.setLetterSpacing(QFont::AbsoluteSpacing, 0.5);
-    ui->networkLbl->setFont(microLabel);
-
     // Asked once, before anything decides what closing the window should mean.
     trayAvailable = QSystemTrayIcon::isSystemTrayAvailable();
     qDebug() << "[MainWindow] system tray available:" << trayAvailable;
@@ -142,8 +135,6 @@ MainWindow::MainWindow(QWidget *parent)
     // left that still offers to resize it - and it would drag the window bigger if it could.
     ui->statusbar->setSizeGripEnabled(false);
 
-    ui->statusbar->addWidget(ui->networkWidget);
-
     // The window's content, and all of it. Built here rather than in the .ui file because every row
     // in it is made as a peer arrives, so there is nothing for Designer to hold - only the layout
     // that gives it the whole central widget. After setFixedSize() above, deliberately: the size in
@@ -155,22 +146,27 @@ MainWindow::MainWindow(QWidget *parent)
     contentLayout->setSpacing(0);
     contentLayout->addWidget(deviceList);
 
+    // The whole of the status bar. It used to carry the transfer counters, which have gone to the
+    // rows that earned them - a device moves its own bytes, and one pair of labels down here could
+    // only ever show whichever of them moved some last.
+    ui->statusbar->addWidget(deviceList->summaryWidget());
+
     node = new LocalNode(this);
-    connect(node, &LocalNode::uploadedChanged, this, &MainWindow::onUploaded);
-    connect(node, &LocalNode::downloadedChanged, this, &MainWindow::onDownloaded);
 
     // Straight to the list: nothing here has anything to add to them, and MainWindow keeping a
     // shadow copy of who is connected would only be a second thing to get out of step.
-    connect(node, &LocalNode::peerAdded,   deviceList, &DeviceList::onPeerAdded);
-    connect(node, &LocalNode::peerMounted, deviceList, &DeviceList::onPeerMounted);
-    connect(node, &LocalNode::peerRemoved, deviceList, &DeviceList::onPeerRemoved);
+    connect(node, &LocalNode::peerAdded,      deviceList, &DeviceList::onPeerAdded);
+    connect(node, &LocalNode::peerMounted,    deviceList, &DeviceList::onPeerMounted);
+    connect(node, &LocalNode::peerUploaded,   deviceList, &DeviceList::onPeerUploaded);
+    connect(node, &LocalNode::peerDownloaded, deviceList, &DeviceList::onPeerDownloaded);
+    connect(node, &LocalNode::peerRemoved,    deviceList, &DeviceList::onPeerRemoved);
 }
 
 MainWindow::~MainWindow()
 {
     // Before ui, not after. Tearing the node down waits for each mount to come down, and that wait
-    // pumps the mount helper's pipes on macOS - transfer totals arrive as uploadedChanged() and
-    // land in onUploaded(), which writes to a label. Let the child destructor take the node and it
+    // pumps the mount helper's pipes on macOS - transfer totals arrive as peerUploaded() and land
+    // in the device list, which writes to a label. Let the child destructor take the node and it
     // runs after delete ui, writing to a label that is gone.
     delete node;
     node = nullptr;
@@ -182,18 +178,6 @@ void MainWindow::onUpgradeToPro()
 {
     QString link = "https://filedonkey.app";
     QDesktopServices::openUrl(QUrl(link));
-}
-
-void MainWindow::onUploaded(u64 uploaded)
-{
-    QLocale locale(QLocale::English, QLocale::UnitedStates);
-    this->ui->uploadedLbl->setText(QString("↑ %1").arg(locale.formattedDataSize(uploaded)));
-}
-
-void MainWindow::onDownloaded(u64 downloaded)
-{
-    QLocale locale(QLocale::English, QLocale::UnitedStates);
-    this->ui->downloadedLbl->setText(QString("↓️ %1").arg(locale.formattedDataSize(downloaded)));
 }
 
 void MainWindow::restoreWindow()

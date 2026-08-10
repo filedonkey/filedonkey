@@ -13,6 +13,7 @@
 #include <QSettings>
 #include <QStyleHints>
 #include <QUrl>
+#include <QVBoxLayout>
 
 #define THEME_LIGHTNESS_BARRIER 128
 
@@ -143,9 +144,26 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->statusbar->addWidget(ui->networkWidget);
 
+    // The window's content, and all of it. Built here rather than in the .ui file because every row
+    // in it is made as a peer arrives, so there is nothing for Designer to hold - only the layout
+    // that gives it the whole central widget. After setFixedSize() above, deliberately: the size in
+    // the .ui file is the one the window keeps, and the list is built to fit whatever it gets.
+    deviceList = new DeviceList(ui->centralwidget);
+
+    QVBoxLayout *contentLayout = new QVBoxLayout(ui->centralwidget);
+    contentLayout->setContentsMargins(0, 0, 0, 0);
+    contentLayout->setSpacing(0);
+    contentLayout->addWidget(deviceList);
+
     node = new LocalNode(this);
     connect(node, &LocalNode::uploadedChanged, this, &MainWindow::onUploaded);
     connect(node, &LocalNode::downloadedChanged, this, &MainWindow::onDownloaded);
+
+    // Straight to the list: nothing here has anything to add to them, and MainWindow keeping a
+    // shadow copy of who is connected would only be a second thing to get out of step.
+    connect(node, &LocalNode::peerAdded,   deviceList, &DeviceList::onPeerAdded);
+    connect(node, &LocalNode::peerMounted, deviceList, &DeviceList::onPeerMounted);
+    connect(node, &LocalNode::peerRemoved, deviceList, &DeviceList::onPeerRemoved);
 }
 
 MainWindow::~MainWindow()

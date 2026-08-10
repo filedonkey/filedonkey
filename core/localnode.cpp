@@ -111,6 +111,11 @@ void LocalNode::broadcast()
     machine["name"] = QSysInfo::machineHostName();
     machine["port"] = server->serverPort();
 
+    // Carried for the sake of the peer's device list, which labels each row with the platform it
+    // found. Nothing in the protocol turns on it, so a peer that does not send it is not a peer we
+    // refuse to talk to.
+    machine["os"]   = QSysInfo::productType();
+
     root["machine"] = machine;
 
     QByteArray datagram = QJsonDocument(root).toJson(QJsonDocument::Compact);
@@ -139,6 +144,7 @@ void LocalNode::invite(const QHostAddress &address)
     machine["id"]   = machineId;
     machine["name"] = QSysInfo::machineHostName();
     machine["port"] = server->serverPort();
+    machine["os"]   = QSysInfo::productType();
 
     root["machine"] = machine;
 
@@ -162,6 +168,7 @@ void LocalNode::onBroadcasting()
             .machineName    = machine["name"].toString(),
             .machineAddress = senderAddress.toString(),
             .machinePort    = machine["port"].toInteger(),
+            .machineOs      = machine["os"].toString(),
         };
 
         // Our own announcements come straight back to us - we are bound to the port we broadcast
@@ -186,6 +193,14 @@ void LocalNode::onBroadcasting()
         VirtDisk *virtDisk = new VirtDisk(newConn);
         virtDisks.insert(newConn.machineId, virtDisk);
         connect(virtDisk, &VirtDisk::stopped, this, &LocalNode::onVirtDiskStopped);
+
+        // VirtDisk reports the mount point and nothing else about who it belongs to - it serves one
+        // peer and has never needed to say which. Carry the id in the lambda rather than looking it
+        // up in virtDisks afterwards, so this still names the right peer if the map has moved on.
+        connect(virtDisk, &VirtDisk::mounted, this, [this, id = newConn.machineId](const QString &mountPoint) {
+            emit peerMounted(id, mountPoint);
+        });
+
         connect(virtDisk->client, SIGNAL(uploadedChanged(u64)), this, SIGNAL(uploadedChanged(u64)));
         connect(virtDisk->client, SIGNAL(downloadedChanged(u64)), this, SIGNAL(downloadedChanged(u64)));
         virtDisk->mount("M:\\");

@@ -38,6 +38,12 @@ public:
     std::string mountpoint;
 
 signals:
+    // Emitted from the fuse thread the moment the mount is up, carrying the place it landed: a
+    // drive letter on Windows, a directory under ~/.filedonkey elsewhere. VirtDisk chooses that
+    // itself - see ReserveFreeDriveLetter - so this is the only way anyone else learns of it.
+    // A mount that never comes up emits stopped() and nothing else.
+    void mounted(const QString &mountPoint);
+
     // Emitted from the fuse thread once fuse_loop has returned and the mount is torn down.
     void stopped();
 

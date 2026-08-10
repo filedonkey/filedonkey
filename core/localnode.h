@@ -38,10 +38,11 @@ signals:
     void uploadedChanged(u64 uploaded);
     void downloadedChanged(u64 downloaded);
 
-    // Emitted as peers come and go, for a device list to build on. Nothing consumes them yet -
-    // they are here because a headless node with no way to report who it found is not much use
-    // to a UI.
+    // Emitted as peers come and go, and as their mounts come up, for the window's device list to
+    // build on. A peer arrives as peerAdded with its mount already started, then either reaches
+    // peerMounted or goes straight to peerRemoved if the mount never came up.
     void peerAdded(const Connection &conn);
+    void peerMounted(const QString &machineId, const QString &mountPoint);
     void peerRemoved(const QString &machineId);
 
 public slots:

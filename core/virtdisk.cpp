@@ -578,6 +578,10 @@ static void StartImpl(VirtDisk *self, Connection *conn)
         return;
     }
 
+    // Everything that could still have failed has been done, and the file system is about to start
+    // answering. Queued to whoever owns this VirtDisk, like stopped() below.
+    emit self->mounted(QString::fromStdString(self->mountpoint));
+
     int rc = fuse_loop(self->f);
     qDebug() << "[Start] fuse_loop returned" << rc;
 
@@ -684,9 +688,18 @@ int VirtDisk::runMountWorker()
     connect(client, &FUSEClient::uploadedChanged,   this, [&](u64 value) { up = value;   report(false); });
     connect(client, &FUSEClient::downloadedChanged, this, [&](u64 value) { down = value; report(false); });
 
+    // The drive was picked in here, so the parent has no other way to hear about it. Same channel
+    // as the stats, and it goes out at once rather than on the throttle: it happens once, and the
+    // list in the window is waiting on it.
+    connect(this, &VirtDisk::mounted, this, [](const QString &mountPoint) {
+        printf("@mounted %s\n", mountPoint.toUtf8().constData());
+        fflush(stdout);
+    });
+
     Start(this, &conn);
 
-    // Before the lambdas' captures go out of scope.
+    // Before the lambdas' captures go out of scope. Only the two above capture anything - the
+    // mount reporter reads nothing off this stack, so it can be left connected.
     disconnect(client, nullptr, this, nullptr);
 
     report(true);
@@ -700,12 +713,24 @@ void VirtDisk::onWorkerOutput()
     while (worker->canReadLine())
     {
         const QByteArray line = worker->readLine().trimmed();
-        if (!line.startsWith("@stats ")) continue;
 
-        const QList<QByteArray> parts = line.split(' ');
-        if (parts.size() != 3) continue;
+        if (line.startsWith("@stats "))
+        {
+            const QList<QByteArray> parts = line.split(' ');
+            if (parts.size() != 3) continue;
 
-        client->setTransferred(parts[1].toULongLong(), parts[2].toULongLong());
+            client->setTransferred(parts[1].toULongLong(), parts[2].toULongLong());
+            continue;
+        }
+
+        // Not split on spaces: the mount point ends in the peer's machine name, which may have
+        // them in it. Re-emitted rather than handled here so the signal reads the same to our
+        // owner whether the mount ran in this process or in the helper.
+        if (line.startsWith("@mounted "))
+        {
+            emit mounted(QString::fromUtf8(line.mid(sizeof("@mounted ") - 1)));
+            continue;
+        }
     }
 }
 

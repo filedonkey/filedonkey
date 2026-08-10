@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include "core.h"
+#include "devicelist.h"
 #include "localnode.h"
 #include "titlebar.h"
 
@@ -62,6 +63,7 @@ private:
 
     TitleBar        *titleBar = nullptr;
     QWidget         *shadowLayer = nullptr;
+    DeviceList      *deviceList = nullptr;
 
     // Read once at startup. On Linux this can turn true later, when a shell registers its
     // StatusNotifier host after login, and Qt offers no signal for that - so a user who installs

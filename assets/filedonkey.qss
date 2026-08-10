@@ -9,12 +9,14 @@
  *   #2A2C31  hover                   #7E838B  text, micro-labels
  *   #2F3238  controls                #5F646C  text, disabled
  *   #34363B  borders, raised
- *   #2B2D31  borders, hairline       #4EC97A  mounted   (unused so far)
- *                                    #E0A33C  busy      (unused so far)
+ *   #2B2D31  borders, hairline       #4EC97A  mounted
+ *                                    #E0A33C  busy
  *                                    #E0564C  error     (unused so far)
  *
- * The accent three are listed for when there is a device list to put them on.
- * Nothing in the current window has state to show, so nothing uses them yet.
+ * Two of the accent three are on the device list's state dots. The error red
+ * has nowhere to go yet: a mount that fails takes its row with it - LocalNode
+ * forgets the peer so the next broadcast can start it over - so there is no
+ * failed state left on screen to colour.
  */
 
 /* Type and colour for everything. Deliberately no background here: a bare
@@ -158,6 +160,125 @@ QLabel#downloadedLbl {
     border-radius: 6px; */
     padding: 2px 8px;
 }
+
+/* ---------------------------------------------------------- the device list
+ * Everything between the title bar and the status bar. A header strip, a
+ * hairline, and then a scrolling column of rows - or the empty state, while
+ * nothing has been found.
+ *
+ * Sizes that decide the shape of a thing - the 30px badge, the 6px dots - are
+ * set in devicelist.cpp rather than here, because QSS sizes the content box
+ * and each border would have to be subtracted from the number by hand. What is
+ * left here is colour, type and roundness. */
+
+QWidget#deviceList,
+QWidget#deviceRows,
+QScrollArea#deviceScroll {
+    background: transparent;
+    border: none;
+}
+
+QLabel#deviceHeaderLbl {
+    color: #7E838B;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+QLabel#deviceCountLbl {
+    color: #8D929A;
+    font-size: 11px;
+}
+
+QFrame#deviceHeaderRule { background: #2B2D31; }
+
+/* Rows are transparent until the pointer is over them - the list reads as a
+ * column of devices rather than as a stack of cards. */
+
+QWidget#deviceRow {
+    background: transparent;
+    border-radius: 7px;
+}
+
+QWidget#deviceRow:hover { background: #26282C; }
+
+/* The platform tag. Mono, so "win" and "mac" are the same width and the names
+ * beside them line up. */
+
+QLabel#deviceBadge {
+    background: #2A2C31;
+    border: 1px solid #3A3D43;
+    border-radius: 6px;
+    color: #A9AEB6;
+    font-family: "Inconsolata", "Cascadia Mono", Consolas, monospace;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+QLabel#deviceName {
+    color: #E8E9EC;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Mono for the same reason the transfer counters are: this line is an address
+ * while the mount is coming up and a mount point once it is, and neither
+ * should shift the row as it changes. It brightens when there is a real mount
+ * point in it - see restyle() in devicelist.cpp, which is what makes a
+ * property change like this one take effect. */
+
+QLabel#deviceDetail {
+    color: #8D929A;
+    font-family: "Inconsolata", "Cascadia Mono", Consolas, monospace;
+    font-size: 11px;
+}
+
+QLabel#deviceDetail[state="mounted"] { color: #C7CBD1; }
+
+/* The state dots, on each row and once more in the header for the list as a
+ * whole. 6px square from the code, so a 3px radius is what rounds them off. */
+
+QLabel#deviceDot {
+    background: #5F646C;
+    border-radius: 3px;
+}
+
+QLabel#deviceDot[state="mounting"] { background: #E0A33C; }
+QLabel#deviceDot[state="mounted"]  { background: #4EC97A; }
+
+QLabel#deviceEmptyTitle {
+    color: #E8E9EC;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QLabel#deviceEmptyText {
+    color: #8D929A;
+    font-size: 11px;
+}
+
+/* The list is the only thing that scrolls, so this is the whole scrollbar. No
+ * buttons at the ends - the arrows are a Windows 7 idea that nothing in this
+ * window's design has room for. */
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 4px 2px;
+}
+
+QScrollBar::handle:vertical {
+    background: #34363B;
+    border-radius: 3px;
+    min-height: 24px;
+}
+
+QScrollBar::handle:vertical:hover { background: #45484F; }
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical { height: 0px; }
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical { background: transparent; }
 
 /* --------------------------------------------------------------- dialogs
  * The no-tray close dialog is the only one so far. It needs styling rather

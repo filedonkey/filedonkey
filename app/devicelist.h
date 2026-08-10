@@ -15,7 +15,8 @@ class DeviceRow;
 // place while there are none.
 //
 // It keeps no state of its own beyond those rows. Everything it shows arrives through the slots
-// below, one per LocalNode signal, and nothing here calls back into the node: the design's
+// below, one per LocalNode signal, and nothing here calls back into the node: a mounted row opens
+// itself in the desktop's file manager when clicked, which asks the node for nothing. The design's
 // per-device actions - Mount, Unmount, Retry - have nothing behind them yet, and a button that
 // looks live and does nothing is worse than no button.
 class DeviceList : public QWidget

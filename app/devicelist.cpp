@@ -1,13 +1,16 @@
 #include "devicelist.h"
 
+#include <QDesktopServices>
 #include <QFontMetrics>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLocale>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QScrollArea>
 #include <QStyle>
+#include <QUrl>
 #include <QVBoxLayout>
 
 // The row, in the order it is built: a platform badge, the machine name with its state dot beside
@@ -78,6 +81,10 @@ public:
     void setDownloaded(u64 downloaded);
 
     bool isMounted() const { return mounted; }
+
+protected:
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
     void refreshDetail();
@@ -179,21 +186,60 @@ void DeviceRow::setMounted(const QString &mountPoint)
     mounted = true;
     this->mountPoint = mountPoint;
 
+    // What fuse_mount was handed on Windows is the bare drive, "D:", and to Windows that is a path
+    // relative to the current directory on D: rather than the root of it - which is both what the
+    // design draws and the only thing worth opening. The separator is what makes it the root.
+    if (this->mountPoint.endsWith(':')) this->mountPoint += '\\';
+
     restyle(dotLbl, "state", "mounted");
+
+    // Only now, so the hand never appears over a row there is nothing behind yet. A row still
+    // mounting keeps the ordinary arrow and lets its clicks through to the scroll area.
+    setCursor(Qt::PointingHandCursor);
 
     if (mountLbl)
     {
-        // What fuse_mount was handed on Windows is the bare drive, "D:". The design writes it the
-        // way Explorer does.
-        QString shown = mountPoint;
-        if (shown.endsWith(':')) shown += '\\';
-
-        mountLbl->setText(shown);
+        mountLbl->setText(this->mountPoint);
         mountLbl->show();
     }
 
     refreshDetail();
     refreshToolTip();
+}
+
+void DeviceRow::mousePressEvent(QMouseEvent *event)
+{
+    // Taken here or the release never arrives: whoever accepts the press is who Qt sends the rest
+    // of the click to, and letting it through would hand both halves to the scroll area behind us.
+    // The labels on top of the row need no such handling - a plain QLabel ignores a press, and Qt
+    // walks an ignored event up to the parent, which is this.
+    if (event->button() == Qt::LeftButton && mounted)
+    {
+        event->accept();
+        return;
+    }
+
+    QWidget::mousePressEvent(event);
+}
+
+void DeviceRow::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (event->button() != Qt::LeftButton || !mounted)
+    {
+        QWidget::mouseReleaseEvent(event);
+        return;
+    }
+
+    // Only if the pointer is still on the row. Pressing and letting go somewhere else is how a
+    // click is taken back, and this one opens a window.
+    if (rect().contains(event->position().toPoint()))
+    {
+        // Whatever the desktop has registered for a directory: Explorer, Finder, or whichever file
+        // manager the Linux session installed as the handler.
+        QDesktopServices::openUrl(QUrl::fromLocalFile(mountPoint));
+    }
+
+    event->accept();
 }
 
 void DeviceRow::setUploaded(u64 uploaded)

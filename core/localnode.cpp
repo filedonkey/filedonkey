@@ -201,16 +201,22 @@ void LocalNode::onBroadcasting()
             emit peerMounted(id, mountPoint);
         });
 
+        // Half of what this peer's row shows - what our own mount of it has moved. The other half is
+        // counted by our server, on the socket this peer dialled in on, and the two are added
+        // together in reportTransfer().
+        //
         // By value rather than by reading the client back: these are emitted from the fuse thread
         // and delivered on this one, so the number has to travel with the signal. The function
         // pointer form matters too - the string form named the argument "u64", which is no type Qt
         // knows, and a queued delivery of it is dropped at the boundary with a warning.
         connect(virtDisk->client, &FUSEClient::uploadedChanged, this, [this, id = newConn.machineId](u64 uploaded) {
-            emit peerUploaded(id, uploaded);
+            transfers[id].clientUploaded = uploaded;
+            reportTransfer(id);
         });
 
         connect(virtDisk->client, &FUSEClient::downloadedChanged, this, [this, id = newConn.machineId](u64 downloaded) {
-            emit peerDownloaded(id, downloaded);
+            transfers[id].clientDownloaded = downloaded;
+            reportTransfer(id);
         });
         virtDisk->mount("M:\\");
 
@@ -241,8 +247,12 @@ void LocalNode::onSocketReadyRead()
     QTcpSocket *newConnection = (QTcpSocket*)QObject::sender();
     QByteArray data = newConnection->readAll();
 
-    QByteArray &incoming = socketBuffers[newConnection];
+    QByteArray &incoming = served[newConnection].incoming;
     incoming.append(data);
+
+    // Counted off the wire, before any of it has been understood: whatever these bytes turn out to
+    // say, they are bytes this peer has sent us.
+    countServed(newConnection, 0, data.size());
 
     while (true)
     {
@@ -302,13 +312,75 @@ void LocalNode::dispatchRequest(QTcpSocket *socket, const DatagramHeader &header
     handlerPool.start([this, guard, handler, requestId, payload]() {
         QByteArray response = handler(requestId, payload);
 
-        QMetaObject::invokeMethod(this, [guard, response]() {
+        QMetaObject::invokeMethod(this, [this, guard, response]() {
             if (!guard) return;
 
             guard->write(response);
             guard->flush();
+
+            // The other direction over the same socket, and the half the peer sees as its download.
+            countServed(guard, response.size(), 0);
         }, Qt::QueuedConnection);
     });
+}
+
+QString LocalNode::servedPeerId(QTcpSocket *socket)
+{
+    auto it = served.find(socket);
+    if (it == served.end()) return QString();
+    if (!it->machineId.isEmpty()) return it->machineId;
+
+    // A peer's requests can beat its announcement to us: it dials in the moment it hears our
+    // broadcast, and the invite naming it comes back over UDP separately. Until that lands there is
+    // nothing to match on, and countServed holds the bytes on the socket rather than dropping them.
+    const QHostAddress peerAddress = socket->peerAddress();
+
+    for (auto conn = connections.constBegin(); conn != connections.constEnd(); ++conn)
+    {
+        if (!QHostAddress(conn->machineAddress).isEqual(peerAddress)) continue;
+
+        it->machineId = conn.key();
+
+        // Whatever crossed while it was still a stranger belongs to it after all.
+        Transfer &transfer = transfers[it->machineId];
+        transfer.serverUploaded   += it->uploaded;
+        transfer.serverDownloaded += it->downloaded;
+
+        it->uploaded   = 0;
+        it->downloaded = 0;
+
+        return it->machineId;
+    }
+
+    return QString();
+}
+
+void LocalNode::countServed(QTcpSocket *socket, u64 uploaded, u64 downloaded)
+{
+    auto it = served.find(socket);
+    if (it == served.end()) return;
+
+    const QString machineId = servedPeerId(socket);
+    if (machineId.isEmpty())
+    {
+        it->uploaded   += uploaded;
+        it->downloaded += downloaded;
+        return;
+    }
+
+    Transfer &transfer = transfers[machineId];
+    transfer.serverUploaded   += uploaded;
+    transfer.serverDownloaded += downloaded;
+
+    reportTransfer(machineId);
+}
+
+void LocalNode::reportTransfer(const QString &machineId)
+{
+    const Transfer transfer = transfers.value(machineId);
+
+    emit peerUploaded(machineId, transfer.clientUploaded + transfer.serverUploaded);
+    emit peerDownloaded(machineId, transfer.clientDownloaded + transfer.serverDownloaded);
 }
 
 void LocalNode::onSocketDisconnected()
@@ -340,7 +412,7 @@ void LocalNode::onSocketDisconnected()
         break;
     }
 
-    socketBuffers.remove(socket);
+    served.remove(socket);
     socket->deleteLater();
 }
 
@@ -358,6 +430,20 @@ void LocalNode::onVirtDiskStopped()
     // Forget the peer too, otherwise onBroadcasting's contains() check would refuse to mount it
     // again when it comes back.
     connections.remove(peerId);
+
+    transfers.remove(peerId);
+
+    // The socket this peer dialled in on is usually gone by now - its drop is what brought us here -
+    // but it need not be: a mount can fail on its own. Unbind it so its bytes do not land on the
+    // fresh total the next mount of this machine starts from.
+    for (auto it = served.begin(); it != served.end(); ++it)
+    {
+        if (it->machineId != peerId) continue;
+
+        it->machineId.clear();
+        it->uploaded   = 0;
+        it->downloaded = 0;
+    }
 
     emit peerRemoved(peerId);
 

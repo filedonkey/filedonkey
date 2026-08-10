@@ -212,7 +212,9 @@ QLabel#deviceMount {
     font-size: 11px;
 }
 
-QLabel#deviceDetail {
+QLabel#deviceDetail,
+QLabel#deviceUploaded,
+QLabel#deviceDownloaded {
     color: #8D929A;
     font-family: "Inconsolata", "Cascadia Mono", Consolas, monospace;
     font-size: 11px;

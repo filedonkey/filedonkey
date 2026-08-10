@@ -20,6 +20,12 @@
 #define BADGE_SIZE 30
 #define DOT_SIZE    6
 
+// Between the mount point and each counter on the second line. One number for the whole line, so
+// the gap after the mount point is the gap between the counters - they used to be set apart by
+// spaces inside a single label, which made one of those two gaps the width of three mono spaces
+// and the other whatever the layout said.
+#define DETAIL_GAP 18
+
 namespace {
 
 // A stylesheet rule that selects on a property only takes hold once the style has looked at the
@@ -91,9 +97,11 @@ private:
     void refreshToolTip();
 
     Connection   conn;
-    QLabel      *dotLbl    = nullptr;
-    QLabel      *mountLbl  = nullptr;
-    ElidedLabel *detailLbl = nullptr;
+    QLabel      *dotLbl        = nullptr;
+    QLabel      *mountLbl      = nullptr;
+    QLabel      *uploadedLbl   = nullptr;
+    QLabel      *downloadedLbl = nullptr;
+    ElidedLabel *detailLbl     = nullptr;
 
     QString mountPoint;
     bool    mounted    = false;
@@ -130,8 +138,18 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
     dotLbl->setObjectName("deviceDot");
     dotLbl->setFixedSize(DOT_SIZE, DOT_SIZE);
 
+    // What the second line says before the mount is up. It and the two counters take turns: the
+    // counters have nothing to report until there is a mount for bytes to cross.
     detailLbl = new ElidedLabel(this);
     detailLbl->setObjectName("deviceDetail");
+
+    uploadedLbl = new QLabel(this);
+    uploadedLbl->setObjectName("deviceUploaded");
+    uploadedLbl->hide();
+
+    downloadedLbl = new QLabel(this);
+    downloadedLbl->setObjectName("deviceDownloaded");
+    downloadedLbl->hide();
 
     QHBoxLayout *titleLine = new QHBoxLayout;
     titleLine->setContentsMargins(0, 0, 0, 0);
@@ -145,7 +163,7 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
 
     QHBoxLayout *detailLine = new QHBoxLayout;
     detailLine->setContentsMargins(0, 0, 0, 0);
-    detailLine->setSpacing(9);
+    detailLine->setSpacing(DETAIL_GAP);
 
 #if defined(Q_OS_WIN)
     // Windows only, because only here is a mount point something worth reading: it is a drive
@@ -158,6 +176,10 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
     detailLine->addWidget(mountLbl);
 #endif
 
+    // A hidden widget takes neither room nor a gap of its own, so the three that are showing at any
+    // one moment sit DETAIL_GAP apart whichever they are.
+    detailLine->addWidget(uploadedLbl);
+    detailLine->addWidget(downloadedLbl);
     detailLine->addWidget(detailLbl);
     detailLine->addStretch(1);
 
@@ -202,6 +224,10 @@ void DeviceRow::setMounted(const QString &mountPoint)
         mountLbl->setText(this->mountPoint);
         mountLbl->show();
     }
+
+    detailLbl->hide();
+    uploadedLbl->show();
+    downloadedLbl->show();
 
     refreshDetail();
     refreshToolTip();
@@ -267,8 +293,8 @@ void DeviceRow::refreshDetail()
 
     QLocale locale(QLocale::English, QLocale::UnitedStates);
 
-    detailLbl->setText(QString("↑ %1   ↓ %2").arg(locale.formattedDataSize(uploaded),
-                                                  locale.formattedDataSize(downloaded)));
+    uploadedLbl->setText(QString("↑ %1").arg(locale.formattedDataSize(uploaded)));
+    downloadedLbl->setText(QString("↓ %1").arg(locale.formattedDataSize(downloaded)));
 }
 
 // Everything the row knows, including the parts it has no room to draw - the address it dropped

@@ -58,6 +58,17 @@ private:
 
     void dispatchRequest(QTcpSocket *socket, const DatagramHeader &header, const QByteArray &payload);
 
+    // The peer behind a socket that dialled in to our server, once its announcement has reached us.
+    // Matched on address, the way onSocketDisconnected does it: a peer dials in from a socket of its
+    // own and the address is all that connection has in common with the one it announced itself on.
+    QString servedPeerId(QTcpSocket *socket);
+
+    // Adds to what our server has moved for one peer, and reports the new totals.
+    void countServed(QTcpSocket *socket, u64 uploaded, u64 downloaded);
+
+    // Adds the two sockets' halves together and emits them. Called whenever either half moves.
+    void reportTransfer(const QString &machineId);
+
     QByteArray readdirHandler(u64 requestId, QByteArray payload);
     QByteArray readHandler(u64 requestId, QByteArray payload);
     QByteArray writeHandler(u64 requestId, QByteArray payload);
@@ -79,7 +90,31 @@ private:
     QMap<QString, Connection> connections;
     QMap<OperationType, RequestHandler> fuseHandlers;
 
-    QMap<QTcpSocket*, QByteArray> socketBuffers;
+    // One per socket a peer has dialled in to our server on. Holds the datagram that socket is in
+    // the middle of sending us, and - until we can put a name to it - what has crossed it.
+    struct ServedPeer
+    {
+        QByteArray incoming;
+        QString    machineId;
+        u64        uploaded   = 0;
+        u64        downloaded = 0;
+    };
+
+    // Everything this machine has moved for one peer, over both of the sockets it involves: the one
+    // our VirtDisk dialled out on, whose totals FUSEClient reports, and the one that peer dialled in
+    // on, which our own server reads and writes. Both halves have to be counted or these numbers
+    // cannot agree with the peer's own - what it calls a download is our upload, and each of the two
+    // sockets carries only one direction of the pair.
+    struct Transfer
+    {
+        u64 clientUploaded   = 0;
+        u64 clientDownloaded = 0;
+        u64 serverUploaded   = 0;
+        u64 serverDownloaded = 0;
+    };
+
+    QMap<QTcpSocket*, ServedPeer> served;
+    QMap<QString, Transfer> transfers;
     QMap<QString, VirtDisk*> virtDisks;
     FUSEBackend *fuseBackend = nullptr;
 

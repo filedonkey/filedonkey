@@ -3,6 +3,10 @@
 # blank rather than failing loudly.
 QT       += core gui network svg
 
+# Without this the target would be named after the .pro file, i.e. app.exe.
+TARGET = FileDonkey
+VERSION = 0.5
+
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++20
@@ -50,6 +54,13 @@ CONFIG += embed_translations
 win32 {
     # magick icon.png -define icon:auto-resize=16,32,48,64,96,128,256 -compress zip icon.ico
     RC_ICONS += ../assets/filedonkey_app_icon.ico
+
+    # Fills the VERSIONINFO block qmake generates alongside the icon. Task Manager's Processes tab
+    # shows FileDescription and falls back to the raw image name when it is blank, which is why the
+    # app listed itself as "FileDonkey.exe" while everything else showed a plain name.
+    QMAKE_TARGET_DESCRIPTION = "FileDonkey"
+    QMAKE_TARGET_PRODUCT = "FileDonkey"
+    QMAKE_TARGET_COMPANY = "FileDonkey"
 }
 
 macx {

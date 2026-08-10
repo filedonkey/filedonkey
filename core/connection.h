@@ -98,7 +98,7 @@ struct Connection
     i64 machinePort;
 
     // QSysInfo::productType() as the peer reported it - "windows", "macos", "android", or the
-    // distribution's own name on Linux. Only the device list uses it, and only to label the row,
+    // distribution's own name on Linux. Only the device list uses it, and only to badge the row,
     // so a peer built before the broadcast carried the field leaves it empty rather than breaking.
     QString machineOs;
 };

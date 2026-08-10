@@ -111,7 +111,7 @@ void LocalNode::broadcast()
     machine["name"] = QSysInfo::machineHostName();
     machine["port"] = server->serverPort();
 
-    // Carried for the sake of the peer's device list, which labels each row with the platform it
+    // Carried for the sake of the peer's device list, which badges each row with the platform it
     // found. Nothing in the protocol turns on it, so a peer that does not send it is not a peer we
     // refuse to talk to.
     machine["os"]   = QSysInfo::productType();

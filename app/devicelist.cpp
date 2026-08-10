@@ -4,6 +4,7 @@
 #include <QFontMetrics>
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QLocale>
 #include <QMouseEvent>
@@ -17,8 +18,9 @@
 // it, and a mono line under them carrying the mount point and what has moved across it. These are
 // here rather than in the stylesheet because QSS sizes the content box - the badge carries a 1px
 // border, so a min-width there would have to be this number minus two, kept in step by hand.
-#define BADGE_SIZE 30
-#define DOT_SIZE    6
+#define BADGE_SIZE  30
+#define BADGE_GLYPH 16
+#define DOT_SIZE     6
 
 // Between the mount point and each counter on the second line. One number for the whole line, so
 // the gap after the mount point is the gap between the counters - they used to be set apart by
@@ -27,6 +29,28 @@
 #define DETAIL_GAP 18
 
 namespace {
+
+// The badge artwork for a peer, or an empty string where there is none and the row has to name the
+// platform in text instead.
+//
+// Matched on the QSysInfo::productType() the peer broadcast, which names the two desktop platforms
+// we have artwork for outright and every Linux distribution as itself - ubuntu, arch, debian, one
+// per distribution and no list to check against. So Linux is what is left after the names that are
+// known: the two mobile platforms, which have no artwork of their own, and the "unknown" QSysInfo
+// answers with when it cannot tell. A BSD would be handed the penguin by that rule, which is a
+// better answer than three letters and not one FileDonkey runs on anyway.
+QString badgeIcon(const QString &productType)
+{
+    if (productType == "windows") return ":/assets/windows.svg";
+    if (productType == "macos")   return ":/assets/macos.svg";
+
+    if (productType.isEmpty())     return QString();
+    if (productType == "unknown")  return QString();
+    if (productType == "android")  return QString();
+    if (productType == "ios")      return QString();
+
+    return ":/assets/linux.svg";
+}
 
 // A stylesheet rule that selects on a property only takes hold once the style has looked at the
 // widget again, and setProperty() alone does not ask it to.
@@ -119,17 +143,29 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
     // there is nothing for the hover rule to fill.
     setAttribute(Qt::WA_StyledBackground, true);
 
-    // The badge is the first three letters of what the peer broadcast as its QSysInfo::productType(),
-    // which is the tag the design asks for on every platform this runs on: windows -> win,
-    // macos -> mac, android -> and, ios -> ios, and a Linux distribution reads as itself - ubu, deb,
-    // arc. A peer from before the broadcast carried the field at all sends nothing.
-    QString badge = conn.machineOs.left(3).toLower();
-    if (badge.isEmpty()) badge = "?";
-
-    QLabel *badgeLbl = new QLabel(badge, this);
+    QLabel *badgeLbl = new QLabel(this);
     badgeLbl->setObjectName("deviceBadge");
     badgeLbl->setAlignment(Qt::AlignCenter);
     badgeLbl->setFixedSize(BADGE_SIZE, BADGE_SIZE);
+
+    const QString icon = badgeIcon(conn.machineOs);
+    if (!icon.isEmpty())
+    {
+        // Through QIcon rather than QPixmap so the SVG is re-rendered at whatever the display's
+        // scale factor is, the way the caption glyphs are - see the note in titlebar.cpp. The three
+        // files are drawn in the badge's own #A9AEB6 already, so there is nothing to tint.
+        badgeLbl->setPixmap(QIcon(icon).pixmap(BADGE_GLYPH, BADGE_GLYPH));
+    }
+    else
+    {
+        // Nothing drawn for this platform. The first three letters of what it called itself is what
+        // the badge showed everywhere before there was artwork: android -> and, ios -> ios. A peer
+        // from before the broadcast carried the field at all says nothing we can use.
+        QString text = conn.machineOs.left(3).toLower();
+        if (text.isEmpty()) text = "?";
+
+        badgeLbl->setText(text);
+    }
 
     ElidedLabel *nameLbl = new ElidedLabel(conn.machineName, this);
     nameLbl->setObjectName("deviceName");
@@ -298,10 +334,15 @@ void DeviceRow::refreshDetail()
 }
 
 // Everything the row knows, including the parts it has no room to draw - the address it dropped
-// once the mount came up, and the mount point itself where that is not shown at all.
+// once the mount came up, the mount point itself where that is not shown at all, and the platform
+// now that the badge draws it rather than naming it. That last one is the only place a Linux
+// distribution's own name appears: every one of them gets the same artwork.
 void DeviceRow::refreshToolTip()
 {
-    QString text = QString("%1\n%2:%3").arg(conn.machineName, conn.machineAddress).arg(conn.machinePort);
+    QString text = conn.machineName;
+    if (!conn.machineOs.isEmpty()) text += QString(" · %1").arg(conn.machineOs);
+
+    text += QString("\n%1:%2").arg(conn.machineAddress).arg(conn.machinePort);
     if (mounted) text += "\n" + mountPoint;
 
     setToolTip(text);

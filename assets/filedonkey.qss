@@ -178,8 +178,11 @@ QWidget#deviceRow {
 
 QWidget#deviceRow:hover { background: #26282C; }
 
-/* The platform tag. Mono, so "win" and "mac" are the same width and the names
- * beside them line up. */
+/* The platform badge. Usually a glyph - see badgeIcon() in devicelist.cpp,
+ * and note the artwork is drawn in the same #A9AEB6 the type rules below set,
+ * since an icon cannot take its colour from `color:`. The type is for the
+ * platforms with no glyph of their own, which name themselves in three
+ * letters instead; mono, so those three are the same width every time. */
 
 QLabel#deviceBadge {
     background: #2A2C31;

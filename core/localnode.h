@@ -31,6 +31,11 @@ public:
     explicit LocalNode(QObject *parent = nullptr);
     ~LocalNode();
 
+    // Where a peer reaches this machine, written the way its device row writes ours: address then
+    // port, and empty while no interface carries one. For the status bar - nothing in the protocol
+    // asks us, every peer learns it from the datagrams we send.
+    QString localEndpoint() const;
+
 signals:
     // Forwarded from the FUSEClient of whichever VirtDisk moved the bytes, named so the device list
     // can put them on the right row - the counters have always been per-peer, and until there was a

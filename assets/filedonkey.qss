@@ -145,18 +145,33 @@ QStatusBar::item { border: 0px; }
 
 /* ------------------------------------------------- the status bar's contents
  * One line at each end. On the left the version and the stage the project is
- * in, which used to be part of the window title; on the right, built by the
- * device list and put here by the window, the same state dot the rows carry
- * and a count of them. The transfer counters that used to sit on the right are
- * on the rows now - see #deviceDetail below.
+ * in, which used to be part of the window title; on the right this machine's
+ * own address and, built by the device list and put here by the window, the
+ * same state dot the rows carry and a count of them. The transfer counters
+ * that used to sit on the right are on the rows now - see #deviceDetail below.
  *
- * Both ends are the same muted 11px, so neither reads as the more important
- * of the two and neither competes with the list above them. */
+ * Every one of them is the same muted 11px, so no end reads as the more
+ * important and none competes with the list above them. */
 
 QLabel#versionLbl {
     color: #8D929A;
     font-size: 11px;
 }
+
+QWidget#statusEndpoint { background: transparent; }
+
+/* Monospaced, unlike the rest of the bar: an address is a run of digits, and
+ * the proportional font sets them at widths that make the four groups hard to
+ * read as four. The same family the per-row transfer counters use. */
+QLabel#endpointLbl {
+    color: #8D929A;
+    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
+    font-size: 11px;
+}
+
+/* The same grey as the window's own border - it is a rule inside the frame,
+ * not a lighter hint of one. Sized in mainwindow.cpp, like the dots. */
+QWidget#statusSeparator { background: #34363B; }
 
 QWidget#deviceSummary { background: transparent; }
 

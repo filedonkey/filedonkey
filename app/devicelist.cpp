@@ -420,10 +420,9 @@ void DeviceRow::refreshDetail()
 void DeviceRow::refreshToolTip()
 {
     QString text = conn.machineName;
-    if (!conn.machineOs.isEmpty()) text += QString(" · %1").arg(conn.machineOs);
+    if (!conn.machineOs.isEmpty()) text += QString(" · %1").arg(osName(conn.machineOs));
 
     text += QString("\n\n%1 : %2").arg(conn.machineAddress).arg(conn.machinePort);
-    if (mounted) text += "\n\n" + mountPoint;
 
     setToolTip(text);
 }

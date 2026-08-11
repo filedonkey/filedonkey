@@ -38,6 +38,27 @@ QString addressText(const QHostAddress &address)
     return isIPv4 ? QHostAddress(ipv4).toString() : address.toString();
 }
 
+// Which of this machine's addresses a packet leaving it would carry, according to the routing
+// table. Connecting a UDP socket sends nothing - it only fixes the peer - but that is enough to
+// make the OS choose an interface by its routes and bind the socket to that interface's address.
+//
+// Asked because enumerating interfaces cannot answer it. A machine with VirtualBox or WSL on it
+// has host-only adapters carrying private addresses of their own, indistinguishable from the real
+// one by anything QNetworkInterface reports - same family, same flags, same type, and often listed
+// first, so the first-match answer was VirtualBox's 192.168.56.1 on a machine reachable at
+// 192.168.50.253. The default route is what tells the two apart.
+//
+// The address dialled is never contacted and nothing about it matters beyond being routable and
+// off this network. Null when there is no default route at all - a LAN with no way out, which is
+// a network this app is expressly meant to work on, so the caller falls back rather than gives up.
+QHostAddress routedAddress()
+{
+    QUdpSocket probe;
+    probe.connectToHost(QHostAddress("8.8.8.8"), 53);
+
+    return probe.localAddress();
+}
+
 } // namespace
 
 LocalNode::LocalNode(QObject *parent)
@@ -119,6 +140,40 @@ LocalNode::~LocalNode()
     delete fuseBackend;
 
     connections.clear();
+}
+
+// The routing table's answer, and only if it has none, a guess: the first IPv4 address on an
+// interface with a broadcast address to send to - the same test broadcast() applies, so whatever
+// comes back is at least an address we really do announce ourselves on. It is a guess because
+// with no default route there is nothing left to rank the interfaces by, and the one listed first
+// need not be the one a peer can see us on.
+//
+// Read whenever it is asked for rather than kept: the answer changes when the machine changes
+// network, and there is no signal to hang a cached copy off.
+QString LocalNode::localEndpoint() const
+{
+    const QHostAddress routed = routedAddress();
+    if (!routed.isNull())
+    {
+        return QString("%1:%2").arg(routed.toString()).arg(server->serverPort());
+    }
+
+    for (const QNetworkInterface &networkInterface : QNetworkInterface::allInterfaces())
+    {
+        const QNetworkInterface::InterfaceFlags flags = networkInterface.flags();
+        if (!flags.testFlag(QNetworkInterface::IsUp))      continue;
+        if (!flags.testFlag(QNetworkInterface::IsRunning)) continue;
+
+        for (const QNetworkAddressEntry &addressEntry : networkInterface.addressEntries())
+        {
+            const bool isIPv4 = addressEntry.ip().protocol() == QAbstractSocket::IPv4Protocol;
+            if (!isIPv4 || addressEntry.broadcast().isNull()) continue;
+
+            return QString("%1:%2").arg(addressEntry.ip().toString()).arg(server->serverPort());
+        }
+    }
+
+    return QString();
 }
 
 void LocalNode::broadcast()

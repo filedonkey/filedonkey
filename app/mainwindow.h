@@ -41,6 +41,10 @@ private:
     void createTrayIcon();
     void setTryaIcon();
 
+    // The right-hand end of the status bar in front of the device count: this machine's own
+    // address, and the rule that separates the two.
+    QWidget *endpointWidget(const QString &endpoint);
+
     // Shown once, the first time closing the window leaves the app running in the tray. Without
     // it the window simply vanishes and the app looks like it crashed.
     void announceStillRunning();

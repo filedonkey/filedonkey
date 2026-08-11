@@ -12,6 +12,7 @@
 #include <QResizeEvent>
 #include <QSettings>
 #include <QStyleHints>
+#include <QHBoxLayout>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -33,6 +34,11 @@
 // own layout margin and the spacing after its dot; matching the sum here is what makes the two
 // ends of the bar look level - see summaryWidget()'s layout in devicelist.cpp.
 #define STATUS_EDGE_INSET 9
+
+// The rule between this machine's address and the device count, and the room left in front of it.
+// Shorter than the bar so it reads as a divider between two lines rather than a second border.
+#define STATUS_SEPARATOR_HEIGHT 12
+#define STATUS_SEPARATOR_GAP    9
 
 namespace {
 
@@ -157,6 +163,16 @@ MainWindow::MainWindow(QWidget *parent)
     contentLayout->setSpacing(0);
     contentLayout->addWidget(deviceList);
 
+    node = new LocalNode(this);
+
+    // Straight to the list: nothing here has anything to add to them, and MainWindow keeping a
+    // shadow copy of who is connected would only be a second thing to get out of step.
+    connect(node, &LocalNode::peerAdded,      deviceList, &DeviceList::onPeerAdded);
+    connect(node, &LocalNode::peerMounted,    deviceList, &DeviceList::onPeerMounted);
+    connect(node, &LocalNode::peerUploaded,   deviceList, &DeviceList::onPeerUploaded);
+    connect(node, &LocalNode::peerDownloaded, deviceList, &DeviceList::onPeerDownloaded);
+    connect(node, &LocalNode::peerRemoved,    deviceList, &DeviceList::onPeerRemoved);
+
     // The left-hand end of the status bar. Neither half goes through tr(): a version number is the
     // same string in every language, and lupdate cannot see a stage that arrives as a macro anyway.
     QLabel *versionLbl = new QLabel(QString("v%1 (%2)").arg(APP_VERSION, APP_STAGE), this);
@@ -168,20 +184,50 @@ MainWindow::MainWindow(QWidget *parent)
     // there is no message to be pushed aside by - or to cover - the label.
     ui->statusbar->addWidget(versionLbl);
 
+    // This machine's own address, at the right-hand end in front of the count: the rows say where
+    // every other machine is, and this is the one address they cannot say. Read once, here, and
+    // left as it was found - the node re-reads it on every call, but a machine that changes network
+    // mid-session has no way to tell this label about it, and no signal to add one to.
+    //
+    // Skipped entirely when there is no address to show, rather than drawn empty behind a rule that
+    // then separates the count from nothing.
+    const QString endpoint = node->localEndpoint();
+    if (!endpoint.isEmpty())
+    {
+        ui->statusbar->addPermanentWidget(endpointWidget(endpoint));
+    }
+
     // The other end, and the rest of the bar. It used to carry the transfer counters, which have
     // gone to the rows that earned them - a device moves its own bytes, and one pair of labels down
     // here could only ever show whichever of them moved some last.
     ui->statusbar->addPermanentWidget(deviceList->summaryWidget());
+}
 
-    node = new LocalNode(this);
+// The address and the rule that keeps it off the device count, as one widget: permanent widgets
+// are spaced by the status bar's own layout, and only what shares a layout of ours can be given
+// the gap the rule wants on either side of it.
+QWidget *MainWindow::endpointWidget(const QString &endpoint)
+{
+    QLabel *endpointLbl = new QLabel(endpoint, this);
+    endpointLbl->setObjectName("endpointLbl");
 
-    // Straight to the list: nothing here has anything to add to them, and MainWindow keeping a
-    // shadow copy of who is connected would only be a second thing to get out of step.
-    connect(node, &LocalNode::peerAdded,      deviceList, &DeviceList::onPeerAdded);
-    connect(node, &LocalNode::peerMounted,    deviceList, &DeviceList::onPeerMounted);
-    connect(node, &LocalNode::peerUploaded,   deviceList, &DeviceList::onPeerUploaded);
-    connect(node, &LocalNode::peerDownloaded, deviceList, &DeviceList::onPeerDownloaded);
-    connect(node, &LocalNode::peerRemoved,    deviceList, &DeviceList::onPeerRemoved);
+    // A plain widget rather than a QFrame VLine: a frame's line is drawn by the native style in
+    // the style's own colours, and this one has to be the same grey as the window's border.
+    QWidget *separator = new QWidget(this);
+    separator->setObjectName("statusSeparator");
+    separator->setAttribute(Qt::WA_StyledBackground, true);
+    separator->setFixedSize(1, STATUS_SEPARATOR_HEIGHT);
+
+    QWidget *box = new QWidget(this);
+    box->setObjectName("statusEndpoint");
+
+    QHBoxLayout *layout = new QHBoxLayout(box);
+    layout->setContentsMargins(0, 5, 0, 5);
+    layout->setSpacing(STATUS_SEPARATOR_GAP);
+    layout->addWidget(endpointLbl, 0, Qt::AlignVCenter);
+    layout->addWidget(separator, 0, Qt::AlignVCenter);
+
+    return box;
 }
 
 MainWindow::~MainWindow()

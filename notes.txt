@@ -1,3 +1,5 @@
+UI Reference: https://claude.ai/code/artifact/d05ec753-7d51-4449-9017-8769b4e5d313
+
 Subject for Settings window:
  - [toggle] Start FileDonkey when I sign in (Runs in the tray, no window)
  - [toggle] Announce this PC on the network (Turn off to browse without being discoverable)
@@ -6,4 +8,3 @@ Subject for Settings window:
  - [input] Transfer port (TCP)
  - [input] This PC's name
  - [input + button...] Shared root (Folders this PC exposes to paired devices. Everything else stays invisible.)
- 

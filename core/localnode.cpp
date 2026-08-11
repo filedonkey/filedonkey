@@ -20,6 +20,26 @@
 
 using namespace std::placeholders;
 
+namespace {
+
+// How a peer's address is written down, without the ::ffff: an IPv4 peer arrives wearing. Both our
+// sockets are bound to QHostAddress::Any, which is dual-stack, and a packet from an IPv4 machine
+// reaching a dual-stack socket is reported as the IPv4-mapped IPv6 address that stands for it - so
+// the row drew ::ffff:192.168.1.5 where the user expects the four numbers on their router.
+//
+// toIPv4Address() is that mapping run backwards: it answers for a mapped address as readily as for
+// a native IPv4 one and says which it had through ok. A peer that really is on IPv6 fails it and
+// keeps the address it came with.
+QString addressText(const QHostAddress &address)
+{
+    bool isIPv4 = false;
+    const quint32 ipv4 = address.toIPv4Address(&isIPv4);
+
+    return isIPv4 ? QHostAddress(ipv4).toString() : address.toString();
+}
+
+} // namespace
+
 LocalNode::LocalNode(QObject *parent)
     : QObject(parent)
     , server(new QTcpServer(this))
@@ -166,7 +186,7 @@ void LocalNode::onBroadcasting()
         Connection newConn = {
             .machineId      = machine["id"].toString(),
             .machineName    = machine["name"].toString(),
-            .machineAddress = senderAddress.toString(),
+            .machineAddress = addressText(senderAddress),
             .machinePort    = machine["port"].toInteger(),
             .machineOs      = machine["os"].toString(),
         };

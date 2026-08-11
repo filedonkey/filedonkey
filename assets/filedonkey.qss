@@ -240,6 +240,11 @@ QLabel#deviceDownloaded {
     font-size: 11px;
 }
 
+/* The arrow before each counter has no rule of its own: it is a picture, and
+ * a picture takes no colour from `color:`. Its #8D929A is the fill in
+ * arrow-up.svg and arrow-down.svg, so the colour above has to be changed in
+ * those two files as well to keep an arrow the shade of its own number. */
+
 /* The state dots, on each row and once more in the status bar for the list as
  * a whole. 6px square from the code, so a 3px radius is what rounds them off. */
 

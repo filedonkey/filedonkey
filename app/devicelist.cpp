@@ -33,6 +33,12 @@
 // and the other whatever the layout said.
 #define DETAIL_GAP 18
 
+// The arrow beside each counter, and the little that separates it from its own number. Drawn a
+// touch under the 11px the counters are set in: the artwork fills its viewBox top to bottom, so at
+// the type's own size it would stand taller than the digits beside it rather than level with them.
+#define ARROW_GLYPH 9
+#define ARROW_GAP   4
+
 namespace {
 
 // The badge artwork for a peer, or an empty string where there is none and the row has to name the
@@ -72,6 +78,33 @@ QString osName(const QString &productType)
     if (productType == "unknown") return QString();
 
     return productType.left(1).toUpper() + productType.mid(1);
+}
+
+// A counter and the arrow that says which way it counts, as one widget - so the gap that sets the
+// counters apart falls between the two pairs and not between an arrow and the number it belongs to.
+//
+// The arrow is artwork rather than a character, drawn through QIcon so it is re-rendered from the
+// vector at the display's own scale factor the way the caption glyphs and the platform badges are.
+// Its colour is baked into the file, in the counters' own #8D929A: an icon cannot take a colour
+// from the stylesheet's `color:` - see the note on the badge in filedonkey.qss.
+QWidget *counterBox(QWidget *parent, const QString &icon, QLabel *label)
+{
+    QWidget *box = new QWidget(parent);
+
+    QLabel *arrowLbl = new QLabel(box);
+    arrowLbl->setObjectName("deviceArrow");
+    arrowLbl->setPixmap(QIcon(icon).pixmap(ARROW_GLYPH, ARROW_GLYPH));
+
+    QHBoxLayout *layout = new QHBoxLayout(box);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(ARROW_GAP);
+
+    // Centred against the number rather than sitting on its baseline: the glyph is symmetrical and
+    // has no baseline of its own to sit on. addWidget() reparents the label into the box for us.
+    layout->addWidget(arrowLbl, 0, Qt::AlignVCenter);
+    layout->addWidget(label,    0, Qt::AlignVCenter);
+
+    return box;
 }
 
 // A stylesheet rule that selects on a property only takes hold once the style has looked at the
@@ -149,6 +182,11 @@ private:
     QLabel      *downloadedLbl = nullptr;
     ElidedLabel *detailLbl     = nullptr;
 
+    // The arrow and the number together. What the row shows and hides - hiding the number alone
+    // would leave its arrow behind on an unmounted row.
+    QWidget     *uploadedBox   = nullptr;
+    QWidget     *downloadedBox = nullptr;
+
     QString mountPoint;
     bool    mounted    = false;
     u64     uploaded   = 0;
@@ -203,11 +241,15 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
 
     uploadedLbl = new QLabel(this);
     uploadedLbl->setObjectName("deviceUploaded");
-    uploadedLbl->hide();
 
     downloadedLbl = new QLabel(this);
     downloadedLbl->setObjectName("deviceDownloaded");
-    downloadedLbl->hide();
+
+    uploadedBox   = counterBox(this, ":/assets/arrow-up.svg",   uploadedLbl);
+    downloadedBox = counterBox(this, ":/assets/arrow-down.svg", downloadedLbl);
+
+    uploadedBox->hide();
+    downloadedBox->hide();
 
     QHBoxLayout *titleLine = new QHBoxLayout;
     titleLine->setContentsMargins(0, 0, 0, 0);
@@ -252,8 +294,8 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
 
     // A hidden widget takes neither room nor a gap of its own, so the three that are showing at any
     // one moment sit DETAIL_GAP apart whichever they are.
-    detailLine->addWidget(uploadedLbl);
-    detailLine->addWidget(downloadedLbl);
+    detailLine->addWidget(uploadedBox);
+    detailLine->addWidget(downloadedBox);
     detailLine->addWidget(detailLbl);
     detailLine->addStretch(1);
 
@@ -300,8 +342,8 @@ void DeviceRow::setMounted(const QString &mountPoint)
     }
 
     detailLbl->hide();
-    uploadedLbl->show();
-    downloadedLbl->show();
+    uploadedBox->show();
+    downloadedBox->show();
 
     refreshDetail();
     refreshToolTip();
@@ -367,8 +409,9 @@ void DeviceRow::refreshDetail()
 
     QLocale locale(QLocale::English, QLocale::UnitedStates);
 
-    uploadedLbl->setText(QString("↑ %1").arg(locale.formattedDataSize(uploaded)));
-    downloadedLbl->setText(QString("↓ %1").arg(locale.formattedDataSize(downloaded)));
+    // Just the number: which way it went is the arrow's job now - see counterBox().
+    uploadedLbl->setText(locale.formattedDataSize(uploaded));
+    downloadedLbl->setText(locale.formattedDataSize(downloaded));
 }
 
 // Everything the row knows, including the parts it has no room to draw - the address it dropped

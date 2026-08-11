@@ -5,7 +5,19 @@ QT       += core gui network svg
 
 # Without this the target would be named after the .pro file, i.e. app.exe.
 TARGET = FileDonkey
-VERSION = 0.5
+
+# Where the version lives, for the whole project. qmake takes it for the Windows VERSIONINFO block
+# below - three components, because that is what a Windows file version is - and the status bar
+# takes the same two strings through the defines, so the number the user reads and the number the
+# .exe carries in its properties cannot drift apart.
+#
+# STAGE is ours alone; qmake does nothing with it. The triple backslashes are what survive both
+# qmake and the shell, and leave the compiler a quoted C string.
+VERSION = 0.5.0
+STAGE   = Beta
+
+DEFINES += APP_VERSION=\\\"$$VERSION\\\"
+DEFINES += APP_STAGE=\\\"$$STAGE\\\"
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 

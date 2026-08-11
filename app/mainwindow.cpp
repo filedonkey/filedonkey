@@ -6,6 +6,7 @@
 #include <QDesktopServices>
 #include <QFile>
 #include <QGraphicsDropShadowEffect>
+#include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QResizeEvent>
@@ -22,6 +23,16 @@
 #define SHADOW_MARGIN   18
 #define SHADOW_BLUR     28
 #define SHADOW_OFFSET_Y 6
+
+// APP_VERSION and APP_STAGE come from app.pro, which is where they are written down: it is the
+// file Windows' VERSIONINFO block is filled from, and a number kept here as well would be a second
+// copy to forget. Not defaulted if they are missing - a build with no version in it should fail to
+// compile rather than ship calling itself something made up here.
+//
+// How far in from the window edge that label sits. The summary at the other end is inset by its
+// own layout margin and the spacing after its dot; matching the sum here is what makes the two
+// ends of the bar look level - see summaryWidget()'s layout in devicelist.cpp.
+#define STATUS_EDGE_INSET 9
 
 namespace {
 
@@ -146,13 +157,20 @@ MainWindow::MainWindow(QWidget *parent)
     contentLayout->setSpacing(0);
     contentLayout->addWidget(deviceList);
 
-    // The whole of the status bar. It used to carry the transfer counters, which have gone to the
-    // rows that earned them - a device moves its own bytes, and one pair of labels down here could
-    // only ever show whichever of them moved some last.
-    //
-    // As a permanent widget rather than a normal one, which is what puts it at the right-hand end:
-    // QStatusBar lays normal widgets out from the left and reserves the right for these. Nothing
-    // here ever calls showMessage(), so the left half the message would have claimed stays empty.
+    // The left-hand end of the status bar. Neither half goes through tr(): a version number is the
+    // same string in every language, and lupdate cannot see a stage that arrives as a macro anyway.
+    QLabel *versionLbl = new QLabel(QString("v%1 (%2)").arg(APP_VERSION, APP_STAGE), this);
+    versionLbl->setObjectName("versionLbl");
+    versionLbl->setContentsMargins(STATUS_EDGE_INSET, 0, 0, 0);
+
+    // A normal widget, which is what puts it at the left-hand end: QStatusBar lays these out from
+    // the left and reserves the right for permanent ones. Nothing here ever calls showMessage(), so
+    // there is no message to be pushed aside by - or to cover - the label.
+    ui->statusbar->addWidget(versionLbl);
+
+    // The other end, and the rest of the bar. It used to carry the transfer counters, which have
+    // gone to the rows that earned them - a device moves its own bytes, and one pair of labels down
+    // here could only ever show whichever of them moved some last.
     ui->statusbar->addPermanentWidget(deviceList->summaryWidget());
 
     node = new LocalNode(this);

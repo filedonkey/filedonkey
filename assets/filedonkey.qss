@@ -139,9 +139,19 @@ QStatusBar {
 QStatusBar::item { border: 0px; }
 
 /* ------------------------------------------------- the status bar's contents
- * One line, built by the device list and put here by the window: the same
- * state dot the rows carry, and a count of them. The transfer counters that
- * used to sit here are on the rows now - see #deviceDetail below. */
+ * One line at each end. On the left the version and the stage the project is
+ * in, which used to be part of the window title; on the right, built by the
+ * device list and put here by the window, the same state dot the rows carry
+ * and a count of them. The transfer counters that used to sit on the right are
+ * on the rows now - see #deviceDetail below.
+ *
+ * Both ends are the same muted 11px, so neither reads as the more important
+ * of the two and neither competes with the list above them. */
+
+QLabel#versionLbl {
+    color: #8D929A;
+    font-size: 11px;
+}
 
 QWidget#deviceSummary { background: transparent; }
 

@@ -295,8 +295,8 @@ QLabel#deviceDot[state="mounted"]  { background: #4EC97A; }
 
 QLabel#deviceEmptyTitle {
     color: #E8E9EC;
-    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
-    font-size: 11px;
+    font-size: 13px;
+    font-weight: 600;
 }
 
 QLabel#deviceEmptyText {

@@ -12,7 +12,7 @@
 
 // What Windows 11 uses for its own caption buttons: a 46px-wide button with a 10px glyph in it.
 #define CAPTION_BUTTON_WIDTH 46
-#define CAPTION_GLYPH        10
+#define CAPTION_GLYPH        12
 
 namespace {
 

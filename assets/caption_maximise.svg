@@ -1,3 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" width="10" height="10">
-    <rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="#4A4E55" stroke-width="1"/>
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+<svg fill="#4A4E55" width="800px" height="800px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
+<title>square-rounded</title>
+<path d="M26 0.75h-20c-2.898 0.004-5.246 2.352-5.25 5.25v20c0.004 2.898 2.352 5.246 5.25 5.25h20c2.898-0.004 5.246-2.352 5.25-5.25v-20c-0.004-2.898-2.352-5.246-5.25-5.25h-0zM28.75 26c-0.002 1.518-1.232 2.748-2.75 2.75h-20c-1.518-0.002-2.748-1.232-2.75-2.75v-20c0.002-1.518 1.232-2.748 2.75-2.75h20c1.518 0.002 2.748 1.232 2.75 2.75v0z"></path>
 </svg>

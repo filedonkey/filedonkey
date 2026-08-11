@@ -20,10 +20,15 @@
  */
 
 /* Type and colour for everything. Deliberately no background here: a bare
- * QWidget background rule paints over every child widget in the app. */
+ * QWidget background rule paints over every child widget in the app.
+ *
+ * No family either, and that is the point: it is the desktop's own UI font,
+ * set on the application in main.cpp. This rule used to name Segoe UI, which
+ * dressed the Windows build and left the other two falling past it to the
+ * `sans-serif` generic - Helvetica on macOS, fontconfig's guess on Linux,
+ * neither of them the font those desktops actually use. See applyFonts(). */
 QWidget {
     color: #E8E9EC;
-    font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif;
     font-size: 13px;
 }
 
@@ -188,6 +193,21 @@ QWidget#deviceRow {
 
 QWidget#deviceRow:hover { background: #26282C; }
 
+/* Everything from here down is mono, and the family list is the same in each
+ * rule. Inconsolata is the one we mean; it ships with no desktop at all, so it
+ * travels in the resources and applyFonts() registers it at startup. Both
+ * spellings are asked for: the file carries a typographic family of
+ * "Inconsolata" and a legacy one of "Inconsolata SemiBold", and which of the
+ * two a Qt platform backend registers is its own business - 6.9 on Windows
+ * happens to register both. The rest of the list is what is left if the
+ * resource ever fails to register: Cascadia
+ * Mono and Consolas on Windows, and the generic, which is Menlo on macOS and
+ * whatever fontconfig answers with on Linux.
+ *
+ * The file is the SemiBold cut and is the only face in the family, so the two
+ * rules below that ask for no weight get it too. Adding Inconsolata-Regular to
+ * the resources is what would give them the lighter face they name. */
+
 /* The platform badge. Usually a glyph - see badgeIcon() in devicelist.cpp,
  * and note the artwork is drawn in the same #A9AEB6 the type rules below set,
  * since an icon cannot take its colour from `color:`. The type is for the
@@ -199,14 +219,14 @@ QLabel#deviceBadge {
     border: 1px solid #3A3D43;
     border-radius: 6px;
     color: #A9AEB6;
-    font-family: "Inconsolata", "Cascadia Mono", Consolas, monospace;
+    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 11px;
     font-weight: 600;
 }
 
 QLabel#deviceName {
     color: #E8E9EC;
-    font-family: "Inconsolata", "Cascadia Mono", Consolas, monospace;
+    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 13px;
     font-weight: 600;
 }
@@ -222,7 +242,7 @@ QLabel#deviceName {
 
 QLabel#deviceMount {
     color: #C7CBD1;
-    font-family: "Inconsolata", "Cascadia Mono", Consolas, monospace;
+    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 11px;
 }
 
@@ -236,7 +256,7 @@ QLabel#deviceOs,
 QLabel#deviceUploaded,
 QLabel#deviceDownloaded {
     color: #8D929A;
-    font-family: "Inconsolata", "Cascadia Mono", Consolas, monospace;
+    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 11px;
 }
 

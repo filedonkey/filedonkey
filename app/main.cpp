@@ -3,6 +3,8 @@
 #include "virtdisk.h"
 
 #include <QApplication>
+#include <QFont>
+#include <QFontDatabase>
 #include <QLocale>
 #include <QTranslator>
 #include <QLoggingCategory>
@@ -51,6 +53,42 @@ static void installQuitSignalHandlers(QCoreApplication *app)
     sigaction(SIGHUP,  &action, nullptr);
 }
 #endif
+
+// The two fonts the interface is set in, neither of which can be left to the platform to pick.
+//
+// Inconsolata - what the device rows are in - is installed on no desktop by default, not even the
+// one this was designed on, so the stylesheet has been naming a font nobody had. It travels in the
+// resources now and is registered here, before any widget exists to be styled with it.
+//
+// The rest of the interface follows the desktop's own UI font, which is already what Qt puts in the
+// application font: Segoe UI on Windows, San Francisco on macOS, whatever the user has set on
+// Linux. The stylesheet used to name Segoe outright - see the QWidget rule in filedonkey.qss for
+// what that did to the other two.
+//
+// Windows 11 is the one place worth correcting Qt on. The message font it reports is still plain
+// Segoe UI, while the shell sets body text in Segoe UI Variable Text, the same typeface cut for
+// this size. Take that where it exists and keep what Qt gave us where it does not.
+//
+// Size is not set here. The QWidget rule gives everything 13px and would override whatever point
+// size came back from the platform anyway.
+static void applyFonts()
+{
+    if (QFontDatabase::addApplicationFont(":/assets/Inconsolata-SemiBold.ttf") == -1)
+    {
+        qWarning() << "[applyFonts] could not register Inconsolata; the device rows fall back to the platform's mono";
+    }
+
+    QFont font = QFontDatabase::systemFont(QFontDatabase::GeneralFont);
+
+#if defined(_WIN32)
+    if (QFontDatabase::families().contains("Segoe UI Variable Text"))
+    {
+        font.setFamily("Segoe UI Variable Text");
+    }
+#endif
+
+    QApplication::setFont(font);
+}
 
 int main(int argc, char *argv[])
 {
@@ -104,6 +142,10 @@ int main(int argc, char *argv[])
     }
 
     // QLoggingCategory::defaultCategory()->setEnabled(QtDebugMsg, false);
+
+    // Before MainWindow, so the application font is in place by the time its widgets are built and
+    // none of them has to be re-polished for it.
+    applyFonts();
 
     MainWindow w;
 

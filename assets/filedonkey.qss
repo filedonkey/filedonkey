@@ -196,6 +196,7 @@ QLabel#deviceBadge {
 
 QLabel#deviceName {
     color: #E8E9EC;
+    font-family: "Inconsolata", "Cascadia Mono", Consolas, monospace;
     font-size: 13px;
     font-weight: 600;
 }
@@ -215,7 +216,13 @@ QLabel#deviceMount {
     font-size: 11px;
 }
 
+/* #deviceOs sits on the first line, beside the state dot, and is here rather
+ * than with #deviceName above so that it and the counters are the same muted
+ * type by construction - it is meant to read as a note on the row, not as a
+ * second half of the name. */
+
 QLabel#deviceDetail,
+QLabel#deviceOs,
 QLabel#deviceUploaded,
 QLabel#deviceDownloaded {
     color: #8D929A;

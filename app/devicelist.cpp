@@ -57,6 +57,23 @@ QString badgeIcon(const QString &productType)
     return ":/assets/linux.svg";
 }
 
+// What the row calls the platform beside the name, from the same QSysInfo::productType() the badge
+// is chosen by. The four names with artwork or a maker's spelling of their own are given it; every
+// other answer is a Linux distribution naming itself, and a capital is all that needs. Empty for
+// the answers that name nothing - a row with room for one word should not spend it on "unknown".
+QString osName(const QString &productType)
+{
+    if (productType == "windows") return "Windows";
+    if (productType == "macos")   return "macOS";
+    if (productType == "android") return "Android";
+    if (productType == "ios")     return "iOS";
+
+    if (productType.isEmpty())    return QString();
+    if (productType == "unknown") return QString();
+
+    return productType.left(1).toUpper() + productType.mid(1);
+}
+
 // A stylesheet rule that selects on a property only takes hold once the style has looked at the
 // widget again, and setProperty() alone does not ask it to.
 void restyle(QWidget *widget, const char *name, const QVariant &value)
@@ -200,6 +217,22 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
     // Aligned explicitly, or the layout leaves a widget this much shorter than its row sitting at
     // the top of it and the dot rides above the name's cap height.
     titleLine->addWidget(dotLbl, 0, Qt::AlignVCenter);
+
+    // The platform in words, beside the dot. The badge carries it as artwork already, but one glyph
+    // stands for every Linux distribution, and this is where a peer says which one it is. Built only
+    // when there is a name to draw - see osName() - so nothing takes the gap after the dot when a
+    // peer says nothing about itself.
+    const QString os = osName(conn.machineOs);
+    if (!os.isEmpty())
+    {
+        QLabel *osLbl = new QLabel(os, this);
+        osLbl->setObjectName("deviceOs");
+
+        // Aligned as the dot is, and for the same reason: 11px type in a row sized by 13px would
+        // otherwise sit at the top of it.
+        titleLine->addWidget(osLbl, 0, Qt::AlignVCenter);
+    }
+
     titleLine->addStretch(1);
 
     QHBoxLayout *detailLine = new QHBoxLayout;
@@ -340,8 +373,7 @@ void DeviceRow::refreshDetail()
 
 // Everything the row knows, including the parts it has no room to draw - the address it dropped
 // once the mount came up, the mount point itself where that is not shown at all, and the platform
-// now that the badge draws it rather than naming it. That last one is the only place a Linux
-// distribution's own name appears: every one of them gets the same artwork.
+// exactly as it named itself, which is what the label beside the dot is a tidied form of.
 void DeviceRow::refreshToolTip()
 {
     QString text = conn.machineName;

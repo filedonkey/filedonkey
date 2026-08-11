@@ -155,6 +155,7 @@ QStatusBar::item { border: 0px; }
 
 QLabel#versionLbl {
     color: #8D929A;
+    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 11px;
 }
 
@@ -177,6 +178,7 @@ QWidget#deviceSummary { background: transparent; }
 
 QLabel#deviceCountLbl {
     color: #8D929A;
+    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 11px;
 }
 
@@ -293,8 +295,8 @@ QLabel#deviceDot[state="mounted"]  { background: #4EC97A; }
 
 QLabel#deviceEmptyTitle {
     color: #E8E9EC;
-    font-size: 13px;
-    font-weight: 600;
+    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
+    font-size: 11px;
 }
 
 QLabel#deviceEmptyText {

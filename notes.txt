@@ -1,4 +1,5 @@
 UI Reference: https://claude.ai/code/artifact/d05ec753-7d51-4449-9017-8769b4e5d313
+Icons: https://www.svgrepo.com/collection/jtb-variety-oval-icons
 
 Subject for Settings window:
  - [toggle] Start FileDonkey when I sign in (Runs in the tray, no window)

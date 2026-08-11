@@ -54,38 +54,49 @@ static void installQuitSignalHandlers(QCoreApplication *app)
 }
 #endif
 
-// The two fonts the interface is set in, neither of which can be left to the platform to pick.
+// The one font the interface is set in: Inconsolata, on every widget rather than on the device
+// rows alone, so all three platforms show the same window. It is installed on no desktop by
+// default, so it travels in the resources and is registered here, before any widget exists to be
+// styled with it.
 //
-// Inconsolata - what the device rows are in - is installed on no desktop by default, not even the
-// one this was designed on, so the stylesheet has been naming a font nobody had. It travels in the
-// resources now and is registered here, before any widget exists to be styled with it.
+// Two cuts. The regular is what the window is mostly in; the semibold is what the rules naming
+// font-weight: 600 resolve to. Only the semibold used to travel, which is why every row was in it
+// - it was the one face in the family and the rules asking for no weight got it by default.
 //
-// The rest of the interface follows the desktop's own UI font, which is already what Qt puts in the
-// application font: Segoe UI on Windows, San Francisco on macOS, whatever the user has set on
-// Linux. The stylesheet used to name Segoe outright - see the QWidget rule in filedonkey.qss for
-// what that did to the other two.
+// Nothing follows the desktop's UI font any more. That was the old arrangement - Segoe UI on
+// Windows, San Francisco on macOS - with the stylesheet naming a mono family on the rows to
+// override it, and Windows 11 corrected to Segoe UI Variable Text on top.
 //
-// Windows 11 is the one place worth correcting Qt on. The message font it reports is still plain
-// Segoe UI, while the shell sets body text in Segoe UI Variable Text, the same typeface cut for
-// this size. Take that where it exists and keep what Qt gave us where it does not.
+// Registering the files is the half that has to happen here; the family is named by the QWidget
+// rule in filedonkey.qss, and that rule is what actually dresses the window. See the comment on it
+// for why the application font set below is not enough on its own - macOS puts the system font in
+// front of it for most widget classes, which is what left the mac build in San Francisco while
+// Windows took the font it was given. The font is still set, for the paths that read
+// QApplication::font() before a widget has been polished.
+//
+// What a platform registers a face under is not ours to decide, so ask rather than assume: the
+// warning names the families that arrived, which is the thing worth knowing when a build comes up
+// in the wrong type.
 //
 // Size is not set here. The QWidget rule gives everything 13px and would override whatever point
 // size came back from the platform anyway.
 static void applyFonts()
 {
-    if (QFontDatabase::addApplicationFont(":/assets/Inconsolata-SemiBold.ttf") == -1)
+    const int regular  = QFontDatabase::addApplicationFont(":/assets/Inconsolata-Regular.ttf");
+    const int semiBold = QFontDatabase::addApplicationFont(":/assets/Inconsolata-SemiBold.ttf");
+
+    const QStringList registered = QFontDatabase::applicationFontFamilies(regular)
+                                 + QFontDatabase::applicationFontFamilies(semiBold);
+
+    if (!registered.contains("Inconsolata"))
     {
-        qWarning() << "[applyFonts] could not register Inconsolata; the device rows fall back to the platform's mono";
+        qWarning() << "[applyFonts] Inconsolata did not register under the name the stylesheet"
+                   << "asks for; got" << registered;
     }
 
     QFont font = QFontDatabase::systemFont(QFontDatabase::GeneralFont);
-
-#if defined(_WIN32)
-    if (QFontDatabase::families().contains("Segoe UI Variable Text"))
-    {
-        font.setFamily("Segoe UI Variable Text");
-    }
-#endif
+    font.setFamilies({"Inconsolata", "Inconsolata SemiBold",
+                      "Cascadia Mono", "Consolas", "monospace"});
 
     QApplication::setFont(font);
 }

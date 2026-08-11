@@ -22,13 +22,29 @@
 /* Type and colour for everything. Deliberately no background here: a bare
  * QWidget background rule paints over every child widget in the app.
  *
- * No family either, and that is the point: it is the desktop's own UI font,
- * set on the application in main.cpp. This rule used to name Segoe UI, which
- * dressed the Windows build and left the other two falling past it to the
- * `sans-serif` generic - Helvetica on macOS, fontconfig's guess on Linux,
- * neither of them the font those desktops actually use. See applyFonts(). */
+ * The family is named here, once, and nowhere below: everything in the window
+ * is Inconsolata, bundled in the resources and registered by applyFonts().
+ * This rule used to name Segoe UI, which dressed the Windows build and left
+ * the other two falling past it to the `sans-serif` generic.
+ *
+ * Naming it here rather than leaving it to the application font is what makes
+ * macOS agree. The Cocoa platform theme fills Qt's class-to-font hash with the
+ * system font for most widget classes, and QApplication::font(widget) reads
+ * that hash before it reaches the font QApplication::setFont() installed - so
+ * the app font alone dressed the Windows build and left the mac one in San
+ * Francisco. A family in a stylesheet is applied per widget by
+ * QStyleSheetStyle, which outranks both.
+ *
+ * Two spellings of it, because the semibold cut carries a typographic family
+ * of "Inconsolata" and a legacy one of "Inconsolata SemiBold", and which of
+ * the two a platform backend registers is its own business - Windows takes
+ * both, CoreText has been known to take only the legacy one. The rest of the
+ * list is what is left if the resource ever fails to register: Cascadia Mono
+ * and Consolas on Windows, and the generic, which is Menlo on macOS and
+ * whatever fontconfig answers with on Linux. */
 QWidget {
     color: #E8E9EC;
+    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 13px;
 }
 
@@ -155,18 +171,17 @@ QStatusBar::item { border: 0px; }
 
 QLabel#versionLbl {
     color: #8D929A;
-    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 11px;
 }
 
 QWidget#statusEndpoint { background: transparent; }
 
-/* Monospaced, unlike the rest of the bar: an address is a run of digits, and
- * the proportional font sets them at widths that make the four groups hard to
- * read as four. The same family the per-row transfer counters use. */
+/* An address is a run of digits, and the four groups only read as four if each
+ * digit takes the same width - the reason this label named a mono family back
+ * when the rest of the bar was in the desktop's UI font. The whole window is
+ * mono now, so there is nothing left here to say but the colour and size. */
 QLabel#endpointLbl {
     color: #8D929A;
-    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 11px;
 }
 
@@ -178,7 +193,6 @@ QWidget#deviceSummary { background: transparent; }
 
 QLabel#deviceCountLbl {
     color: #8D929A;
-    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 11px;
 }
 
@@ -210,20 +224,16 @@ QWidget#deviceRow {
 
 QWidget#deviceRow:hover { background: #26282C; }
 
-/* Everything from here down is mono, and the family list is the same in each
- * rule. Inconsolata is the one we mean; it ships with no desktop at all, so it
- * travels in the resources and applyFonts() registers it at startup. Both
- * spellings are asked for: the file carries a typographic family of
- * "Inconsolata" and a legacy one of "Inconsolata SemiBold", and which of the
- * two a Qt platform backend registers is its own business - 6.9 on Windows
- * happens to register both. The rest of the list is what is left if the
- * resource ever fails to register: Cascadia
- * Mono and Consolas on Windows, and the generic, which is Menlo on macOS and
- * whatever fontconfig answers with on Linux.
+/* The rules from here down used to be the mono half of the window and each
+ * named the family itself. They name none now - the QWidget rule at the top
+ * does it for the whole window - so what is left in a rule is what actually
+ * differs from its neighbours: colour, size, weight.
  *
- * The file is the SemiBold cut and is the only face in the family, so the two
- * rules below that ask for no weight get it too. Adding Inconsolata-Regular to
- * the resources is what would give them the lighter face they name. */
+ * The regular cut travels in the resources alongside the semibold, which it
+ * did not use to. That changes these rules rather than the ones naming a
+ * weight: the semibold was the only face in the family, so every rule below
+ * got it whether it asked or not. The ones that ask for no weight are in the
+ * regular now - the lighter face they always named. */
 
 /* The platform badge. Usually a glyph - see badgeIcon() in devicelist.cpp,
  * and note the artwork is drawn in the same #A9AEB6 the type rules below set,
@@ -236,14 +246,12 @@ QLabel#deviceBadge {
     border: 1px solid #3A3D43;
     border-radius: 6px;
     color: #A9AEB6;
-    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 11px;
     font-weight: 600;
 }
 
 QLabel#deviceName {
     color: #E8E9EC;
-    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 13px;
     font-weight: 600;
 }
@@ -259,7 +267,6 @@ QLabel#deviceName {
 
 QLabel#deviceMount {
     color: #C7CBD1;
-    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 11px;
 }
 
@@ -273,7 +280,6 @@ QLabel#deviceOs,
 QLabel#deviceUploaded,
 QLabel#deviceDownloaded {
     color: #8D929A;
-    font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
     font-size: 11px;
 }
 

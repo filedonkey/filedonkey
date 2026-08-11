@@ -45,7 +45,7 @@
 QWidget {
     color: #E8E9EC;
     font-family: "Inconsolata", "Inconsolata SemiBold", "Cascadia Mono", Consolas, monospace;
-    font-size: 13px;
+    font-size: 15px;
 }
 
 /* The window frame is drawn by the three widgets stacked inside it, not by the
@@ -171,7 +171,7 @@ QStatusBar::item { border: 0px; }
 
 QLabel#versionLbl {
     color: #8D929A;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 QWidget#statusEndpoint { background: transparent; }
@@ -182,7 +182,7 @@ QWidget#statusEndpoint { background: transparent; }
  * mono now, so there is nothing left here to say but the colour and size. */
 QLabel#endpointLbl {
     color: #8D929A;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 /* The same grey as the window's own border - it is a rule inside the frame,
@@ -193,7 +193,7 @@ QWidget#deviceSummary { background: transparent; }
 
 QLabel#deviceCountLbl {
     color: #8D929A;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 /* ---------------------------------------------------------- the device list
@@ -246,13 +246,13 @@ QLabel#deviceBadge {
     border: 1px solid #3A3D43;
     border-radius: 6px;
     color: #A9AEB6;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
 }
 
 QLabel#deviceName {
     color: #E8E9EC;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
 }
 
@@ -267,7 +267,7 @@ QLabel#deviceName {
 
 QLabel#deviceMount {
     color: #C7CBD1;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 /* #deviceOs sits on the first line, beside the state dot, and is here rather
@@ -280,7 +280,7 @@ QLabel#deviceOs,
 QLabel#deviceUploaded,
 QLabel#deviceDownloaded {
     color: #8D929A;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 /* The arrow before each counter has no rule of its own: it is a picture, and
@@ -301,13 +301,13 @@ QLabel#deviceDot[state="mounted"]  { background: #4EC97A; }
 
 QLabel#deviceEmptyTitle {
     color: #E8E9EC;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
 }
 
 QLabel#deviceEmptyText {
     color: #8D929A;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 /* The list is the only thing that scrolls, so this is the whole scrollbar. No

@@ -18,8 +18,8 @@
 // it, and a mono line under them carrying the mount point and what has moved across it. These are
 // here rather than in the stylesheet because QSS sizes the content box - the badge carries a 1px
 // border, so a min-width there would have to be this number minus two, kept in step by hand.
-#define BADGE_SIZE  30
-#define BADGE_GLYPH 16
+#define BADGE_SIZE  34
+#define BADGE_GLYPH 22
 #define DOT_SIZE     6
 
 // How far the status bar's count has to rise to look level with the dot beside it, measured against

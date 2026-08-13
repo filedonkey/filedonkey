@@ -152,8 +152,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    // QLoggingCategory::defaultCategory()->setEnabled(QtDebugMsg, false);
-
     // Before MainWindow, so the application font is in place by the time its widgets are built and
     // none of them has to be re-polished for it.
     applyFonts();

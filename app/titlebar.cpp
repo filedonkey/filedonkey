@@ -14,6 +14,11 @@
 #define CAPTION_BUTTON_WIDTH 46
 #define CAPTION_GLYPH        12
 
+// Short of the bar's full height so it reads as a rule between two groups rather than as another
+// window border, and clear of the caption buttons so their hover fills never touch it.
+#define TITLEBAR_SEPARATOR_HEIGHT 18
+#define TITLEBAR_SEPARATOR_MARGIN 9
+
 namespace {
 
 QToolButton *captionButton(QWidget *parent, const QIcon &icon, const QString &objectName)
@@ -111,10 +116,21 @@ TitleBar::TitleBar(QWidget *parent)
     layout->setContentsMargins(10, 0, 0, 0);
     layout->setSpacing(0);
 
+    // A plain widget rather than a QFrame VLine, for the same reason as the status bar's rule: a
+    // frame's line is drawn by the native style in the style's own colours, and this one has to be
+    // the grey the rest of the window is drawn in.
+    QWidget *separator = new QWidget(this);
+    separator->setObjectName("titleBarSeparator");
+    separator->setAttribute(Qt::WA_StyledBackground, true);
+    separator->setFixedSize(1, TITLEBAR_SEPARATOR_HEIGHT);
+
     layout->addWidget(iconLbl);
     layout->addSpacing(8);
     layout->addWidget(titleLbl);
     layout->addStretch(1);
+    layout->addSpacing(TITLEBAR_SEPARATOR_MARGIN);
+    layout->addWidget(separator, 0, Qt::AlignVCenter);
+    layout->addSpacing(TITLEBAR_SEPARATOR_MARGIN);
     layout->addWidget(minimiseBtn);
     layout->addWidget(maximiseBtn);
     layout->addWidget(closeBtn);

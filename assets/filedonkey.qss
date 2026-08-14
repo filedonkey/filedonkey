@@ -98,6 +98,10 @@ QLabel#titleBarTitle {
     font-size: 12px;
 }
 
+/* The rule between the title and the caption buttons. Same grey as the window's
+ * own border, like the status bar's - sized in titlebar.cpp. */
+QWidget#titleBarSeparator { background: #34363B; width: 1px; }
+
 /* Size comes from the layout, not from here - see captionButton() in
  * titlebar.cpp. Square, flush and full height, the way Windows draws them, so
  * the hover fill runs the whole button rather than floating inside it.

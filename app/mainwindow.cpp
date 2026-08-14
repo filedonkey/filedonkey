@@ -402,10 +402,15 @@ void MainWindow::createTrayIcon()
     trayIcon->setToolTip("FileDonkey");
     trayIcon->setContextMenu(trayIconMenu);
 
-    // A left click on the icon is what everyone tries first, so it does the same as the Device
-    // List entry in the menu behind it: brings the window back, or pulls it to the front if it is
-    // merely buried, and puts it on the device list either way. Through the action rather than by
-    // repeating what it does, so the click and the entry cannot come to mean different things.
+#if defined(Q_OS_WIN)
+    // On Windows a left click on the icon is what everyone tries first, so it does the same as the
+    // Device List entry in the menu behind it: brings the window back, or pulls it to the front if
+    // it is merely buried, and puts it on the device list either way. Through the action rather
+    // than by repeating what it does, so the click and the entry cannot come to mean different
+    // things.
+    //
+    // Windows only - on macOS and the common Linux tray implementations a left click is expected to
+    // drop the menu rather than open a window.
     //
     // Trigger only - the right click belongs to the context menu, and DoubleClick would arrive
     // after a Trigger anyway on the platforms that send both.
@@ -415,6 +420,7 @@ void MainWindow::createTrayIcon()
             deviceListAction->trigger();
         }
     });
+#endif
 
     trayIcon->show();
 }

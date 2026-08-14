@@ -31,6 +31,10 @@
 #define DISCOVERY_PORT_KEY  "network/discoveryPort"
 #define TRANSFER_PORT_KEY   "network/transferPort"
 
+// Not under network/ with the three above: what this machine shares is its own business, and the
+// network settings are about how it is reached.
+#define SHARED_ROOT_KEY     "sharing/root"
+
 #define BROADCAST_INTERVAL_MS 5000
 
 using namespace std::placeholders;
@@ -114,7 +118,11 @@ LocalNode::LocalNode(QObject *parent)
     // next start - see the note on the accessors, and the one under the two fields.
     udpPort = discoveryPort();
 
-    fuseBackend = new FUSEBackend();
+    // The folder every request this node serves is answered under, read here for the same reason
+    // the ports are: it is fixed for the life of the backend behind it.
+    fuseBackend = new FUSEBackend(sharedRoot().toStdString());
+    qDebug() << "[LocalNode] sharing:" << sharedRoot();
+
     fuseHandlers.insert(OperationType::readdir,  std::bind(&LocalNode::readdirHandler,  this, _1, _2));
     fuseHandlers.insert(OperationType::read,     std::bind(&LocalNode::readHandler,     this, _1, _2));
     fuseHandlers.insert(OperationType::write,    std::bind(&LocalNode::writeHandler,    this, _1, _2));
@@ -230,6 +238,34 @@ QString LocalNode::defaultMachineName()
 int LocalNode::defaultTransferPort()
 {
     return TCP_PORT;
+}
+
+QString LocalNode::defaultSharedRoot()
+{
+    return QString::fromStdString(FUSEBackend::defualtPublicDir());
+}
+
+QString LocalNode::sharedRoot()
+{
+    const QString path = QSettings().value(SHARED_ROOT_KEY).toString();
+
+    return path.isEmpty() ? defaultSharedRoot() : path;
+}
+
+void LocalNode::setSharedRoot(const QString &path)
+{
+    QSettings settings;
+
+    // Nothing kept for the folder this app would have picked anyway - the same rule the name and the
+    // ports are stored by, and it is what keeps a machine following the default if that default ever
+    // changes.
+    if (path.isEmpty() || path == defaultSharedRoot())
+    {
+        settings.remove(SHARED_ROOT_KEY);
+        return;
+    }
+
+    settings.setValue(SHARED_ROOT_KEY, path);
 }
 
 QString LocalNode::machineName()

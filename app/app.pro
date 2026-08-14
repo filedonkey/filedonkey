@@ -39,6 +39,7 @@ SOURCES += \
 HEADERS += \
     autostart.h \
     devicelist.h \
+    elidedlabel.h \
     mainwindow.h \
     settingspage.h \
     singleinstance.h \

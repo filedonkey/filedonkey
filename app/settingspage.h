@@ -9,8 +9,10 @@ class QCheckBox;
 class QLineEdit;
 class QToolButton;
 
+class ElidedLabel;
+
 // The window's second page, behind the title bar's Settings tab: the name this machine announces
-// itself under, and the port peers reach it on.
+// itself under, the folder it shares, and the port peers reach it on.
 //
 // It keeps nothing of its own. What the fields hold is read from and written back to the settings
 // through LocalNode, so the node reads what the user typed without this page having to reach it.
@@ -45,8 +47,22 @@ private:
     void bindRevert(QLineEdit *edit, QToolButton *revert, const QString &defaultText,
                     std::function<void()> commit);
 
+    // Asks the user for a folder and, if they name one, makes it the shared root. Nothing happens
+    // when the dialog is dismissed - the row keeps the folder it had.
+    void chooseSharedRoot();
+
+    // Stores a folder, writes it into the row, and shows or hides the button that would put it back.
+    // Everything that changes the shared root goes through here, so the three cannot fall out of
+    // step with each other.
+    void showSharedRoot(const QString &path);
+
     QLineEdit *nameEdit = nullptr;
     QLineEdit *transferEdit = nullptr;
+
+    // The shared root is shown rather than typed: a path is not something to be got right by hand,
+    // and the folder dialog behind the button beside it is the only way this row is filled in.
+    ElidedLabel *sharedRootLbl = nullptr;
+    QToolButton *sharedRootRevert = nullptr;
 
     // The switch under the rule, which asks the desktop rather than this application for anything:
     // it is read from and written to Autostart, and read back after each write so that a request

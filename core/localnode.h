@@ -52,11 +52,26 @@ public:
     // be seen in the field it was typed in and would be a second name in every peer's list.
     static void setMachineName(const QString &name);
 
+    // The directory this machine serves to its peers, and all that any of them can reach: a request
+    // naming a path is answered under this one - see normalizePath() in fusebackend.h - so what is
+    // outside it does not exist as far as the protocol is concerned.
+    //
+    // Read once, when the node builds its backend, and handed to it there. A folder chosen while the
+    // application runs is served from the next start: the backend answers requests on several
+    // threads at once, and the peers already mounted are reading a tree that would move under them.
+    //
+    // Stored exactly as it was chosen, and not checked against the disk. A drive that is not there
+    // this morning makes every request under it fail, which is the right way round - falling back to
+    // the default would quietly serve the home directory in place of the folder that went away.
+    static QString sharedRoot();
+    static void setSharedRoot(const QString &path);
+
     // What each of these answers while the user has chosen nothing. Asked by the settings page,
     // which offers to put a field back to its default and has to know when it is already there -
     // and which should not be the second place in this project that writes 5454 down.
     static QString defaultMachineName();
     static int defaultTransferPort();
+    static QString defaultSharedRoot();
 
     // The two ports this machine uses: the UDP port announcements are broadcast to and answered on,
     // and the TCP port the server serving our exported directory listens on. Both stored the same

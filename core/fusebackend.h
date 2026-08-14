@@ -13,7 +13,15 @@
 class FUSEBackend
 {
 public:
-    FUSEBackend() : publicDir(FUSEBackend::defualtPublicDir()) {};
+    // The directory this machine serves, and everything under it. Taken as it is given - an empty
+    // one falls back to the default, so a caller with nothing stored need not ask for it itself.
+    //
+    // Read once, here, and never changed afterwards: normalizePath() runs on the handler pool's
+    // threads, several at a time, and a directory that moved under them would be a data race on
+    // every request. A folder chosen in the settings is served from the next start, which is also
+    // the only sane answer for the peers holding a mount of the old one.
+    explicit FUSEBackend(const std::string &dir = std::string())
+        : publicDir(dir.empty() ? FUSEBackend::defualtPublicDir() : dir) {};
 
     Ref<ReaddirResult>  FD_readdir(const char *path);
     Ref<ReadResult>     FD_read(const char *path, u64 size, i64 offset);

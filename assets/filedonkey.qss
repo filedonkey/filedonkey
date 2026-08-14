@@ -280,7 +280,9 @@ QLabel#deviceCountLbl {
  * not a second one. */
 
 QStackedWidget#contentStack,
-QWidget#settingsPage {
+QWidget#settingsPage,
+QWidget#settingsContent,
+QScrollArea#settingsScroll {
     background: transparent;
     border: none;
 }
@@ -323,6 +325,38 @@ QLineEdit#settingsInput {
  * as far as a border can be brought up without becoming a second thing to
  * read. */
 QLineEdit#settingsInput:focus { border-color: #5F646C; }
+
+/* A value that is shown rather than typed - the shared root, so far. The same
+ * near-white the fields are set in, because it is the same kind of thing: what
+ * this setting holds. No border and no fill, because there is nothing to type
+ * into - the button beside it is what changes it. */
+
+QLabel#settingsPath {
+    background: transparent;
+    color: #E8E9EC;
+    font-size: 12px;
+}
+
+/* The button that opens the folder dialog. The design's secondary button: a
+ * raised fill inside a border a shade lighter than the fields', which is what
+ * separates a thing to press from a thing to read.
+ *
+ * It has to name itself past the plain QPushButton rule further down, which
+ * dresses the dialog buttons and gives them a min-width no row here has room
+ * for. */
+
+QPushButton#settingsChooseBtn {
+    background: #26282C;
+    border: 1px solid #3D4046;
+    border-radius: 6px;
+    color: #C7CBD1;
+    font-size: 12px;
+    padding: 4px 12px;
+    min-width: 0px;
+}
+
+QPushButton#settingsChooseBtn:hover   { background: #2F3238; }
+QPushButton#settingsChooseBtn:pressed { background: #212226; }
 
 /* The third column: the button that puts a field back to the value this app
  * ships with, shown only while a field holds something else. Nothing but the

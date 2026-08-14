@@ -1,15 +1,20 @@
 #include "settingspage.h"
 
 #include "autostart.h"
+#include "elidedlabel.h"
 #include "localnode.h"
 
 #include <QCheckBox>
+#include <QDir>
+#include <QFileDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QIntValidator>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPushButton>
+#include <QScrollArea>
 #include <QSignalBlocker>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -170,6 +175,15 @@ SettingsPage::SettingsPage(QWidget *parent)
         commitPort(transferEdit, &LocalNode::setTransferPort, &LocalNode::transferPort);
     });
 
+    // The shared root's own, which cannot go through bindRevert(): there is no field to read, and
+    // nothing to watch for a change - the path only ever moves through showSharedRoot(), which is
+    // what shows and hides this.
+    sharedRootRevert = revertButton(this, tr("Back to %1").arg(LocalNode::defaultSharedRoot()));
+
+    connect(sharedRootRevert, &QToolButton::clicked, this, [this]() {
+        showSharedRoot(LocalNode::defaultSharedRoot());
+    });
+
     // Said here rather than left to be found out. A peer writes a machine's name down once, when it
     // first hears from it, and shows that copy from then on - so a rename takes effect on the next
     // announcement but reaches a device already connected only when the connection is made again.
@@ -179,9 +193,18 @@ SettingsPage::SettingsPage(QWidget *parent)
                                           "connect again."));
     nameHint->setWordWrap(true);
 
+    // The shared root's, and the one line on this page that says what the whole application does
+    // with this machine's disk. The last sentence is ours rather than the design's: the backend is
+    // handed the folder when it is built and serves that one until it is built again, so a folder
+    // chosen here changes nothing a peer can see until then.
+    QLabel *sharedRootHint = noteLabel(this, tr("The folder this PC exposes to other devices. "
+                                                "Everything else stays invisible. Served from the "
+                                                "next time the app starts."));
+    sharedRootHint->setWordWrap(true);
+
     // The same for the field below it: the server is listening on the old port until the
     // application is started again, and nothing on this page would otherwise say so.
-    QLabel *portHint = noteLabel(this, tr("The new port is taken up the next time FileDonkey "
+    QLabel *portHint = noteLabel(this, tr("The new port is taken up the next time the app "
                                           "starts."));
     portHint->setWordWrap(true);
 
@@ -195,6 +218,32 @@ SettingsPage::SettingsPage(QWidget *parent)
     nameLineLayout->setSpacing(REVERT_GAP);
     nameLineLayout->addWidget(nameEdit, 1);
     nameLineLayout->addWidget(nameRevert, 0, Qt::AlignVCenter);
+
+    // The shared root's line: the folder, the button that changes it, and the one that puts it back.
+    // The path is shown rather than typed - it is not something a user should have to spell - and it
+    // is the one thing on the line with a use for the width, so it takes what the two buttons leave.
+    sharedRootLbl = new ElidedLabel(this);
+    sharedRootLbl->setObjectName("settingsPath");
+    sharedRootLbl->setFixedHeight(nameEdit->sizeHint().height());
+
+    QPushButton *chooseBtn = new QPushButton(tr("Choose…"), this);
+    chooseBtn->setObjectName("settingsChooseBtn");
+    chooseBtn->setCursor(Qt::PointingHandCursor);
+    chooseBtn->setFocusPolicy(Qt::NoFocus);
+
+    connect(chooseBtn, &QPushButton::clicked, this, &SettingsPage::chooseSharedRoot);
+
+    QWidget *sharedRootLine = new QWidget(this);
+
+    QHBoxLayout *sharedRootLineLayout = new QHBoxLayout(sharedRootLine);
+    sharedRootLineLayout->setContentsMargins(0, 0, 0, 0);
+    sharedRootLineLayout->setSpacing(REVERT_GAP);
+    sharedRootLineLayout->addWidget(sharedRootLbl, 1);
+    sharedRootLineLayout->addWidget(chooseBtn, 0, Qt::AlignVCenter);
+    sharedRootLineLayout->addWidget(sharedRootRevert, 0, Qt::AlignVCenter);
+
+    // Fills the line above, and decides whether the button at the end of it is there to be seen.
+    showSharedRoot(LocalNode::sharedRoot());
 
     // The port's line: a field as wide as a port, the note saying which protocol it is, and the
     // room left over pushing the button out to the same end of the row the one above it is at.
@@ -221,6 +270,14 @@ SettingsPage::SettingsPage(QWidget *parent)
     nameColumn->setSpacing(SETTINGS_HINT_GAP);
     nameColumn->addWidget(nameLine);
     nameColumn->addWidget(nameHint);
+
+    QWidget *sharedRootField = new QWidget(this);
+
+    QVBoxLayout *sharedRootColumn = new QVBoxLayout(sharedRootField);
+    sharedRootColumn->setContentsMargins(0, 0, 0, 0);
+    sharedRootColumn->setSpacing(SETTINGS_HINT_GAP);
+    sharedRootColumn->addWidget(sharedRootLine);
+    sharedRootColumn->addWidget(sharedRootHint);
 
     QWidget *transferField = new QWidget(this);
 
@@ -271,23 +328,45 @@ SettingsPage::SettingsPage(QWidget *parent)
     form->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
     form->addRow(rowLabel(this, tr("This PC's name"), nameEdit), nameField);
+    form->addRow(rowLabel(this, tr("Shared root"), sharedRootLbl), sharedRootField);
     form->addRow(rowLabel(this, tr("Transfer port"), transferEdit), transferField);
 
+    // Everything the page shows, on one widget of its own. It is taller than the window as of the
+    // shared root's three-line note, and the window cannot be resized - so it goes in a scroll area
+    // rather than being squeezed, which is what the device list does with its rows for exactly the
+    // same reason. The page's own margins live here, inside the scrolling part, so the last row is
+    // clear of the status bar when it is scrolled to.
+    QWidget *content = new QWidget(this);
+    content->setObjectName("settingsContent");
+
+    QVBoxLayout *contentLayout = new QVBoxLayout(content);
+    contentLayout->setContentsMargins(SETTINGS_MARGIN, SETTINGS_MARGIN, SETTINGS_MARGIN, SETTINGS_MARGIN);
+    contentLayout->setSpacing(0);
+    contentLayout->addLayout(form);
+
+    contentLayout->addSpacing(SETTINGS_SECTION_GAP);
+    contentLayout->addWidget(separator);
+    contentLayout->addSpacing(SETTINGS_SECTION_GAP);
+
+    contentLayout->addWidget(autostartBox);
+    contentLayout->addSpacing(SWITCH_NOTE_GAP);
+    contentLayout->addWidget(autostartNote);
+
+    // Holds everything at the top of the page on a window with room to spare. Without it the rows
+    // would be spread down it.
+    contentLayout->addStretch(1);
+
+    QScrollArea *scroll = new QScrollArea(this);
+    scroll->setObjectName("settingsScroll");
+    scroll->setWidget(content);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
     QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(SETTINGS_MARGIN, SETTINGS_MARGIN, SETTINGS_MARGIN, SETTINGS_MARGIN);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    layout->addLayout(form);
-
-    layout->addSpacing(SETTINGS_SECTION_GAP);
-    layout->addWidget(separator);
-    layout->addSpacing(SETTINGS_SECTION_GAP);
-
-    layout->addWidget(autostartBox);
-    layout->addSpacing(SWITCH_NOTE_GAP);
-    layout->addWidget(autostartNote);
-
-    // Holds everything at the top of the page. Without it the rows would be spread down it.
-    layout->addStretch(1);
+    layout->addWidget(scroll);
 }
 
 void SettingsPage::hideEvent(QHideEvent *event)
@@ -306,6 +385,41 @@ void SettingsPage::commitMachineName()
     // and keeps nothing at all for an empty name, and this is what puts the host name it then falls
     // back to in front of the user.
     nameEdit->setText(LocalNode::machineName());
+}
+
+void SettingsPage::chooseSharedRoot()
+{
+    // Opened on the folder that is shared now, so the dialog starts where the user last left this
+    // rather than wherever the platform would have picked.
+    const QString chosen = QFileDialog::getExistingDirectory(
+        this, tr("Choose the folder FileDonkey shares"), LocalNode::sharedRoot(),
+        QFileDialog::ShowDirsOnly);
+
+    // Empty is the dialog being dismissed, which is not a choice of the root directory of the disk
+    // or of anything else - the row keeps what it had.
+    if (chosen.isEmpty()) return;
+
+    showSharedRoot(chosen);
+}
+
+void SettingsPage::showSharedRoot(const QString &path)
+{
+    LocalNode::setSharedRoot(path);
+
+    // Read back rather than shown as chosen, the way a committed field is: setSharedRoot() keeps
+    // nothing for the folder this app would have picked anyway, and this is what then puts that
+    // folder in the row instead of an empty line.
+    const QString shared = LocalNode::sharedRoot();
+
+    // In the separators of the platform it will be read on. QFileDialog answers in Qt's own, which
+    // are forward slashes everywhere - a Windows user reading C:/Users/... beside the drive letters
+    // the device list shows would be the odd one out.
+    sharedRootLbl->setText(QDir::toNativeSeparators(shared));
+
+    // The whole path, for when the row has not the width to draw it - see ElidedLabel.
+    sharedRootLbl->setToolTip(QDir::toNativeSeparators(shared));
+
+    sharedRootRevert->setVisible(shared != LocalNode::defaultSharedRoot());
 }
 
 void SettingsPage::bindRevert(QLineEdit *edit, QToolButton *revert, const QString &defaultText,

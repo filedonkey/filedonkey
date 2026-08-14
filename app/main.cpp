@@ -123,6 +123,12 @@ int main(int argc, char *argv[])
 
     QApplication a(argc, argv);
 
+    // The tray menu is the only menu here and it is meant to carry icons. Whether a QAction's icon
+    // is drawn at all is a platform decision Qt takes for us - macOS asks for icon-less menus, and
+    // so do some Linux desktops - so say it plainly rather than letting the desktop decide, or the
+    // mac build comes up with three bare labels.
+    QApplication::setAttribute(Qt::AA_DontShowIconsInMenus, false);
+
     // QSettings reads these; without them it files everything under an "Unknown Organization"
     // that moves the moment the binary is renamed.
     QCoreApplication::setOrganizationName("FileDonkey");

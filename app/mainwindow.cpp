@@ -13,6 +13,7 @@
 #include <QSettings>
 #include <QStyleHints>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -124,7 +125,7 @@ MainWindow::MainWindow(QWidget *parent)
     // the no-tray dialog offers would quit instead.
     qApp->setQuitOnLastWindowClosed(false);
 
-    deviceListAction = new QAction(tr("&Device List"), this);
+    deviceListAction = new QAction(QIcon(":/assets/device_list.svg"), tr("&Device List"), this);
     connect(deviceListAction, &QAction::triggered, this, &MainWindow::restoreWindow);
 
 #if defined(Q_OS_MACOS)
@@ -139,10 +140,10 @@ MainWindow::MainWindow(QWidget *parent)
     });
 #endif
 
-    quitAction = new QAction(tr("&Quit"), this);
+    quitAction = new QAction(QIcon(":/assets/quit.svg"), tr("&Quit"), this);
     connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
 
-    settingsAction = new QAction(tr("&Settings"), this);
+    settingsAction = new QAction(QIcon(":/assets/settings.svg"), tr("&Settings"), this);
     connect(settingsAction, &QAction::triggered, this, &MainWindow::onUpgradeToPro);
 
     createTrayIcon();

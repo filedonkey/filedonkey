@@ -381,6 +381,10 @@ QMenu {
     padding: 6px;
 }
 
+/* The left padding is the icon's column, not a margin: Qt draws QMenu::icon inside it and
+ * starts the text after it, so it has to be wide enough for the 16px icon plus the inset in
+ * front of it. 12px, what this was before there were icons, would put the text on top of
+ * them. Whatever is left over past 12 + 16 is the gap between icon and label. */
 QMenu::item {
     background: transparent;
     color: #E8E9EC;
@@ -388,6 +392,10 @@ QMenu::item {
     border-radius: 6px;
     margin: 1px 2px;
 }
+
+/* Left-aligned in that column by default, which is flush against the item's edge. Nudged in
+ * so it sits under the same 12px inset the text used to have. */
+QMenu::icon { left: 7px; }
 
 QMenu::item:selected { background: #2A2C31; }
 QMenu::item:disabled { color: #5F646C; }

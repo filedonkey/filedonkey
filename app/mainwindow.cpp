@@ -182,10 +182,24 @@ MainWindow::MainWindow(QWidget *parent)
     contentStack->addWidget(deviceList);
     contentStack->addWidget(settingsPage);
 
-    // Which page the bar's tabs open. The bar has already checked the Device List tab, so the
-    // stack starts on the page that matches - addWidget() put it in first.
+    // What the bar's tabs open, and what the bar then calls it. The window is named after the view
+    // it is showing rather than after itself, so the title says the same thing the selected tab
+    // does - which is worth having when the tabs are icons and carry no label of their own.
+    //
+    // Through setWindowTitle() rather than straight to the bar so the taskbar entry and the
+    // Alt-Tab card follow too: the caption is off, but that name is still shown in both, and a
+    // window listed as the device list while it is showing the settings would be the odd one out.
+    //
+    // Nothing to run once at the end of the constructor: the bar has already checked the Device
+    // List tab, the .ui file's window title already names that view, and addWidget() put its page
+    // in the stack first - so all three start out saying the same thing.
     connect(titleBar, &TitleBar::tabSelected, this, [this](TitleBar::Tab tab) {
-        contentStack->setCurrentWidget(tab == TitleBar::Tab::Settings ? settingsPage : deviceList);
+        const bool settings = (tab == TitleBar::Tab::Settings);
+
+        contentStack->setCurrentWidget(settings ? settingsPage : deviceList);
+
+        setWindowTitle(settings ? tr("FileDonkey Settings") : tr("FileDonkey Device List"));
+        titleBar->setTitle(windowTitle());
     });
 
     QVBoxLayout *contentLayout = new QVBoxLayout(ui->centralwidget);

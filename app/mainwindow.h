@@ -15,6 +15,7 @@ QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
 }
+class QStackedWidget;
 QT_END_NAMESPACE
 
 class MainWindow : public QMainWindow
@@ -31,15 +32,18 @@ protected:
     void closeEvent(QCloseEvent *event) override;
 
 public slots:
-    void onUpgradeToPro();
-
     // Brings the window back from hidden or minimised and puts it in front. Wired to the tray's
-    // Restore entry and to a second start of the application.
+    // view entries, which each pick a tab after calling this, and to a second start of the
+    // application, which picks none - it wants the window back as the user left it.
     void restoreWindow();
 
 private:
     void createTrayIcon();
     void setTryaIcon();
+
+    // Puts the window away and resets it to the device list. Both of the ways closeEvent() can
+    // decide to keep the application running go through this rather than calling hide() directly.
+    void hideWindow();
 
     // The right-hand end of the status bar in front of the device count: this machine's own
     // address, and the rule that separates the two.
@@ -65,7 +69,11 @@ private:
 
     TitleBar        *titleBar = nullptr;
     QWidget         *shadowLayer = nullptr;
+
+    // The window's content, one page per tab in the title bar.
+    QStackedWidget  *contentStack = nullptr;
     DeviceList      *deviceList = nullptr;
+    QWidget         *settingsPage = nullptr;
 
     // Read once at startup. On Linux this can turn true later, when a shell registers its
     // StatusNotifier host after login, and Qt offers no signal for that - so a user who installs

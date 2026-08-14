@@ -102,6 +102,69 @@ QLabel#titleBarTitle {
  * own border, like the status bar's - sized in titlebar.cpp. */
 QWidget#titleBarSeparator { background: #34363B; width: 1px; }
 
+/* ------------------------------------------------------------- the view tabs
+ * The two pages of the window - the device list and the settings - picked from
+ * the inner end of the bar, in front of the separator. Icon only: a 36px bar
+ * with a title already in it has no room for two labels, and the tooltips set
+ * in titlebar.cpp are what name them.
+ *
+ * Unlike the caption buttons beside them these do not run the height of the
+ * bar. They are inset from its top and flush with its bottom - sized and
+ * aligned in titlebar.cpp - so they need none of the border patching a
+ * full-height button does, and only the top two corners are rounded: a tab is
+ * open at the edge it shares with the page it opens.
+ *
+ * Only `background` differs between the states below, and deliberately: a
+ * border or padding that changed with the state would resize the content box
+ * and shift the glyph inside it by the difference, so the icon would jump as
+ * the pointer crossed the tab or as the selection moved between the two.
+ *
+ * The glyph changes with the fill, but from its own file rather than from
+ * here - an icon takes no colour from `color:`. Three per tab: #A9AEB6 idle,
+ * #E8E9EC under the pointer, and, because the current tab's fill is the light
+ * one, #191A1D - the bar's own background - when it is selected. See
+ * device_list*.svg and settings*.svg, and read them together with the fills
+ * below. */
+
+QToolButton#deviceListTab,
+QToolButton#settingsTab {
+    background: transparent;
+    border: none;
+
+    /* A tab's box is pushed down the bar by the run of bar above it, so an
+     * icon centred in that box sits below the centre of the bar - off the line
+     * the app icon and the caption glyphs are all on. This padding is what
+     * puts it back: the same 6px the tab is inset from the top by, taken off
+     * the bottom of its content box instead, which leaves that box centred on
+     * the bar even though the box drawn around it is not. Both numbers come
+     * from titlebar.cpp - TITLEBAR_HEIGHT less its two borders, less
+     * TITLEBAR_TAB_HEIGHT - so a change to either has to be answered here. */
+    padding: 0px 0px 2px 0px;
+
+    /* The bottom two are spelled out as zero rather than left unsaid, so that
+     * a shorthand `border-radius` added above could not quietly round them. */
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+
+    border-bottom: 1px solid #2B2D31;
+}
+
+QToolButton#deviceListTab:hover,
+QToolButton#settingsTab:hover { background: #2F3238; }
+
+/* The one light fill in the window. It is what makes the current tab the first
+ * thing found in the bar, and it is why the glyph on it is drawn dark. */
+QToolButton#deviceListTab:checked,
+QToolButton#settingsTab:checked { background: #C7CBD1; }
+
+/* Two pseudo-states, so this outranks both rules above and the current tab
+ * still answers the pointer instead of sitting inert under it. Brighter rather
+ * than darker: it has to stay light enough for the dark glyph to read. */
+QToolButton#deviceListTab:checked:hover,
+QToolButton#settingsTab:checked:hover { background: #E8E9EC; }
+
 /* Size comes from the layout, not from here - see captionButton() in
  * titlebar.cpp. Square, flush and full height, the way Windows draws them, so
  * the hover fill runs the whole button rather than floating inside it.
@@ -210,6 +273,16 @@ QLabel#deviceCountLbl {
  * set in devicelist.cpp rather than here, because QSS sizes the content box
  * and each border would have to be subtracted from the number by hand. What is
  * left here is colour, type and roundness. */
+
+/* The stack the title bar's tabs switch, and the second of its two pages, which
+ * is empty until there are settings to put in it. Both transparent so that what
+ * shows behind them is #centralwidget's own fill and not a second one. */
+
+QStackedWidget#contentStack,
+QWidget#settingsPage {
+    background: transparent;
+    border: none;
+}
 
 QWidget#deviceList,
 QWidget#deviceRows,

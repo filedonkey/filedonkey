@@ -3,7 +3,6 @@
 
 #include <QApplication>
 #include <QCloseEvent>
-#include <QDesktopServices>
 #include <QFile>
 #include <QGraphicsDropShadowEffect>
 #include <QLabel>
@@ -11,10 +10,10 @@
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QSettings>
+#include <QStackedWidget>
 #include <QStyleHints>
 #include <QHBoxLayout>
 #include <QIcon>
-#include <QUrl>
 #include <QVBoxLayout>
 
 #define THEME_LIGHTNESS_BARRIER 128
@@ -125,8 +124,15 @@ MainWindow::MainWindow(QWidget *parent)
     // the no-tray dialog offers would quit instead.
     qApp->setQuitOnLastWindowClosed(false);
 
+    // The tray's two view entries name the same pair the title bar's tabs do, and mean the same
+    // thing: bring the window back, and put it on that view. Restoring without choosing a tab
+    // would leave whichever page was up last, so an entry named Settings could open the device
+    // list - which is what the Settings entry did before there was a settings page to open.
     deviceListAction = new QAction(QIcon(":/assets/device_list.svg"), tr("&Device List"), this);
-    connect(deviceListAction, &QAction::triggered, this, &MainWindow::restoreWindow);
+    connect(deviceListAction, &QAction::triggered, this, [this]() {
+        restoreWindow();
+        titleBar->setCurrentTab(TitleBar::Tab::DeviceList);
+    });
 
 #if defined(Q_OS_MACOS)
     // Clicking the Dock icon of an app with no window open should bring the window back, the way
@@ -144,7 +150,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
 
     settingsAction = new QAction(QIcon(":/assets/settings.svg"), tr("&Settings"), this);
-    connect(settingsAction, &QAction::triggered, this, &MainWindow::onUpgradeToPro);
+    connect(settingsAction, &QAction::triggered, this, [this]() {
+        restoreWindow();
+        titleBar->setCurrentTab(TitleBar::Tab::Settings);
+    });
 
     createTrayIcon();
 
@@ -159,10 +168,30 @@ MainWindow::MainWindow(QWidget *parent)
     // the .ui file is the one the window keeps, and the list is built to fit whatever it gets.
     deviceList = new DeviceList(ui->centralwidget);
 
+    // Nothing in it yet, and deliberately: the Settings tab is here before the settings are, so it
+    // shows an empty pane. It is a page in the stack rather than the list being hidden so that
+    // whatever goes in later has somewhere to go and nothing else has to move.
+    settingsPage = new QWidget(ui->centralwidget);
+    settingsPage->setObjectName("settingsPage");
+
+    // The pages the tabs choose between. A stack rather than show()/hide() on the list: it keeps
+    // one widget's worth of space reserved whichever page is up, so switching to the empty pane
+    // cannot let the window's contents collapse.
+    contentStack = new QStackedWidget(ui->centralwidget);
+    contentStack->setObjectName("contentStack");
+    contentStack->addWidget(deviceList);
+    contentStack->addWidget(settingsPage);
+
+    // Which page the bar's tabs open. The bar has already checked the Device List tab, so the
+    // stack starts on the page that matches - addWidget() put it in first.
+    connect(titleBar, &TitleBar::tabSelected, this, [this](TitleBar::Tab tab) {
+        contentStack->setCurrentWidget(tab == TitleBar::Tab::Settings ? settingsPage : deviceList);
+    });
+
     QVBoxLayout *contentLayout = new QVBoxLayout(ui->centralwidget);
     contentLayout->setContentsMargins(0, 0, 0, 0);
     contentLayout->setSpacing(0);
-    contentLayout->addWidget(deviceList);
+    contentLayout->addWidget(contentStack);
 
     node = new LocalNode(this);
 
@@ -243,10 +272,17 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::onUpgradeToPro()
+// Both routes out of closeEvent() come through here, so that however the window is put away it is
+// put away the same: on the device list, which is the view it opens on and the one the whole
+// application is about. Without it a user who closed the window while reading the settings would
+// find the settings still up the next time they opened it, whatever they did to open it with.
+//
+// The tab is switched after hide() rather than before, so the change is made off screen instead of
+// flashing in the instant before the window goes.
+void MainWindow::hideWindow()
 {
-    QString link = "https://filedonkey.app";
-    QDesktopServices::openUrl(QUrl(link));
+    hide();
+    titleBar->setCurrentTab(TitleBar::Tab::DeviceList);
 }
 
 void MainWindow::restoreWindow()
@@ -270,7 +306,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     if (trayAvailable)
     {
         // The node keeps running, mounts and all, and the tray is how it stays reachable.
-        hide();
+        hideWindow();
         announceStillRunning();
         return;
     }
@@ -281,7 +317,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
             break;
 
         case CloseChoice::Hide:
-            hide();
+            hideWindow();
             break;
 
         case CloseChoice::Quit:
@@ -352,14 +388,17 @@ void MainWindow::createTrayIcon()
     trayIcon->setToolTip("FileDonkey");
     trayIcon->setContextMenu(trayIconMenu);
 
-    // A left click on the icon is what everyone tries first, so it does the same as Restore:
-    // brings the window back if it is away, and pulls it to the front if it is merely buried.
+    // A left click on the icon is what everyone tries first, so it does the same as the Device
+    // List entry in the menu behind it: brings the window back, or pulls it to the front if it is
+    // merely buried, and puts it on the device list either way. Through the action rather than by
+    // repeating what it does, so the click and the entry cannot come to mean different things.
+    //
     // Trigger only - the right click belongs to the context menu, and DoubleClick would arrive
     // after a Trigger anyway on the platforms that send both.
     connect(trayIcon, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {
         if (reason == QSystemTrayIcon::Trigger)
         {
-            restoreWindow();
+            deviceListAction->trigger();
         }
     });
 

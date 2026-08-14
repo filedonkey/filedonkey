@@ -19,6 +19,18 @@
 #define TITLEBAR_SEPARATOR_HEIGHT 18
 #define TITLEBAR_SEPARATOR_MARGIN 9
 
+// The view tabs. Inset from the top of the bar but flush with its bottom - the shape of a tab
+// rather than of a pill, which is what says the page below is the one this opens. The bar is 36
+// and its own top border and bottom hairline take one each, so 28 here leaves a 6px run of bar
+// above each tab and none below it. The icon is a little bigger than a caption glyph because it is
+// a picture to be read rather than a mark to be aimed at.
+#define TITLEBAR_TAB_WIDTH  30
+#define TITLEBAR_TAB_HEIGHT 32
+#define TITLEBAR_TAB_ICON   16
+
+// Enough to keep the two from reading as one wide tab, and no more.
+#define TITLEBAR_TAB_GAP 2
+
 namespace {
 
 QToolButton *captionButton(QWidget *parent, const QIcon &icon, const QString &objectName)
@@ -39,6 +51,42 @@ QToolButton *captionButton(QWidget *parent, const QIcon &icon, const QString &ob
     // with TITLEBAR_HEIGHT and the bar's borders by hand.
     button->setFixedWidth(CAPTION_BUTTON_WIDTH);
     button->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+
+    return button;
+}
+
+// A tab in the bar: icon only, checkable, and one of a set only one of which can be checked at a
+// time. Auto-exclusive rather than a QButtonGroup - the buttons are siblings, which is all
+// QAbstractButton needs to run the exclusivity itself, and it brings the behaviour a group would
+// have to be told to want: clicking the tab that is already current leaves it checked instead of
+// turning it off and leaving the window on a view no tab claims.
+QToolButton *tabButton(QWidget *parent, const QIcon &icon, const QString &objectName, const QString &tooltip)
+{
+    QToolButton *button = new QToolButton(parent);
+    button->setObjectName(objectName);
+    button->setIcon(icon);
+    button->setIconSize(QSize(TITLEBAR_TAB_ICON, TITLEBAR_TAB_ICON));
+    button->setFocusPolicy(Qt::NoFocus);
+
+    // The whole label these have. Without it an icon-only button says nothing about which view it
+    // opens until it has been clicked once.
+    button->setToolTip(tooltip);
+
+    // Set here rather than in the stylesheet because Qt Style Sheets have no `cursor` property -
+    // it is one of the CSS properties QStyleSheetStyle does not implement. The caption buttons
+    // keep the plain arrow: those are window furniture, and Windows draws its own with an arrow.
+    button->setCursor(Qt::PointingHandCursor);
+
+    button->setCheckable(true);
+    button->setAutoExclusive(true);
+
+    // Same reason as the caption buttons: auto-raise is what makes QCommonStyle ask the icon for
+    // its Active - hover - artwork at all.
+    button->setAutoRaise(true);
+
+    // Fixed both ways, unlike a caption button: the height is part of the look here rather than
+    // something the layout should stretch, and the bar it sits in has a fixed height anyway.
+    button->setFixedSize(TITLEBAR_TAB_WIDTH, TITLEBAR_TAB_HEIGHT);
 
     return button;
 }
@@ -107,6 +155,43 @@ TitleBar::TitleBar(QWidget *parent)
     connect(minimiseBtn, &QToolButton::clicked, this, [this]() { window()->showMinimized(); });
     connect(closeBtn,    &QToolButton::clicked, this, [this]() { window()->close(); });
 
+    // The two views the window can show, as tabs at the inner end of the bar. Three files per tab
+    // for the same reason the caption glyphs have several: the artwork cannot pick up a colour
+    // from the stylesheet, so each fill the tab can sit on needs a drawing that reads against it.
+    // Idle is the same #A9AEB6 the tray menu's copies of these icons use, hover is the near-white
+    // the rest of the window's text is in, and selected is the bar's own background - the current
+    // tab is a light fill, so its glyph is the one that goes dark.
+    //
+    // On and Off are the checked and unchecked states - a checked QToolButton is what QStyle
+    // fetches On for. Active is the pointer being over the button.
+    //
+    // All four combinations are named, including the one that looks redundant - the current tab
+    // with the pointer on it. QSvgIconEngine has one fallback and only one: a combination it was
+    // not given falls all the way back to Normal/Off, not to the nearest neighbour, so leaving
+    // Active/On out would put the idle grey glyph on the light fill the moment the pointer
+    // touched the tab that was already current.
+    QIcon deviceListIcon;
+    deviceListIcon.addFile(":/assets/device_list.svg",          QSize(), QIcon::Normal, QIcon::Off);
+    deviceListIcon.addFile(":/assets/device_list_hover.svg",    QSize(), QIcon::Active, QIcon::Off);
+    deviceListIcon.addFile(":/assets/device_list_selected.svg", QSize(), QIcon::Normal, QIcon::On);
+    deviceListIcon.addFile(":/assets/device_list_selected.svg", QSize(), QIcon::Active, QIcon::On);
+
+    QIcon settingsIcon;
+    settingsIcon.addFile(":/assets/settings.svg",          QSize(), QIcon::Normal, QIcon::Off);
+    settingsIcon.addFile(":/assets/settings_hover.svg",    QSize(), QIcon::Active, QIcon::Off);
+    settingsIcon.addFile(":/assets/settings_selected.svg", QSize(), QIcon::Normal, QIcon::On);
+    settingsIcon.addFile(":/assets/settings_selected.svg", QSize(), QIcon::Active, QIcon::On);
+
+    deviceListTab = tabButton(this, deviceListIcon, "deviceListTab", tr("Device List"));
+    settingsTab   = tabButton(this, settingsIcon,   "settingsTab",   tr("Settings"));
+
+    // The view the window opens on. Straight to the button rather than through setCurrentTab(),
+    // which would announce a choice to a window that has not connected to hear it yet.
+    deviceListTab->setChecked(true);
+
+    connect(deviceListTab, &QToolButton::clicked, this, [this]() { emit tabSelected(Tab::DeviceList); });
+    connect(settingsTab,   &QToolButton::clicked, this, [this]() { emit tabSelected(Tab::Settings); });
+
     QHBoxLayout *layout = new QHBoxLayout(this);
 
     // No margin on the right and no spacing anywhere: the caption buttons have to touch each
@@ -128,6 +213,12 @@ TitleBar::TitleBar(QWidget *parent)
     layout->addSpacing(8);
     layout->addWidget(titleLbl);
     layout->addStretch(1);
+    // Bottom rather than centre: the layout's cell stops at the bar's bottom hairline, so aligning
+    // there puts each tab's square bottom edge directly on the rule it meets - and leaves the
+    // window's outline unbroken, which a tab drawn over the hairline would not.
+    layout->addWidget(deviceListTab, 0, Qt::AlignBottom);
+    layout->addSpacing(TITLEBAR_TAB_GAP);
+    layout->addWidget(settingsTab, 0, Qt::AlignBottom);
     layout->addSpacing(TITLEBAR_SEPARATOR_MARGIN);
     layout->addWidget(separator, 0, Qt::AlignVCenter);
     layout->addSpacing(TITLEBAR_SEPARATOR_MARGIN);
@@ -139,6 +230,17 @@ TitleBar::TitleBar(QWidget *parent)
 void TitleBar::setTitle(const QString &title)
 {
     titleLbl->setText(title);
+}
+
+// Emits tabSelected() as a click on the tab would, so that a choice made from outside - the tray
+// menu is the only caller so far - reaches the window down the one path a choice made in here
+// does. Nothing listening turns round and calls this again, so the signal cannot come back.
+void TitleBar::setCurrentTab(Tab tab)
+{
+    // Checking the button is enough to uncheck the other: they are auto-exclusive.
+    (tab == Tab::Settings ? settingsTab : deviceListTab)->setChecked(true);
+
+    emit tabSelected(tab);
 }
 
 void TitleBar::mousePressEvent(QMouseEvent *event)

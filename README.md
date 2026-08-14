@@ -24,7 +24,7 @@ FileDonkey is a lightweight utility that creates a virtual disk that seamlessly 
 <br>
 <h3 align="center">✔️ Key Features:</h3>
 
-<p>📱 Instant file access between Android, iPhone, Mac, Windows, and Linux devices</p>
+<p>📱 Instant file access between Mac, Windows, and Linux devices (with Android and iPhone support planned)</p>
 <p>⚡ Zero configuration setup — just install and use</p>
 <p>🔌 No more tangled wires or complicated network configurations</p>
 <p>🔒 No cloud storage required — everything goes through your local network and stays on your devices</p>

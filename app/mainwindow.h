@@ -57,9 +57,9 @@ private:
     CloseChoice askWhatCloseMeans();
 
     Ui::MainWindow  *ui = nullptr;
-    QAction         *restoreAction;
+    QAction         *deviceListAction;
     QAction         *quitAction;
-    QAction         *upgradeToProAction;
+    QAction         *settingsAction;
     QSystemTrayIcon *trayIcon;
     QMenu           *trayIconMenu;
 

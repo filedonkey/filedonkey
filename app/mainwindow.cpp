@@ -124,8 +124,8 @@ MainWindow::MainWindow(QWidget *parent)
     // the no-tray dialog offers would quit instead.
     qApp->setQuitOnLastWindowClosed(false);
 
-    restoreAction = new QAction(tr("&Restore"), this);
-    connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreWindow);
+    deviceListAction = new QAction(tr("&Device List"), this);
+    connect(deviceListAction, &QAction::triggered, this, &MainWindow::restoreWindow);
 
 #if defined(Q_OS_MACOS)
     // Clicking the Dock icon of an app with no window open should bring the window back, the way
@@ -142,8 +142,8 @@ MainWindow::MainWindow(QWidget *parent)
     quitAction = new QAction(tr("&Quit"), this);
     connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
 
-    upgradeToProAction = new QAction(tr("&Upgrade to Pro"), this);
-    connect(upgradeToProAction, &QAction::triggered, this, &MainWindow::onUpgradeToPro);
+    settingsAction = new QAction(tr("&Settings"), this);
+    connect(settingsAction, &QAction::triggered, this, &MainWindow::onUpgradeToPro);
 
     createTrayIcon();
 
@@ -341,8 +341,8 @@ void MainWindow::createTrayIcon()
     trayIconMenu = new QMenu(this);
     // trayIconMenu->addAction(minimizeAction);
     // trayIconMenu->addAction(maximizeAction);
-    trayIconMenu->addAction(restoreAction);
-    trayIconMenu->addAction(upgradeToProAction);
+    trayIconMenu->addAction(deviceListAction);
+    trayIconMenu->addAction(settingsAction);
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(quitAction);
 

@@ -292,8 +292,8 @@ QWidget#settingsPage {
  *
  * The label is the secondary grey and the field the primary near-white: the
  * value is what is being read, and the label only says which value it is. Both
- * at the window's own 15px, so a row here sits at the same size a device row's
- * name does. */
+ * at 12px, the size the second line of a device row is set in - a form of rows
+ * at the window's own 15px would fill the page with two of them. */
 
 QLabel#settingsLabel { 
     color: #A9AEB6;
@@ -323,6 +323,15 @@ QLineEdit#settingsInput {
  * as far as a border can be brought up without becoming a second thing to
  * read. */
 QLineEdit#settingsInput:focus { border-color: #5F646C; }
+
+/* The note under a field. Muted, and a step down in size from the field it
+ * belongs to, so it reads as a remark on that value rather than as another
+ * thing to fill in. */
+
+QLabel#settingsHint {
+    color: #8D929A;
+    font-size: 11px;
+}
 
 QWidget#deviceList,
 QWidget#deviceRows,

@@ -1,9 +1,12 @@
 #ifndef SETTINGSPAGE_H
 #define SETTINGSPAGE_H
 
+#include <functional>
+
 #include <QWidget>
 
 class QLineEdit;
+class QToolButton;
 
 // The window's second page, behind the title bar's Settings tab: the name this machine announces
 // itself under, and the port peers reach it on.
@@ -33,6 +36,13 @@ private:
     // it works through rather than naming them: there is one port field on the page now, and the
     // second this app grows a use for should not be a copy of this function.
     void commitPort(QLineEdit *edit, void (*store)(int), int (*read)());
+
+    // Ties a field to the button in the third column that puts it back: the button is shown only
+    // while the field holds something other than its default, and pressing it types the default in
+    // and commits that. Both rows are wired through here so the two cannot come to behave
+    // differently.
+    void bindRevert(QLineEdit *edit, QToolButton *revert, const QString &defaultText,
+                    std::function<void()> commit);
 
     QLineEdit *nameEdit = nullptr;
     QLineEdit *transferEdit = nullptr;

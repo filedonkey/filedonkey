@@ -324,6 +324,26 @@ QLineEdit#settingsInput {
  * read. */
 QLineEdit#settingsInput:focus { border-color: #5F646C; }
 
+/* The third column: the button that puts a field back to the value this app
+ * ships with, shown only while a field holds something else. Nothing but the
+ * glyph until the pointer is on it - the row belongs to the field, and a button
+ * with a frame of its own beside every one of them would read as the busier
+ * half of the page.
+ *
+ * The arrow is artwork and takes no colour from `color:`, the way the badges
+ * and the caption glyphs do not. Its #A9AEB6 is in reverse.svg, the same grey
+ * the labels on the left are set in - so a change here has to be made there. */
+
+QToolButton#settingsRevert {
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    padding: 0px;
+}
+
+QToolButton#settingsRevert:hover   { background: #2A2C31; }
+QToolButton#settingsRevert:pressed { background: #26282C; }
+
 /* The note under a field. Muted, and a step down in size from the field it
  * belongs to, so it reads as a remark on that value rather than as another
  * thing to fill in. */

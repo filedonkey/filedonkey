@@ -4,10 +4,11 @@
 
 #include <QFormLayout>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QIntValidator>
 #include <QLabel>
 #include <QLineEdit>
-#include <QSysInfo>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 // The page's inset from the window's edges, what sets a label apart from the field beside it, and
@@ -29,6 +30,17 @@
 // Five digits and the field is full: a port is never longer, and a field the width of the one above
 // it would say a port could be. The note beside it takes the rest of the row.
 #define PORT_FIELD_WIDTH 64
+
+// The third column: the button that puts a field back to its default. Square, and a touch smaller
+// than the field it sits beside so it reads as something offered rather than as a second control of
+// the same weight. The glyph is drawn under the arrow's own ends at this size, which is why it is
+// not the full button.
+#define REVERT_BUTTON_SIZE 22
+#define REVERT_GLYPH       14
+
+// Between a field and the button at the end of its row, and only where nothing else separates them:
+// the port's row already has a note and the room left over between the two.
+#define REVERT_GAP 8
 
 // What the field will accept, which is the range LocalNode stores - it is the one that decides, and
 // these two numbers are here so that a port outside it is refused as it is typed rather than taken,
@@ -65,23 +77,29 @@ QLabel *rowLabel(QWidget *parent, const QString &text, const QWidget *field)
     return label;
 }
 
-// A port field and the note that says what the port is for, side by side the way the design draws
-// them. The note is given the field's height for the same reason a label is.
-QWidget *portRow(QWidget *parent, QLineEdit *edit, const QString &note)
+// The button at the end of a row, which turns a changed field back into the one this app ships
+// with. Hidden until there is something to undo - bindRevert() is what shows and hides it.
+//
+// Its place in the row is kept while it is hidden. Without that the field beside it would grow and
+// shrink by the button's width as the button came and went, and a name being typed would jump about
+// under the cursor on the first character that differed from the host name.
+QToolButton *revertButton(QWidget *parent, const QString &tooltip)
 {
-    QLabel *noteLbl = noteLabel(parent, note);
-    noteLbl->setFixedHeight(edit->sizeHint().height());
+    QToolButton *button = new QToolButton(parent);
+    button->setObjectName("settingsRevert");
+    button->setIcon(QIcon(":/assets/reverse.svg"));
+    button->setIconSize(QSize(REVERT_GLYPH, REVERT_GLYPH));
+    button->setFixedSize(REVERT_BUTTON_SIZE, REVERT_BUTTON_SIZE);
+    button->setFocusPolicy(Qt::NoFocus);
+    button->setCursor(Qt::PointingHandCursor);
+    button->setToolTip(tooltip);
+    button->hide();
 
-    QWidget *row = new QWidget(parent);
+    QSizePolicy policy = button->sizePolicy();
+    policy.setRetainSizeWhenHidden(true);
+    button->setSizePolicy(policy);
 
-    QHBoxLayout *layout = new QHBoxLayout(row);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(SETTINGS_LABEL_GAP);
-    layout->addWidget(edit);
-    layout->addWidget(noteLbl);
-    layout->addStretch(1);
-
-    return row;
+    return button;
 }
 
 } // namespace
@@ -98,7 +116,7 @@ SettingsPage::SettingsPage(QWidget *parent)
     // The field always holds the name peers are actually given, so the placeholder is only seen
     // while the field is being emptied - which is exactly when it is worth seeing: it is the name
     // that will be announced instead, in front of the user before they leave the field.
-    nameEdit->setPlaceholderText(QSysInfo::machineHostName());
+    nameEdit->setPlaceholderText(LocalNode::defaultMachineName());
 
     // The transfer port and no discovery port beside it, deliberately. A peer is told which port to
     // dial - every announcement carries it - so this machine can move it on its own and the rest
@@ -119,6 +137,23 @@ SettingsPage::SettingsPage(QWidget *parent)
         commitPort(transferEdit, &LocalNode::setTransferPort, &LocalNode::transferPort);
     });
 
+    // The third column. Each button names the value it would bring back rather than saying
+    // "default": the number is the whole answer to what pressing it does, and it is a number the
+    // user has by then replaced and cannot read anywhere else on the page.
+    const QString defaultName = LocalNode::defaultMachineName();
+    const QString defaultPort = QString::number(LocalNode::defaultTransferPort());
+
+    QToolButton *nameRevert     = revertButton(this, tr("Back to %1").arg(defaultName));
+    QToolButton *transferRevert = revertButton(this, tr("Back to %1").arg(defaultPort));
+
+    bindRevert(nameEdit, nameRevert, defaultName, [this]() {
+        commitMachineName();
+    });
+
+    bindRevert(transferEdit, transferRevert, defaultPort, [this]() {
+        commitPort(transferEdit, &LocalNode::setTransferPort, &LocalNode::transferPort);
+    });
+
     // Said here rather than left to be found out. A peer writes a machine's name down once, when it
     // first hears from it, and shows that copy from then on - so a rename takes effect on the next
     // announcement but reaches a device already connected only when the connection is made again.
@@ -134,24 +169,49 @@ SettingsPage::SettingsPage(QWidget *parent)
                                           "starts."));
     portHint->setWordWrap(true);
 
-    // The field and its note as one cell of the form, so the note sits under the field rather than
-    // under the label beside it, and so the two are set apart by a gap of their own rather than by
-    // the one the form puts between rows.
+    // The field and its button, on one line. The field takes what the button leaves - it is the
+    // only thing here with a use for the width - so the buttons on the two rows end up under each
+    // other, which is what makes them a column rather than two loose buttons.
+    QWidget *nameLine = new QWidget(this);
+
+    QHBoxLayout *nameLineLayout = new QHBoxLayout(nameLine);
+    nameLineLayout->setContentsMargins(0, 0, 0, 0);
+    nameLineLayout->setSpacing(REVERT_GAP);
+    nameLineLayout->addWidget(nameEdit, 1);
+    nameLineLayout->addWidget(nameRevert, 0, Qt::AlignVCenter);
+
+    // The port's line: a field as wide as a port, the note saying which protocol it is, and the
+    // room left over pushing the button out to the same end of the row the one above it is at.
+    QLabel *protocolLbl = noteLabel(this, tr("TCP"));
+    protocolLbl->setFixedHeight(transferEdit->sizeHint().height());
+
+    QWidget *transferLine = new QWidget(this);
+
+    QHBoxLayout *transferLineLayout = new QHBoxLayout(transferLine);
+    transferLineLayout->setContentsMargins(0, 0, 0, 0);
+    transferLineLayout->setSpacing(SETTINGS_LABEL_GAP);
+    transferLineLayout->addWidget(transferEdit);
+    transferLineLayout->addWidget(protocolLbl);
+    transferLineLayout->addStretch(1);
+    transferLineLayout->addWidget(transferRevert, 0, Qt::AlignVCenter);
+
+    // A line and the note under it as one cell of the form, so the note sits under the field rather
+    // than under the label beside it, and so the two are set apart by a gap of their own rather than
+    // by the one the form puts between rows.
     QWidget *nameField = new QWidget(this);
 
     QVBoxLayout *nameColumn = new QVBoxLayout(nameField);
     nameColumn->setContentsMargins(0, 0, 0, 0);
     nameColumn->setSpacing(SETTINGS_HINT_GAP);
-    nameColumn->addWidget(nameEdit);
+    nameColumn->addWidget(nameLine);
     nameColumn->addWidget(nameHint);
 
-    // The port field, the note that says which protocol it is, and the note under both.
     QWidget *transferField = new QWidget(this);
 
     QVBoxLayout *transferColumn = new QVBoxLayout(transferField);
     transferColumn->setContentsMargins(0, 0, 0, 0);
     transferColumn->setSpacing(SETTINGS_HINT_GAP);
-    transferColumn->addWidget(portRow(transferField, transferEdit, tr("TCP")));
+    transferColumn->addWidget(transferLine);
     transferColumn->addWidget(portHint);
 
     QFormLayout *form = new QFormLayout;
@@ -192,6 +252,30 @@ void SettingsPage::commitMachineName()
     // and keeps nothing at all for an empty name, and this is what puts the host name it then falls
     // back to in front of the user.
     nameEdit->setText(LocalNode::machineName());
+}
+
+void SettingsPage::bindRevert(QLineEdit *edit, QToolButton *revert, const QString &defaultText,
+                              std::function<void()> commit)
+{
+    // On every change rather than on the ones the user typed: setText() is how a field is put back
+    // and how a commit reads a stored value in, and the button has to answer those too or it would
+    // be left offering to undo what is already undone.
+    connect(edit, &QLineEdit::textChanged, revert, [revert, defaultText](const QString &text) {
+        revert->setVisible(text.trimmed() != defaultText);
+    });
+
+    connect(revert, &QToolButton::clicked, edit, [edit, defaultText, commit]() {
+        edit->setText(defaultText);
+
+        // Stored as well as shown. Pressing this is the user being done with the field - there is
+        // nothing left to type - so it does not wait for the focus to move on the way every other
+        // change here does.
+        commit();
+    });
+
+    // What the field arrived holding is a change like any other: a name set in a previous session
+    // is still not the default one, and the button has to be there for it.
+    revert->setVisible(edit->text().trimmed() != defaultText);
 }
 
 void SettingsPage::commitPort(QLineEdit *edit, void (*store)(int), int (*read)())

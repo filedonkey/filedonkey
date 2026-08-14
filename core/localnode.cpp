@@ -222,11 +222,21 @@ QString LocalNode::localEndpoint() const
     return QString();
 }
 
+QString LocalNode::defaultMachineName()
+{
+    return QSysInfo::machineHostName();
+}
+
+int LocalNode::defaultTransferPort()
+{
+    return TCP_PORT;
+}
+
 QString LocalNode::machineName()
 {
     const QString name = QSettings().value(MACHINE_NAME_KEY).toString().trimmed();
 
-    return name.isEmpty() ? QSysInfo::machineHostName() : name;
+    return name.isEmpty() ? defaultMachineName() : name;
 }
 
 void LocalNode::setMachineName(const QString &name)
@@ -239,7 +249,7 @@ void LocalNode::setMachineName(const QString &name)
     // is renamed - and the field is committed whenever the settings tab is left, so a user who
     // never touched it would be the one it happened to.
     const QString trimmed = name.trimmed();
-    if (trimmed.isEmpty() || trimmed == QSysInfo::machineHostName())
+    if (trimmed.isEmpty() || trimmed == defaultMachineName())
     {
         settings.remove(MACHINE_NAME_KEY);
         return;

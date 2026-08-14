@@ -52,6 +52,12 @@ public:
     // be seen in the field it was typed in and would be a second name in every peer's list.
     static void setMachineName(const QString &name);
 
+    // What each of these answers while the user has chosen nothing. Asked by the settings page,
+    // which offers to put a field back to its default and has to know when it is already there -
+    // and which should not be the second place in this project that writes 5454 down.
+    static QString defaultMachineName();
+    static int defaultTransferPort();
+
     // The two ports this machine uses: the UDP port announcements are broadcast to and answered on,
     // and the TCP port the server serving our exported directory listens on. Both stored the same
     // way the name is, with the numbers this app has always used as the answer while nothing is

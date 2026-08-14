@@ -473,7 +473,7 @@ DeviceList::DeviceList(QWidget *parent)
     emptyState = new QWidget(this);
 
     QVBoxLayout *emptyLayout = new QVBoxLayout(emptyState);
-    emptyLayout->setContentsMargins(28, 34, 28, 26);
+    emptyLayout->setContentsMargins(28, 64, 28, 26);
     emptyLayout->setSpacing(8);
     emptyLayout->addWidget(emptyTitle);
     emptyLayout->addWidget(emptyText);

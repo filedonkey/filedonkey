@@ -5,6 +5,7 @@
 
 #include <QWidget>
 
+class QCheckBox;
 class QLineEdit;
 class QToolButton;
 
@@ -46,6 +47,11 @@ private:
 
     QLineEdit *nameEdit = nullptr;
     QLineEdit *transferEdit = nullptr;
+
+    // The switch under the rule, which asks the desktop rather than this application for anything:
+    // it is read from and written to Autostart, and read back after each write so that a request
+    // the platform refused shows as the switch going back rather than as one that lies.
+    QCheckBox *autostartBox = nullptr;
 };
 
 #endif // SETTINGSPAGE_H

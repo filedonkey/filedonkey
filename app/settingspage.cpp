@@ -1,13 +1,16 @@
 #include "settingspage.h"
 
+#include "autostart.h"
 #include "localnode.h"
 
+#include <QCheckBox>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QIntValidator>
 #include <QLabel>
 #include <QLineEdit>
+#include <QSignalBlocker>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -41,6 +44,19 @@
 // Between a field and the button at the end of its row, and only where nothing else separates them:
 // the port's row already has a note and the room left over between the two.
 #define REVERT_GAP 8
+
+// Around the rule that separates the fields above it from the switches below. The two halves are
+// answered differently - one is typed into and committed, the other takes effect the moment it is
+// pressed - and the rule is what says so before either is touched.
+#define SETTINGS_SECTION_GAP 16
+
+// How far the note under a switch is indented, so that it starts under the switch's own label
+// rather than under the switch: the width of the pill, and the gap the stylesheet puts after it.
+#define SWITCH_TEXT_INDENT 46
+
+// Between a switch and the note under it. Tighter than under a field, because there is no border to
+// hold the two apart and the label above is only one line of type.
+#define SWITCH_NOTE_GAP 3
 
 // What the field will accept, which is the range LocalNode stores - it is the one that decides, and
 // these two numbers are here so that a port outside it is refused as it is typed rather than taken,
@@ -214,6 +230,36 @@ SettingsPage::SettingsPage(QWidget *parent)
     transferColumn->addWidget(transferLine);
     transferColumn->addWidget(portHint);
 
+    // The rule under the form. A plain widget rather than a QFrame HLine, the way the status bar's
+    // separator is one: a frame's line is drawn by the native style in the style's own colours, and
+    // this one is the hairline grey the window's own borders use.
+    QWidget *separator = new QWidget(this);
+    separator->setObjectName("settingsSeparator");
+    separator->setAttribute(Qt::WA_StyledBackground, true);
+    separator->setFixedHeight(1);
+
+    // What is under it answers at once rather than being typed and committed - there is nothing to
+    // finish typing, and a switch that waited for the focus to move would be a switch that had not
+    // done what it just showed.
+    autostartBox = new QCheckBox(tr("Start FileDonkey when I sign in"), this);
+    autostartBox->setObjectName("settingsSwitch");
+    autostartBox->setCursor(Qt::PointingHandCursor);
+    autostartBox->setChecked(Autostart::isEnabled());
+
+    QLabel *autostartNote = noteLabel(this, tr("Runs in the tray, no window"));
+    autostartNote->setContentsMargins(SWITCH_TEXT_INDENT, 0, 0, 0);
+
+    connect(autostartBox, &QCheckBox::toggled, this, [this](bool enabled) {
+        Autostart::setEnabled(enabled);
+
+        // Read back, so the switch shows what the desktop actually has rather than what it was
+        // asked for: writing the entry can fail, and a switch left sitting on a request nobody took
+        // would have the user believe FileDonkey starts itself when it does not. Blocked, or setting
+        // it here would come straight back through this lambda.
+        const QSignalBlocker blocker(autostartBox);
+        autostartBox->setChecked(Autostart::isEnabled());
+    });
+
     QFormLayout *form = new QFormLayout;
     form->setContentsMargins(0, 0, 0, 0);
     form->setHorizontalSpacing(SETTINGS_LABEL_GAP);
@@ -232,7 +278,15 @@ SettingsPage::SettingsPage(QWidget *parent)
     layout->setSpacing(0);
     layout->addLayout(form);
 
-    // Holds the rows at the top of the page. Without it the form would be spread down the page.
+    layout->addSpacing(SETTINGS_SECTION_GAP);
+    layout->addWidget(separator);
+    layout->addSpacing(SETTINGS_SECTION_GAP);
+
+    layout->addWidget(autostartBox);
+    layout->addSpacing(SWITCH_NOTE_GAP);
+    layout->addWidget(autostartNote);
+
+    // Holds everything at the top of the page. Without it the rows would be spread down it.
     layout->addStretch(1);
 }
 

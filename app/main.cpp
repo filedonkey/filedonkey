@@ -1,3 +1,4 @@
+#include "autostart.h"
 #include "mainwindow.h"
 #include "singleinstance.h"
 #include "virtdisk.h"
@@ -6,6 +7,7 @@
 #include <QFont>
 #include <QFontDatabase>
 #include <QLocale>
+#include <QSystemTrayIcon>
 #include <QTranslator>
 #include <QLoggingCategory>
 
@@ -168,6 +170,18 @@ int main(int argc, char *argv[])
     // A second start hands its job to us rather than running: bring the window back for it.
     QObject::connect(&instance, &SingleInstance::showRequested, &w, &MainWindow::restoreWindow);
 
-    w.show();
+    // --tray is what the desktop starts us with when the settings page has asked for FileDonkey at
+    // sign-in - see autostart.cpp. Nobody signing in wants a window they did not open, and the
+    // application has everything it needs without one: the node runs, the mounts come up, and the
+    // tray icon is there to open the window from.
+    //
+    // Only where there is a tray to sit in. Without one the window is the whole application, and one
+    // that never appears is a process the user can neither see nor quit - so on that desktop the
+    // flag is ignored rather than obeyed into a corner.
+    const bool startInTray = a.arguments().contains(TRAY_ARGUMENT)
+                             && QSystemTrayIcon::isSystemTrayAvailable();
+
+    if (!startInTray) w.show();
+
     return a.exec();
 }

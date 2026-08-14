@@ -344,6 +344,38 @@ QToolButton#settingsRevert {
 QToolButton#settingsRevert:hover   { background: #2A2C31; }
 QToolButton#settingsRevert:pressed { background: #26282C; }
 
+/* The rule between the fields and the switches. The hairline grey, not the
+ * raised one: it divides two halves of one page rather than standing where a
+ * window border would. Its height is set in settingspage.cpp, like the dots. */
+
+QWidget#settingsSeparator { background: #2B2D31; }
+
+/* A switch. It is a QCheckBox - the thing it does is the thing a check box
+ * does - wearing the pill the design draws, which arrives as artwork because
+ * neither the track nor the knob on it can be drawn by a stylesheet. Two files,
+ * one per state, the way the tabs in the title bar carry one per state: the
+ * colours are in switch_on.svg and switch_off.svg, and this rule only says
+ * which is which and how big it is.
+ *
+ * `spacing` is the gap between the pill and the label after it. The note under
+ * that label is indented by the sum of the two - see SWITCH_TEXT_INDENT in
+ * settingspage.cpp, which has to be answered if either number changes here. */
+
+QCheckBox#settingsSwitch {
+    background: transparent;
+    color: #E8E9EC;
+    font-size: 12px;
+    spacing: 12px;
+}
+
+QCheckBox#settingsSwitch::indicator {
+    width: 34px;
+    height: 19px;
+    image: url(:/assets/switch_off.svg);
+}
+
+QCheckBox#settingsSwitch::indicator:checked { image: url(:/assets/switch_on.svg); }
+
 /* The note under a field. Muted, and a step down in size from the field it
  * belongs to, so it reads as a remark on that value rather than as another
  * thing to fill in. */

@@ -50,6 +50,11 @@
 // the port's row already has a note and the room left over between the two.
 #define REVERT_GAP 8
 
+// What the button and the gap in front of it take at the end of every row. The notes underneath are
+// inset by it - see fieldNote() - because a note fills the whole cell, and the cell runs on past the
+// field to the end of the row.
+#define REVERT_COLUMN_WIDTH (REVERT_GAP + REVERT_BUTTON_SIZE)
+
 // Around the rule that separates the fields above it from the switches below. The two halves are
 // answered differently - one is typed into and committed, the other takes effect the moment it is
 // pressed - and the rule is what says so before either is touched.
@@ -76,6 +81,19 @@ QLabel *noteLabel(QWidget *parent, const QString &text)
 {
     QLabel *label = new QLabel(text, parent);
     label->setObjectName("settingsHint");
+
+    return label;
+}
+
+// The wrapped note under a field, and the whole width of the cell it is in - which is wider than the
+// field above it by the revert column at the end of the row. Inset by exactly that, so a note breaks
+// where the field it belongs to ends: without it the lines run on under the button and the row reads
+// as two things of different widths stacked on each other.
+QLabel *fieldNote(QWidget *parent, const QString &text)
+{
+    QLabel *label = noteLabel(parent, text);
+    label->setWordWrap(true);
+    label->setContentsMargins(0, 0, REVERT_COLUMN_WIDTH, 0);
 
     return label;
 }
@@ -189,24 +207,21 @@ SettingsPage::SettingsPage(QWidget *parent)
     // announcement but reaches a device already connected only when the connection is made again.
     // Without this the field looks like it did nothing: the machine that was renamed is the one
     // place the new name cannot be seen.
-    QLabel *nameHint = noteLabel(this, tr("Devices already connected keep the old name until they "
+    QLabel *nameHint = fieldNote(this, tr("Devices already connected keep the old name until they "
                                           "connect again."));
-    nameHint->setWordWrap(true);
 
     // The shared root's, and the one line on this page that says what the whole application does
     // with this machine's disk. The last sentence is ours rather than the design's: the backend is
     // handed the folder when it is built and serves that one until it is built again, so a folder
     // chosen here changes nothing a peer can see until then.
-    QLabel *sharedRootHint = noteLabel(this, tr("The folder this PC exposes to other devices. "
+    QLabel *sharedRootHint = fieldNote(this, tr("The folder this PC exposes to other devices. "
                                                 "Everything else stays invisible. Served from the "
                                                 "next time the app starts."));
-    sharedRootHint->setWordWrap(true);
 
     // The same for the field below it: the server is listening on the old port until the
     // application is started again, and nothing on this page would otherwise say so.
-    QLabel *portHint = noteLabel(this, tr("The new port is taken up the next time the app "
+    QLabel *portHint = fieldNote(this, tr("The new port is taken up the next time the app "
                                           "starts."));
-    portHint->setWordWrap(true);
 
     // The field and its button, on one line. The field takes what the button leaves - it is the
     // only thing here with a use for the width - so the buttons on the two rows end up under each

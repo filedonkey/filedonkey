@@ -5,7 +5,7 @@ Subject for Settings window:
  - [toggle] Start FileDonkey when I sign in (Runs in the tray, no window)
  - [toggle] Announce this PC on the network (Turn off to browse without being discoverable)
  - [toggle] Mount known devices automatically
- - [input] Discovery port (UDP broadcast)
- - [input] Transfer port (TCP)
- - [input] This PC's name
+ ? [input] Discovery port (UDP broadcast)
+ + [input] Transfer port (TCP)
+ + [input] This PC's name
  - [input + button...] Shared root (Folders this PC exposes to paired devices. Everything else stays invisible.)

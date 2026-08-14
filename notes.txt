@@ -8,4 +8,4 @@ Subject for Settings window:
  ? [input] Discovery port (UDP broadcast)
  + [input] Transfer port (TCP)
  + [input] This PC's name
- - [input + button...] Shared root (Folders this PC exposes to paired devices. Everything else stays invisible.)
+ + [label + button...] Shared root (Folders this PC exposes to paired devices. Everything else stays invisible.)

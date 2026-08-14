@@ -132,6 +132,7 @@ int main(int argc, char *argv[])
     // QSettings reads these; without them it files everything under an "Unknown Organization"
     // that moves the moment the binary is renamed.
     QCoreApplication::setOrganizationName("FileDonkey");
+    QCoreApplication::setOrganizationDomain("filedonkey.app");
     QCoreApplication::setApplicationName("FileDonkey");
 
     // After the --mount branch above, deliberately: the mount helper is meant to run many at once,

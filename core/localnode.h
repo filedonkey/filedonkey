@@ -52,6 +52,26 @@ public:
     // be seen in the field it was typed in and would be a second name in every peer's list.
     static void setMachineName(const QString &name);
 
+    // The two ports this machine uses: the UDP port announcements are broadcast to and answered on,
+    // and the TCP port the server serving our exported directory listens on. Both stored the same
+    // way the name is, with the numbers this app has always used as the answer while nothing is
+    // stored, and both read once in the constructor - a port changed while the application runs
+    // reaches nothing until it is started again, because the sockets are bound by then.
+    static int discoveryPort();
+    static int transferPort();
+
+    // Only the transfer port can be set, and only it has a field on the settings page. A peer is
+    // told which port to dial - every announcement carries it - so one machine can move it and the
+    // rest follow. The discovery port is the opposite: it is the port a broadcast is sent to as
+    // well as the one it is heard on, so a machine that moves it alone is announcing itself into a
+    // port no one is listening on and hearing nothing back, with no sign of it beyond an empty
+    // device list. It stays readable from the settings for the rare network that has to move it on
+    // every machine at once, and is offered nowhere.
+    //
+    // Out of range, or the number this app defaults to, and nothing is kept - the same as never
+    // having set one.
+    static void setTransferPort(int port);
+
 signals:
     // Forwarded from the FUSEClient of whichever VirtDisk moved the bytes, named so the device list
     // can put them on the right row - the counters have always been per-peer, and until there was a
@@ -108,6 +128,14 @@ private:
     QTimer     *discoveryTimer = nullptr;
 
     QString machineId;      // our own, so we can tell our announcements from a peer's
+
+    // The discovery port this session bound, kept because it is also the port every announcement is
+    // sent to and the two must be the same one. Read from the settings once, in the constructor:
+    // reading it again at each broadcast would have a change made mid-session announcing us on a
+    // port nothing is listening on, ours included. The transfer port needs no twin - the server
+    // knows what it bound, and serverPort() is what the announcements carry.
+    quint16 udpPort = 0;
+
     QMap<QString, Connection> connections;
     QMap<OperationType, RequestHandler> fuseHandlers;
 

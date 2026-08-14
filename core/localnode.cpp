@@ -14,12 +14,22 @@
 #include <QSettings>
 #include <QSysInfo>
 
+// What both ports are unless the settings page says otherwise, and what they have always been.
 #define UDP_PORT    4545
 #define TCP_PORT    5454
 
-// Where the name the user typed into the settings page is kept. Absent until they type one, and
-// absent again the moment they empty the field - see machineName() for what that then answers.
-#define MACHINE_NAME_KEY "network/machineName"
+// The lowest port worth offering. Below this are the ports the system hands out for its own
+// services, and on the two platforms that enforce it they cannot be bound without being root.
+#define LOWEST_PORT 1024
+#define HIGHEST_PORT 65535
+
+// Where what the user changed is kept. Each is absent until they change it, and absent again the
+// moment they put it back - see the accessors for what that then answers. Two of the three are the
+// settings page's; the discovery port is written by nothing here and is read for whoever sets it by
+// hand - see the note on the accessors in localnode.h.
+#define MACHINE_NAME_KEY    "network/machineName"
+#define DISCOVERY_PORT_KEY  "network/discoveryPort"
+#define TRANSFER_PORT_KEY   "network/transferPort"
 
 #define BROADCAST_INTERVAL_MS 5000
 
@@ -64,6 +74,32 @@ QHostAddress routedAddress()
     return probe.localAddress();
 }
 
+// A port out of the settings, and the default in place of anything that cannot be one. The range is
+// checked on the way out as well as on the way in: what is stored was written by a version of this
+// app that may have checked something else, or by a hand editing the registry.
+int storedPort(const QString &key, int fallback)
+{
+    const int port = QSettings().value(key, fallback).toInt();
+    if (port < LOWEST_PORT || port > HIGHEST_PORT) return fallback;
+
+    return port;
+}
+
+void storePort(const QString &key, int port, int fallback)
+{
+    QSettings settings;
+
+    // Nothing kept for the default itself, so that a port this app changes its mind about later is
+    // followed by everyone who never chose one of their own.
+    if (port == fallback || port < LOWEST_PORT || port > HIGHEST_PORT)
+    {
+        settings.remove(key);
+        return;
+    }
+
+    settings.setValue(key, port);
+}
+
 } // namespace
 
 LocalNode::LocalNode(QObject *parent)
@@ -72,6 +108,11 @@ LocalNode::LocalNode(QObject *parent)
     , broadcaster(new QUdpSocket(this))
 {
     machineId = QString::fromUtf8(QSysInfo::machineUniqueId());
+
+    // Both ports read here and nowhere else, so that everything this session does is done on the
+    // pair it actually bound. A change made in the settings page while it runs is picked up by the
+    // next start - see the note on the accessors, and the one under the two fields.
+    udpPort = discoveryPort();
 
     fuseBackend = new FUSEBackend();
     fuseHandlers.insert(OperationType::readdir,  std::bind(&LocalNode::readdirHandler,  this, _1, _2));
@@ -88,7 +129,7 @@ LocalNode::LocalNode(QObject *parent)
     fuseHandlers.insert(OperationType::truncate, std::bind(&LocalNode::truncateHandler, this, _1, _2));
 
     connect(server, SIGNAL(newConnection()), this, SLOT(onConnection()));
-    if (!server->listen(QHostAddress::Any, TCP_PORT))
+    if (!server->listen(QHostAddress::Any, transferPort()))
     {
         qDebug() << "[Server] Unable to start: " << server->errorString();
     }
@@ -98,10 +139,10 @@ LocalNode::LocalNode(QObject *parent)
     }
 
     // Bind before announcing ourselves, never after: a peer answers our broadcast with an invite
-    // straight away, and until this socket owns UDP_PORT that reply lands on a port nobody is
-    // listening on and is dropped.
+    // straight away, and until this socket owns the discovery port that reply lands on a port
+    // nobody is listening on and is dropped.
     connect(broadcaster, SIGNAL(readyRead()), this, SLOT(onBroadcasting()));
-    broadcaster->bind(UDP_PORT, QUdpSocket::ShareAddress);
+    broadcaster->bind(udpPort, QUdpSocket::ShareAddress);
 
     // Keep announcing ourselves rather than doing it once at startup. A peer that is still tearing
     // down its side of our previous session - exactly what it is doing when this app has just been
@@ -207,6 +248,21 @@ void LocalNode::setMachineName(const QString &name)
     settings.setValue(MACHINE_NAME_KEY, trimmed);
 }
 
+int LocalNode::discoveryPort()
+{
+    return storedPort(DISCOVERY_PORT_KEY, UDP_PORT);
+}
+
+int LocalNode::transferPort()
+{
+    return storedPort(TRANSFER_PORT_KEY, TCP_PORT);
+}
+
+void LocalNode::setTransferPort(int port)
+{
+    storePort(TRANSFER_PORT_KEY, port, TCP_PORT);
+}
+
 void LocalNode::broadcast()
 {
     QUdpSocket broadcaster;
@@ -235,7 +291,7 @@ void LocalNode::broadcast()
             bool isHostAddressValid = host.toString().isEmpty() == false;
             if (isIPv4Protocol && isHostAddressValid)
             {
-                broadcaster.writeDatagram(datagram, host, UDP_PORT);
+                broadcaster.writeDatagram(datagram, host, udpPort);
             }
         }
     }
@@ -255,7 +311,7 @@ void LocalNode::invite(const QHostAddress &address)
     root["machine"] = machine;
 
     QByteArray datagram = QJsonDocument(root).toJson(QJsonDocument::Compact);
-    broadcaster.writeDatagram(datagram, address, UDP_PORT);
+    broadcaster.writeDatagram(datagram, address, udpPort);
 }
 
 void LocalNode::onBroadcasting()

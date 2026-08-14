@@ -5,11 +5,11 @@
 
 class QLineEdit;
 
-// The window's second page, behind the title bar's Settings tab. One setting so far: the name this
-// machine announces itself under, which every peer's device list shows it by.
+// The window's second page, behind the title bar's Settings tab: the name this machine announces
+// itself under, and the port peers reach it on.
 //
-// It keeps nothing of its own. What the field holds is read from and written back to the settings
-// through LocalNode, so the node reads the name the user typed without this page having to reach it.
+// It keeps nothing of its own. What the fields hold is read from and written back to the settings
+// through LocalNode, so the node reads what the user typed without this page having to reach it.
 class SettingsPage : public QWidget
 {
     Q_OBJECT
@@ -18,9 +18,9 @@ public:
     explicit SettingsPage(QWidget *parent = nullptr);
 
 protected:
-    // The tab being switched away from, or the window being put away, counts as being done with the
-    // field: neither necessarily takes focus off it, so neither would reach editingFinished on its
-    // own and a name typed and left there would be lost.
+    // The tab being switched away from, or the window being put away, counts as being done with a
+    // field: neither necessarily takes focus off one, so neither would reach editingFinished on its
+    // own and a value typed and left there would be lost.
     void hideEvent(QHideEvent *event) override;
 
 private:
@@ -28,7 +28,14 @@ private:
     // emptied one fills with the host name it has fallen back to rather than sitting blank.
     void commitMachineName();
 
+    // The same for a port. A field the validator is not satisfied with - a half-typed port, or an
+    // empty one - is put back to the port in force rather than stored. Takes the pair of accessors
+    // it works through rather than naming them: there is one port field on the page now, and the
+    // second this app grows a use for should not be a copy of this function.
+    void commitPort(QLineEdit *edit, void (*store)(int), int (*read)());
+
     QLineEdit *nameEdit = nullptr;
+    QLineEdit *transferEdit = nullptr;
 };
 
 #endif // SETTINGSPAGE_H

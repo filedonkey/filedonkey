@@ -98,6 +98,20 @@ QLabel *fieldNote(QWidget *parent, const QString &text)
     return label;
 }
 
+// The hairline between two rows, and the one between the fields and the switches under them. A plain
+// widget rather than a QFrame HLine, the way the status bar's separator is one: a frame's line is
+// drawn by the native style in the style's own colours, and this one is the hairline grey the
+// window's own borders use.
+QWidget *separatorLine(QWidget *parent)
+{
+    QWidget *line = new QWidget(parent);
+    line->setObjectName("settingsSeparator");
+    line->setAttribute(Qt::WA_StyledBackground, true);
+    line->setFixedHeight(1);
+
+    return line;
+}
+
 // A row's label, made the height of the field it names. That is what puts the two texts on one
 // line: the field is the taller of the two - its stylesheet border and padding are worth more than
 // a label has - and neither the form layout's vertical alignment nor its default puts a short label
@@ -302,13 +316,9 @@ SettingsPage::SettingsPage(QWidget *parent)
     transferColumn->addWidget(transferLine);
     transferColumn->addWidget(portHint);
 
-    // The rule under the form. A plain widget rather than a QFrame HLine, the way the status bar's
-    // separator is one: a frame's line is drawn by the native style in the style's own colours, and
-    // this one is the hairline grey the window's own borders use.
-    QWidget *separator = new QWidget(this);
-    separator->setObjectName("settingsSeparator");
-    separator->setAttribute(Qt::WA_StyledBackground, true);
-    separator->setFixedHeight(1);
+    // The rule under the form, which is the same hairline the rows are divided by. What sets it
+    // apart is the room around it - see SETTINGS_SECTION_GAP against the form's own row spacing.
+    QWidget *separator = separatorLine(this);
 
     // What is under it answers at once rather than being typed and committed - there is nothing to
     // finish typing, and a switch that waited for the focus to move would be a switch that had not
@@ -342,8 +352,14 @@ SettingsPage::SettingsPage(QWidget *parent)
     form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
     form->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
+    // A rule between each pair of rows, spanning both columns - a row is a label, a field and a note
+    // by now, and without a line between them a note reads as though it could belong to either the
+    // row above it or the one below. Added as rows of the form rather than drawn around it, so they
+    // take the same spacing everything else in it does and stay in step as rows are added.
     form->addRow(rowLabel(this, tr("This PC's name"), nameEdit), nameField);
+    form->addRow(separatorLine(this));
     form->addRow(rowLabel(this, tr("Shared root"), sharedRootLbl), sharedRootField);
+    form->addRow(separatorLine(this));
     form->addRow(rowLabel(this, tr("Transfer port"), transferEdit), transferField);
 
     // Everything the page shows, on one widget of its own. It is taller than the window as of the

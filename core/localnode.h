@@ -36,6 +36,22 @@ public:
     // asks us, every peer learns it from the datagrams we send.
     QString localEndpoint() const;
 
+    // What this machine calls itself in every announcement it sends, and the settings page's way of
+    // changing it. Stored in QSettings, with the machine's own host name as the answer while the
+    // user has set nothing - which is what every announcement carried before there was a field to
+    // set it in.
+    //
+    // Static and read from the settings on each call rather than kept in a member: the page that
+    // writes it is built before the node exists, and re-reading is what lets the next broadcast
+    // carry a name the user has just typed with no signal wired between the two. A peer that has
+    // already found us keeps the name it was given, though - it writes a machine down once, when it
+    // first hears from it, so a rename only reaches it when the connection is made again.
+    static QString machineName();
+
+    // Empty puts it back to following the host name. Whitespace at either end is dropped: it cannot
+    // be seen in the field it was typed in and would be a second name in every peer's list.
+    static void setMachineName(const QString &name);
+
 signals:
     // Forwarded from the FUSEClient of whichever VirtDisk moved the bytes, named so the device list
     // can put them on the right row - the counters have always been per-peer, and until there was a

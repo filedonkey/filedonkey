@@ -11,10 +11,15 @@
 #include <QNetworkDatagram>
 #include <QNetworkInterface>
 #include <QPointer>
+#include <QSettings>
 #include <QSysInfo>
 
 #define UDP_PORT    4545
 #define TCP_PORT    5454
+
+// Where the name the user typed into the settings page is kept. Absent until they type one, and
+// absent again the moment they empty the field - see machineName() for what that then answers.
+#define MACHINE_NAME_KEY "network/machineName"
 
 #define BROADCAST_INTERVAL_MS 5000
 
@@ -176,6 +181,32 @@ QString LocalNode::localEndpoint() const
     return QString();
 }
 
+QString LocalNode::machineName()
+{
+    const QString name = QSettings().value(MACHINE_NAME_KEY).toString().trimmed();
+
+    return name.isEmpty() ? QSysInfo::machineHostName() : name;
+}
+
+void LocalNode::setMachineName(const QString &name)
+{
+    QSettings settings;
+
+    // Nothing stored for either of the two names that mean "whatever this machine calls itself":
+    // an empty one, and the host name the field is filled with while the user has chosen nothing.
+    // Storing the second would announce the same name today and the wrong one the day the machine
+    // is renamed - and the field is committed whenever the settings tab is left, so a user who
+    // never touched it would be the one it happened to.
+    const QString trimmed = name.trimmed();
+    if (trimmed.isEmpty() || trimmed == QSysInfo::machineHostName())
+    {
+        settings.remove(MACHINE_NAME_KEY);
+        return;
+    }
+
+    settings.setValue(MACHINE_NAME_KEY, trimmed);
+}
+
 void LocalNode::broadcast()
 {
     QUdpSocket broadcaster;
@@ -183,7 +214,7 @@ void LocalNode::broadcast()
     QJsonObject machine;
 
     machine["id"]   = machineId;
-    machine["name"] = QSysInfo::machineHostName();
+    machine["name"] = machineName();
     machine["port"] = server->serverPort();
 
     // Carried for the sake of the peer's device list, which badges each row with the platform it
@@ -217,7 +248,7 @@ void LocalNode::invite(const QHostAddress &address)
     QJsonObject machine;
 
     machine["id"]   = machineId;
-    machine["name"] = QSysInfo::machineHostName();
+    machine["name"] = machineName();
     machine["port"] = server->serverPort();
     machine["os"]   = QSysInfo::productType();
 

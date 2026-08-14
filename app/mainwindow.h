@@ -4,6 +4,7 @@
 #include "core.h"
 #include "devicelist.h"
 #include "localnode.h"
+#include "settingspage.h"
 #include "titlebar.h"
 
 #include <QMainWindow>
@@ -73,7 +74,7 @@ private:
     // The window's content, one page per tab in the title bar.
     QStackedWidget  *contentStack = nullptr;
     DeviceList      *deviceList = nullptr;
-    QWidget         *settingsPage = nullptr;
+    SettingsPage    *settingsPage = nullptr;
 
     // Read once at startup. On Linux this can turn true later, when a shell registers its
     // StatusNotifier host after login, and Qt offers no signal for that - so a user who installs

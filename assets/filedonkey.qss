@@ -9,6 +9,7 @@
  *   #2A2C31  hover                   #7E838B  text, micro-labels
  *   #2F3238  controls                #5F646C  text, disabled
  *   #34363B  borders, raised
+ *   #3D4046  borders, fields
  *   #2B2D31  borders, hairline       #4EC97A  mounted
  *                                    #E0A33C  busy
  *                                    #E0564C  error     (unused so far)
@@ -274,15 +275,54 @@ QLabel#deviceCountLbl {
  * and each border would have to be subtracted from the number by hand. What is
  * left here is colour, type and roundness. */
 
-/* The stack the title bar's tabs switch, and the second of its two pages, which
- * is empty until there are settings to put in it. Both transparent so that what
- * shows behind them is #centralwidget's own fill and not a second one. */
+/* The stack the title bar's tabs switch, and the second of its two pages. Both
+ * transparent so that what shows behind them is #centralwidget's own fill and
+ * not a second one. */
 
 QStackedWidget#contentStack,
 QWidget#settingsPage {
     background: transparent;
     border: none;
 }
+
+/* ------------------------------------------------------------- the settings
+ * A column of rows, each a label and the field it names - laid out by a form
+ * layout in settingspage.cpp, which is what keeps the labels in a column of
+ * their own as more rows arrive.
+ *
+ * The label is the secondary grey and the field the primary near-white: the
+ * value is what is being read, and the label only says which value it is. Both
+ * at the window's own 15px, so a row here sits at the same size a device row's
+ * name does. */
+
+QLabel#settingsLabel { 
+    color: #A9AEB6;
+    font-size: 12px;
+}
+
+/* The one text field in the window. Sunk into the page rather than raised off
+ * it - the deeper #191A1D the title bar and status bar are painted in, so it
+ * reads as somewhere to type instead of as another button.
+ *
+ * The placeholder needs no rule: Qt derives its colour from the text colour
+ * above, at half alpha, which is the muted grey it would otherwise be given
+ * here. */
+
+QLineEdit#settingsInput {
+    background: #191A1D;
+    border: 1px solid #3D4046;
+    border-radius: 6px;
+    color: #E8E9EC;
+    font-size: 12px;
+    padding: 4px 8px;
+    selection-background-color: #2F3238;
+    selection-color: #E8E9EC;
+}
+
+/* The only state it has. Lifted to the grey the disabled text is in, which is
+ * as far as a border can be brought up without becoming a second thing to
+ * read. */
+QLineEdit#settingsInput:focus { border-color: #5F646C; }
 
 QWidget#deviceList,
 QWidget#deviceRows,

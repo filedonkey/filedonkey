@@ -168,11 +168,9 @@ MainWindow::MainWindow(QWidget *parent)
     // the .ui file is the one the window keeps, and the list is built to fit whatever it gets.
     deviceList = new DeviceList(ui->centralwidget);
 
-    // Nothing in it yet, and deliberately: the Settings tab is here before the settings are, so it
-    // shows an empty pane. It is a page in the stack rather than the list being hidden so that
-    // whatever goes in later has somewhere to go and nothing else has to move.
-    settingsPage = new QWidget(ui->centralwidget);
-    settingsPage->setObjectName("settingsPage");
+    // The other page. Nothing connects it to the node below: what it changes it writes to the
+    // settings, and the node reads it from there on its way into the next broadcast.
+    settingsPage = new SettingsPage(ui->centralwidget);
 
     // The pages the tabs choose between. A stack rather than show()/hide() on the list: it keeps
     // one widget's worth of space reserved whichever page is up, so switching to the empty pane
@@ -196,7 +194,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(titleBar, &TitleBar::tabSelected, this, [this](TitleBar::Tab tab) {
         const bool settings = (tab == TitleBar::Tab::Settings);
 
-        contentStack->setCurrentWidget(settings ? settingsPage : deviceList);
+        // The cast is what gives the two arms of the conditional a type in common: they are
+        // unrelated widget classes, and the stack wants either of them as a QWidget.
+        contentStack->setCurrentWidget(settings ? (QWidget *)settingsPage : (QWidget *)deviceList);
 
         setWindowTitle(settings ? tr("FileDonkey Settings") : tr("FileDonkey Device List"));
         titleBar->setTitle(windowTitle());

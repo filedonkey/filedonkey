@@ -31,12 +31,14 @@ SOURCES += \
     devicelist.cpp \
     main.cpp \
     mainwindow.cpp \
+    settingspage.cpp \
     singleinstance.cpp \
     titlebar.cpp \
 
 HEADERS += \
     devicelist.h \
     mainwindow.h \
+    settingspage.h \
     singleinstance.h \
     titlebar.h \
 

@@ -1,2 +1,9 @@
 Bugs:
-  - after other peer is no longer alive and virtdisk has been unmounted and user closed the app, it terminates abnormally
+  - [linux] visual corruption of application close message box
+
+Features:
+  Manual discovery
++ Settings
+  Device List in tray's context menu
+  Mount/eject
+  Notifications

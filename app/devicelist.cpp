@@ -327,6 +327,11 @@ void DeviceRow::mousePressEvent(QMouseEvent *event)
     // walks an ignored event up to the parent, which is this.
     if (event->button() == Qt::LeftButton && mounted)
     {
+        // What says the row has taken the click, since the stylesheet cannot say it: Qt sets the
+        // :pressed pseudo-state for the button classes and never for a plain QWidget, so the row
+        // carries the state as a property the stylesheet selects on instead.
+        restyle(this, "pressed", true);
+
         event->accept();
         return;
     }
@@ -341,6 +346,11 @@ void DeviceRow::mouseReleaseEvent(QMouseEvent *event)
         QWidget::mouseReleaseEvent(event);
         return;
     }
+
+    // Whether the click is taken or taken back, the row is no longer held. Qt keeps the mouse with
+    // whoever accepted the press, so this arrives here even when the pointer has been dragged off
+    // the row - which is the case the state would otherwise be left set in.
+    restyle(this, "pressed", false);
 
     // Only if the pointer is still on the row. Pressing and letting go somewhere else is how a
     // click is taken back, and this one opens a window.

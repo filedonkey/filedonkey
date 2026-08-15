@@ -436,6 +436,16 @@ QWidget#deviceRow {
 
 QWidget#deviceRow:hover { background: #26282C; }
 
+/* A held click, in the title bar and status bar's own #191A1D - darker than
+ * the hover it is drawn over, and darker than the content behind that, so the
+ * row reads as pressed into the window rather than merely dimmed. On a
+ * property rather than :pressed, which Qt sets for the button classes and
+ * never for a plain QWidget: see DeviceRow::mousePressEvent. It follows the
+ * hover rule because the two are equally specific and a row is always hovered
+ * while it is held, so the later of them is what shows. */
+
+QWidget#deviceRow[pressed="true"] { background: #191A1D; }
+
 /* The rules from here down used to be the mono half of the window and each
  * named the family itself. They name none now - the QWidget rule at the top
  * does it for the whole window - so what is left in a rule is what actually

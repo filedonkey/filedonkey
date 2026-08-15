@@ -3,10 +3,13 @@
 
 #include <QApplication>
 #include <QCloseEvent>
+#include <QDesktopServices>
 #include <QFile>
 #include <QGraphicsDropShadowEffect>
 #include <QLabel>
 #include <QMessageBox>
+#include <QPainter>
+#include <QPixmap>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QSettings>
@@ -14,6 +17,7 @@
 #include <QStyleHints>
 #include <QHBoxLayout>
 #include <QIcon>
+#include <QUrl>
 #include <QVBoxLayout>
 
 #define THEME_LIGHTNESS_BARRIER 128
@@ -40,7 +44,43 @@
 #define STATUS_SEPARATOR_HEIGHT 12
 #define STATUS_SEPARATOR_GAP    9
 
+// The state dot in front of a device in the tray menu: the icon a menu item is given, and the dot
+// drawn in the middle of it. The icon is the size the styles ask for a small icon in; the dot is a
+// touch bigger than the 6px the rows carry, which is what keeps it reading as a dot next to 13px
+// menu text rather than disappearing into it.
+#define TRAY_DOT_ICON 16
+#define TRAY_DOT_SIZE 8
+
 namespace {
+
+// Amber while the mount is coming up, green once it is up - the two colours in the #deviceDot
+// rules in filedonkey.qss, and the same thing the row and the status bar say. Written out here
+// because a menu item's icon is a picture: it is not a widget, so no stylesheet rule reaches it,
+// and changing a colour means changing it in both places.
+#define TRAY_DOT_MOUNTING QColor(0xE0, 0xA3, 0x3C)
+#define TRAY_DOT_MOUNTED  QColor(0x4E, 0xC9, 0x7A)
+
+// Drawn at the display's scale factor rather than at 16 square and left to be blown up, so the
+// circle keeps its edge on a HiDPI screen. The painter works in the icon's own coordinates either
+// way - that is what setDevicePixelRatio() buys.
+QIcon trayDot(const QColor &colour)
+{
+    const qreal ratio = qApp->devicePixelRatio();
+
+    QPixmap pixmap(QSize(TRAY_DOT_ICON, TRAY_DOT_ICON) * ratio);
+    pixmap.setDevicePixelRatio(ratio);
+    pixmap.fill(Qt::transparent);
+
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(colour);
+
+    const int inset = (TRAY_DOT_ICON - TRAY_DOT_SIZE) / 2;
+    painter.drawEllipse(inset, inset, TRAY_DOT_SIZE, TRAY_DOT_SIZE);
+
+    return QIcon(pixmap);
+}
 
 // Applied to the whole application, not to this window, so that the tray menu and the tray
 // tooltip are covered too - both are top-level windows of their own and a window-level sheet
@@ -397,6 +437,12 @@ void MainWindow::createTrayIcon()
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(quitAction);
 
+    // The devices go in above all of this, and are put there as the menu opens rather than kept in
+    // step by a signal: a menu nobody is looking at has nothing to be right about, and the peers
+    // come and go while it is closed. Safe this early even though the device list is built after
+    // this call - nothing can drop the menu before the constructor has finished.
+    connect(trayIconMenu, &QMenu::aboutToShow, this, &MainWindow::refreshTrayDevices);
+
     trayIcon = new QSystemTrayIcon(this);
     setTryaIcon();
     trayIcon->setToolTip("FileDonkey");
@@ -423,6 +469,55 @@ void MainWindow::createTrayIcon()
 #endif
 
     trayIcon->show();
+}
+
+// The device section: one entry per connected machine, named as its row names it and carrying the
+// same state dot, above a separator that keeps them off the menu's own entries. Nothing is left
+// behind when there are none - no heading with nothing under it, and no separator with nothing
+// above it, so a menu with no devices is the menu as it was before there were any.
+void MainWindow::refreshTrayDevices()
+{
+    // Whatever the last pass put there. Deleting an action takes it out of every menu holding it,
+    // so there is nothing else to undo - and these are ours alone.
+    qDeleteAll(trayDeviceActions);
+    trayDeviceActions.clear();
+
+    for (const DeviceList::Device &device : deviceList->devices())
+    {
+        const bool mounted = !device.mountPoint.isEmpty();
+
+        // An ampersand in a machine name would be eaten as a mnemonic and underline the letter
+        // after it. Doubling it is how a QAction is told the name means it literally.
+        QString name = device.name;
+        name.replace('&', "&&");
+
+        QAction *action = new QAction(trayDot(mounted ? TRAY_DOT_MOUNTED : TRAY_DOT_MOUNTING),
+                                      name, this);
+
+        // What clicking a row does, where there is something to click through to: a mounted device
+        // opens in the desktop's file manager. One still coming up has nowhere to go yet, so it
+        // brings the window up on the list instead - which is where its progress is shown. Not
+        // disabled for that: a greyed entry would take the colour out of the dot that is the whole
+        // point of it being there.
+        if (mounted)
+        {
+            const QString mountPoint = device.mountPoint;
+            connect(action, &QAction::triggered, this, [mountPoint]() {
+                QDesktopServices::openUrl(QUrl::fromLocalFile(mountPoint));
+            });
+        }
+        else
+        {
+            connect(action, &QAction::triggered, deviceListAction, &QAction::trigger);
+        }
+
+        trayIconMenu->insertAction(deviceListAction, action);
+        trayDeviceActions.append(action);
+    }
+
+    if (trayDeviceActions.isEmpty()) return;
+
+    trayDeviceActions.append(trayIconMenu->insertSeparator(deviceListAction));
 }
 
 void MainWindow::changeEvent(QEvent *event)

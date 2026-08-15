@@ -3,6 +3,7 @@
 
 #include "connection.h"
 
+#include <QList>
 #include <QMap>
 #include <QWidget>
 
@@ -30,6 +31,22 @@ public:
     // bar. Built here because everything it says is this list's own state - where it goes is the
     // window's business, and whoever takes it becomes its parent.
     QWidget *summaryWidget() const { return summary; }
+
+    // One peer as anything outside this list sees it: the name it is shown under, and where its
+    // mount came up. The tray menu is what asks - see MainWindow::refreshTrayDevices().
+    struct Device
+    {
+        QString name;
+
+        // Empty while the mount is still coming up, which is what tells the two states apart -
+        // the menu picks its dot by it, the way a row picks the colour of its own.
+        QString mountPoint;
+    };
+
+    // Read off the rows rather than kept alongside them, so there is no second copy of who is
+    // connected to fall out of step. In the order the rows are shown in, which is the order the
+    // peers arrived - not the order the map below holds them in.
+    QList<Device> devices() const;
 
 public slots:
     // A peer has answered a broadcast and its mount has been started. Wired to LocalNode::peerAdded.

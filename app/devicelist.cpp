@@ -137,6 +137,12 @@ public:
 
     bool isMounted() const { return mounted; }
 
+    const QString &name() const { return conn.machineName; }
+
+    // Empty until the mount is up, and openable as it stands once it is - setMounted() is where
+    // the drive letter is made into a path Windows will open.
+    const QString &mount() const { return mountPoint; }
+
 protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
@@ -537,6 +543,25 @@ void DeviceList::onPeerRemoved(const QString &machineId)
     delete row;
 
     refreshSummary();
+}
+
+QList<DeviceList::Device> DeviceList::devices() const
+{
+    QList<Device> found;
+
+    // Walked over the layout rather than over the map, which is keyed by machine id and so hands
+    // its rows back in an order nothing on screen is in. Only the rows and the empty state are
+    // widgets in here; the stretch at the end has no widget of its own.
+    for (int i = 0; i < rowsLayout->count(); ++i)
+    {
+        QWidget *widget = rowsLayout->itemAt(i)->widget();
+        if (!widget || widget == emptyState) continue;
+
+        const DeviceRow *row = static_cast<const DeviceRow *>(widget);
+        found.append(Device{ row->name(), row->mount() });
+    }
+
+    return found;
 }
 
 void DeviceList::refreshSummary()

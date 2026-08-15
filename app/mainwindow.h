@@ -42,6 +42,11 @@ private:
     void createTrayIcon();
     void setTryaIcon();
 
+    // Rebuilds the device section at the top of the tray menu from the device list, and is wired
+    // to the menu's own aboutToShow - so what it shows is read the moment it is asked for rather
+    // than kept up to date by a signal of its own.
+    void refreshTrayDevices();
+
     // Puts the window away and resets it to the device list. Both of the ways closeEvent() can
     // decide to keep the application running go through this rather than calling hide() directly.
     void hideWindow();
@@ -67,6 +72,11 @@ private:
     QAction         *settingsAction;
     QSystemTrayIcon *trayIcon;
     QMenu           *trayIconMenu;
+
+    // Everything refreshTrayDevices() put in the menu last time: one action per device and the
+    // separator that closes the section. Held so the next pass can take them out again - the
+    // entries below it are the menu's own and are never touched.
+    QList<QAction *> trayDeviceActions;
 
     TitleBar        *titleBar = nullptr;
     QWidget         *shadowLayer = nullptr;

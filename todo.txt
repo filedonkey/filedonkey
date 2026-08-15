@@ -1,9 +1,10 @@
 Bugs:
   - [linux] visual corruption of application close message box
+  - [macos] even if window is closed, app is still present in the dock
 
 Features:
   Manual discovery
 + Settings
-  Device List in tray's context menu
++ Device List in tray's context menu
   Mount/eject
   Notifications

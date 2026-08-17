@@ -44,6 +44,7 @@ HEADERS += \
     autostart.h \
     closechoicedialog.h \
     devicelist.h \
+    dockicon.h \
     elidedlabel.h \
     mainwindow.h \
     manualconnectdialog.h \
@@ -93,6 +94,12 @@ win32 {
 macx {
     # ICON
     QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15
+
+    # The Dock icon comes and goes with the window - see dockicon.h for why. Objective-C++ and
+    # AppKit because the activation policy that decides it belongs to NSApplication and nothing in
+    # Qt reaches it. Nothing to build on the other platforms: the header's no-op stands in there.
+    OBJECTIVE_SOURCES += dockicon.mm
+    LIBS += -framework AppKit
 }
 
 linux {

@@ -1,4 +1,5 @@
 #include "autostart.h"
+#include "dockicon.h"
 #include "mainwindow.h"
 #include "singleinstance.h"
 #include "virtdisk.h"
@@ -181,7 +182,17 @@ int main(int argc, char *argv[])
     const bool startInTray = a.arguments().contains(TRAY_ARGUMENT)
                              && QSystemTrayIcon::isSystemTrayAvailable();
 
-    if (!startInTray) w.show();
+    if (startInTray)
+    {
+        // And out of the Dock with it on macOS - see dockicon.h. A start that parks an icon down
+        // there with no window behind it is the same thing the user objects to after closing the
+        // window, only at sign-in.
+        setDockIconVisible(false);
+    }
+    else
+    {
+        w.show();
+    }
 
     return a.exec();
 }

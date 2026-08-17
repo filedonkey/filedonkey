@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include "dockicon.h"
 #include "windowshadow.h"
 
 #include <QApplication>
@@ -156,17 +157,13 @@ MainWindow::MainWindow(QWidget *parent)
         titleBar->setCurrentTab(TitleBar::Tab::DeviceList);
     });
 
-#if defined(Q_OS_MACOS)
-    // Clicking the Dock icon of an app with no window open should bring the window back, the way
-    // every mac app behaves. Qt surfaces that as the application going active - only act on it
-    // while the window is actually away, or every Cmd-Tab would yank it to the front.
-    connect(qApp, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) {
-        if (state == Qt::ApplicationActive && isHidden())
-        {
-            restoreWindow();
-        }
-    });
-#endif
+    // A window-less application going active used to bring the window back here, to answer a click
+    // on the Dock icon the way a mac user expects. The icon now leaves with the window - see
+    // dockicon.h - so there is nothing left to click, and what that connection actually caught was
+    // the application being made active for any other reason: at launch, which is why --tray put up
+    // the very window it was told not to, and on the way to the tray menu, which would have
+    // reopened the window in front of the menu the user was reaching for. The tray menu is how the
+    // window comes back now, and a second start of the application - see SingleInstance below.
 
     quitAction = new QAction(QIcon(":/assets/quit.svg"), tr("&Quit"), this);
     connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
@@ -332,10 +329,18 @@ void MainWindow::hideWindow()
 {
     hide();
     titleBar->setCurrentTab(TitleBar::Tab::DeviceList);
+
+    // After hide(), so the window is already off screen when the application leaves the Dock -
+    // see dockicon.h. Nothing on Windows or Linux.
+    setDockIconVisible(false);
 }
 
 void MainWindow::restoreWindow()
 {
+    // Before the window is shown: coming back into the Dock is what lets the application become
+    // the active one again, and a window shown ahead of it would come up behind everything else.
+    setDockIconVisible(true);
+
     // showNormal() on its own leaves a hidden window behind whatever has focus, and a minimised
     // one comes back minimised. Clearing the state first, then all three calls, is what actually
     // puts it in front on every platform.

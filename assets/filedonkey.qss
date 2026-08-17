@@ -650,21 +650,44 @@ QMessageBox QLabel {
  * own - a dialog is not the settings page, and the day one of the two wants a
  * different size is the day sharing the names would be in the way. */
 
-/* The dialog in two parts: the page that is read and filled in, and the bar the
- * two buttons sit on. The page paints nothing and lets the QDialog fill above
- * show through; the bar is the deeper surface, closed off with the hairline -
- * exactly the pair QStatusBar carries at the foot of the main window, so the two
- * windows end the same way.
+/* This dialog wears no system frame either - see Qt::FramelessWindowHint in
+ * manualconnectdialog.cpp - so its frame is drawn by the three widgets stacked
+ * inside it, exactly as the main window's is: #titleBar owns the top two
+ * corners, #dialogButtonBar the bottom two, and #dialogContent the straight run
+ * between them, each carrying the same 1px #34363B outline down its own outer
+ * edges so the three read as one border.
  *
- * The bar reaches all three of the dialog's lower edges. Nothing is rounded off
- * there, unlike the status bar: this dialog wears the system's own frame and has
- * no corners of its own to follow. */
+ * The title bar needs no rule of its own here. It is the same TitleBar the
+ * window wears, under the same object name, so it is already dressed by the
+ * rules at the top of this file - which is the point of it being that widget
+ * rather than one built to look like it.
+ *
+ * The dialog itself must paint nothing, for the same reason QMainWindow must:
+ * it is translucent, and a fill here would put the square corners straight
+ * back. It has to say so past the QDialog rule above, which is what dresses an
+ * ordinary dialog - the close question, and any QMessageBox. */
 
-QWidget#dialogContent { background: transparent; }
+QDialog#manualConnectDialog { background: transparent; }
+
+QWidget#dialogContent {
+    background: #1E1F22;
+    border-left: 1px solid #34363B;
+    border-right: 1px solid #34363B;
+}
+
+/* The foot of the dialog, and the same tokens QStatusBar closes the main window
+ * with: the deeper surface, the hairline over it, and the two rounded corners.
+ * The one difference is that the status bar has a fixed height to fill and this
+ * is as tall as the buttons on it. */
 
 QWidget#dialogButtonBar {
     background: #191A1D;
     border-top: 1px solid #2B2D31;
+    border-left: 1px solid #34363B;
+    border-right: 1px solid #34363B;
+    border-bottom: 1px solid #34363B;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
 }
 
 QLabel#dialogIntro {

@@ -47,6 +47,7 @@ HEADERS += \
     settingspage.h \
     singleinstance.h \
     titlebar.h \
+    windowshadow.h \
 
 INCLUDEPATH += ../core
 

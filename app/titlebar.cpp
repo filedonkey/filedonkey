@@ -93,7 +93,7 @@ QToolButton *tabButton(QWidget *parent, const QIcon &icon, const QString &object
 
 } // namespace
 
-TitleBar::TitleBar(QWidget *parent)
+TitleBar::TitleBar(Kind kind, QWidget *parent)
     : QWidget(parent)
 {
     setObjectName("titleBar");
@@ -120,6 +120,48 @@ TitleBar::TitleBar(QWidget *parent)
     // stylesheet's `color:` the way the text glyphs these replaced did. The mode names below are
     // what QStyle asks the icon for: Normal at rest, Active under the pointer, Disabled when the
     // widget is.
+    QIcon closeIcon;
+    closeIcon.addFile(":/assets/caption_close.svg",       QSize(), QIcon::Normal);
+    closeIcon.addFile(":/assets/caption_close_hover.svg", QSize(), QIcon::Active);
+
+    closeBtn = captionButton(this, closeIcon, "closeBtn");
+
+    // QIcon has no mode for "pressed", so the one state the icon modes do not cover is swapped in
+    // by hand. Only close needs it: minimise's pressed glyph is the same grey as its idle one, and
+    // for both buttons the pressed background still comes from the stylesheet either way.
+    const QIcon closePressedIcon(":/assets/caption_close_pressed.svg");
+
+    connect(closeBtn, &QToolButton::pressed,  this, [this, closePressedIcon]() { closeBtn->setIcon(closePressedIcon); });
+    connect(closeBtn, &QToolButton::released, this, [this, closeIcon]()        { closeBtn->setIcon(closeIcon); });
+
+    connect(closeBtn, &QToolButton::clicked, this, [this]() { window()->close(); });
+
+    QHBoxLayout *layout = new QHBoxLayout(this);
+
+    // No margin on the right and no spacing anywhere: the caption buttons have to touch each
+    // other and reach the window edge. The one gap that is wanted, between the icon and the
+    // title, is added on its own below. Zero top and bottom is what lets the buttons run the
+    // full height of the bar.
+    layout->setContentsMargins(10, 0, 0, 0);
+    layout->setSpacing(0);
+
+    layout->addWidget(iconLbl);
+    layout->addSpacing(8);
+    layout->addWidget(titleLbl);
+    layout->addStretch(1);
+
+    // Everything from here to the close button is the main window's alone. A dialog's bar ends with
+    // the stretch above and the close button below it - see Kind in titlebar.h for why each of the
+    // pieces skipped here has nothing to do on a modal dialog.
+    if (kind == Kind::Window) buildWindowControls(layout);
+
+    layout->addWidget(closeBtn);
+}
+
+// The tabs, the rule after them, and the two caption buttons that are not close - added to the bar's
+// layout in that order, between the stretch and the close button.
+void TitleBar::buildWindowControls(QHBoxLayout *layout)
+{
     QIcon minimiseIcon;
     minimiseIcon.addFile(":/assets/caption_minimise.svg",       QSize(), QIcon::Normal);
     minimiseIcon.addFile(":/assets/caption_minimise_hover.svg", QSize(), QIcon::Active);
@@ -131,29 +173,15 @@ TitleBar::TitleBar(QWidget *parent)
     maximiseIcon.addFile(":/assets/caption_maximise.svg", QSize(), QIcon::Normal);
     maximiseIcon.addFile(":/assets/caption_maximise.svg", QSize(), QIcon::Disabled);
 
-    QIcon closeIcon;
-    closeIcon.addFile(":/assets/caption_close.svg",       QSize(), QIcon::Normal);
-    closeIcon.addFile(":/assets/caption_close_hover.svg", QSize(), QIcon::Active);
-
     minimiseBtn = captionButton(this, minimiseIcon, "minimiseBtn");
     maximiseBtn = captionButton(this, maximiseIcon, "maximiseBtn");
-    closeBtn    = captionButton(this, closeIcon,    "closeBtn");
 
     // Shown, never usable: the window has a fixed size. Disabling it is what greys the glyph
     // (Qt draws the Disabled artwork registered above) and what stops Qt sending it hover and
     // press states, so it cannot light up under the pointer the way its neighbours do.
     maximiseBtn->setEnabled(false);
 
-    // QIcon has no mode for "pressed", so the one state the icon modes do not cover is swapped in
-    // by hand. Only close needs it: minimise's pressed glyph is the same grey as its idle one, and
-    // for both buttons the pressed background still comes from the stylesheet either way.
-    const QIcon closePressedIcon(":/assets/caption_close_pressed.svg");
-
-    connect(closeBtn, &QToolButton::pressed,  this, [this, closePressedIcon]() { closeBtn->setIcon(closePressedIcon); });
-    connect(closeBtn, &QToolButton::released, this, [this, closeIcon]()        { closeBtn->setIcon(closeIcon); });
-
     connect(minimiseBtn, &QToolButton::clicked, this, [this]() { window()->showMinimized(); });
-    connect(closeBtn,    &QToolButton::clicked, this, [this]() { window()->close(); });
 
     // The two views the window can show, as tabs at the inner end of the bar. Three files per tab
     // for the same reason the caption glyphs have several: the artwork cannot pick up a colour
@@ -192,15 +220,6 @@ TitleBar::TitleBar(QWidget *parent)
     connect(deviceListTab, &QToolButton::clicked, this, [this]() { emit tabSelected(Tab::DeviceList); });
     connect(settingsTab,   &QToolButton::clicked, this, [this]() { emit tabSelected(Tab::Settings); });
 
-    QHBoxLayout *layout = new QHBoxLayout(this);
-
-    // No margin on the right and no spacing anywhere: the caption buttons have to touch each
-    // other and reach the window edge. The one gap that is wanted, between the icon and the
-    // title, is added on its own below. Zero top and bottom is what lets the buttons run the
-    // full height of the bar.
-    layout->setContentsMargins(10, 0, 0, 0);
-    layout->setSpacing(0);
-
     // A plain widget rather than a QFrame VLine, for the same reason as the status bar's rule: a
     // frame's line is drawn by the native style in the style's own colours, and this one has to be
     // the grey the rest of the window is drawn in.
@@ -209,10 +228,6 @@ TitleBar::TitleBar(QWidget *parent)
     separator->setAttribute(Qt::WA_StyledBackground, true);
     separator->setFixedSize(1, TITLEBAR_SEPARATOR_HEIGHT);
 
-    layout->addWidget(iconLbl);
-    layout->addSpacing(8);
-    layout->addWidget(titleLbl);
-    layout->addStretch(1);
     // Bottom rather than centre: the layout's cell stops at the bar's bottom hairline, so aligning
     // there puts each tab's square bottom edge directly on the rule it meets - and leaves the
     // window's outline unbroken, which a tab drawn over the hairline would not.
@@ -224,7 +239,6 @@ TitleBar::TitleBar(QWidget *parent)
     layout->addSpacing(TITLEBAR_SEPARATOR_MARGIN);
     layout->addWidget(minimiseBtn);
     layout->addWidget(maximiseBtn);
-    layout->addWidget(closeBtn);
 }
 
 void TitleBar::setTitle(const QString &title)
@@ -237,6 +251,10 @@ void TitleBar::setTitle(const QString &title)
 // does. Nothing listening turns round and calls this again, so the signal cannot come back.
 void TitleBar::setCurrentTab(Tab tab)
 {
+    // A Dialog bar has no tabs. Nothing calls this on one, but a bar that answered by dereferencing
+    // a null tab would be a poor way to find that out.
+    if (!deviceListTab) return;
+
     // Checking the button is enough to uncheck the other: they are auto-exclusive.
     (tab == Tab::Settings ? settingsTab : deviceListTab)->setChecked(true);
 

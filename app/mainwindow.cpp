@@ -1,11 +1,12 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include "windowshadow.h"
+
 #include <QApplication>
 #include <QCloseEvent>
 #include <QDesktopServices>
 #include <QFile>
-#include <QGraphicsDropShadowEffect>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPainter>
@@ -22,12 +23,8 @@
 
 #define THEME_LIGHTNESS_BARRIER 128
 
-// The strip of window kept empty around the visible frame for the shadow to fall on. Everything
-// inside it - title bar, content, status bar - is inset by this much, and the window is grown to
-// match so the visible part stays the size the .ui file asked for.
-#define SHADOW_MARGIN   18
-#define SHADOW_BLUR     28
-#define SHADOW_OFFSET_Y 6
+// SHADOW_MARGIN, and the widget that throws the blur into it, come from windowshadow.h - this
+// window and the manual connect dialog are both frameless and both need the same one.
 
 // APP_VERSION and APP_STAGE come from app.pro, which is where they are written down: it is the
 // file Windows' VERSIONINFO block is filled from, and a number kept here as well would be a second
@@ -119,25 +116,10 @@ MainWindow::MainWindow(QWidget *parent)
     // the border and radius rules on #titleBar, #centralwidget and QStatusBar in the stylesheet.
     setAttribute(Qt::WA_TranslucentBackground);
 
-    // A graphics effect on a top-level window does not render, so the shadow cannot go on the
-    // window itself. It goes on a child instead: a plain widget the size and shape of the visible
-    // frame, stacked behind everything and painted the same colour as the corners it sits under.
-    // Its own body is covered by the title bar, the content and the status bar - all that is ever
-    // seen of it is the blur it throws into the margin outside.
-    shadowLayer = new QWidget(this);
-    shadowLayer->setObjectName("windowShadow");
-    shadowLayer->setAttribute(Qt::WA_StyledBackground, true);
-    shadowLayer->setAttribute(Qt::WA_TransparentForMouseEvents, true);
-
-    QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(shadowLayer);
-    shadow->setBlurRadius(SHADOW_BLUR);
-    shadow->setOffset(0, SHADOW_OFFSET_Y);
-    shadow->setColor(QColor(0, 0, 0, 160));
-    shadowLayer->setGraphicsEffect(shadow);
-
-    // setupUi() has already made the central widget, so this one is the youngest sibling and
-    // would otherwise sit on top of the lot.
-    shadowLayer->lower();
+    // The blur that falls into the margin below. Built after setupUi(), which has already made the
+    // central widget - windowShadow() lowers what it builds, so this one being the youngest sibling
+    // does not leave it sitting on top of the lot.
+    shadowLayer = windowShadow(this);
 
     setContentsMargins(SHADOW_MARGIN, SHADOW_MARGIN, SHADOW_MARGIN, SHADOW_MARGIN);
 
@@ -151,7 +133,7 @@ MainWindow::MainWindow(QWidget *parent)
     // and it can no longer change size.
     shadowLayer->setGeometry(contentsRect());
 
-    titleBar = new TitleBar(this);
+    titleBar = new TitleBar(TitleBar::Kind::Window, this);
     titleBar->setTitle(windowTitle());
     setMenuWidget(titleBar);
 

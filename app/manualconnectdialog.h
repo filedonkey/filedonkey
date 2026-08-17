@@ -109,6 +109,12 @@ public:
     QString address() const;
     int port() const;
 
+protected:
+    // Keeps the shadow the size of the visible frame. Unlike the main window, which is a fixed size
+    // and sets its own once, this dialog is as tall as whatever is in it - so the size arrives with
+    // the first layout pass rather than being known in the constructor.
+    void resizeEvent(QResizeEvent *event) override;
+
 private:
     // Everything about the dialog that follows from what is in its two fields: Connect is greyed out
     // until both hold something that could be dialled, and each field's revert button is there only
@@ -121,6 +127,10 @@ private:
 
     QToolButton *ipRevert   = nullptr;
     QToolButton *portRevert = nullptr;
+
+    // The blur under the frame - see windowshadow.h. Held only so resizeEvent() can keep it the
+    // size of what it sits behind.
+    QWidget     *shadowLayer = nullptr;
 
     // The port the field was filled with, and so the one its revert button puts back. Kept because
     // the setting behind it is read once, when this dialog is built: were it read again on the way

@@ -92,7 +92,22 @@ win32 {
 }
 
 macx {
-    # ICON
+    # What the Dock, Cmd-Tab, Finder and the notifications show. qmake copies it into
+    # Contents/Resources and names it in the bundle's Info.plist; without it the bundle carries no
+    # icon at all and macOS draws the blank generic application sheet.
+    #
+    # The same artwork the Windows build takes from the .ico beside it, converted because a bundle
+    # icon has to be .icns and nothing on macOS reads a .ico as one:
+    #
+    #   sips -s format png filedonkey_app_icon.ico --out src.png
+    #   for each size: sips -z $size $size src.png --out icon.iconset/icon_<name>.png
+    #   iconutil -c icns icon.iconset -o filedonkey_app_icon.icns
+    #
+    # The .ico holds 32 and 64 pixels and nothing larger, so everything above 64 in there is that
+    # 64 enlarged - which is what the Dock shows most of the time. Regenerate both files from a
+    # bigger original when there is one.
+    ICON = ../assets/filedonkey_app_icon.icns
+
     QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15
 
     # The Dock icon comes and goes with the window - see dockicon.h for why. Objective-C++ and

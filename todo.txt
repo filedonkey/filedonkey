@@ -9,4 +9,4 @@ Features:
 + Settings
 + Device List in tray's context menu
   Mount/eject
-  Notifications
++ Notifications

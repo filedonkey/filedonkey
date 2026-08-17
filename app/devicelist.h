@@ -56,6 +56,15 @@ signals:
     // held a node and does not start now.
     void manualConnectRequested(const QString &address, int port);
 
+    // A device's mount has come up, or a mount that was up has gone. Carried by name rather than by
+    // machine id because that is what a tray notification has to say, and by the time the removal is
+    // out the row that knew the name has been deleted - see MainWindow::announceMounted().
+    //
+    // These are the list's own events rather than the node's: LocalNode names its peers by id, and
+    // the rows here are the only place an id has ever been paired with a name.
+    void deviceMounted(const QString &name, const QString &mountPoint);
+    void deviceUnmounted(const QString &name);
+
 public slots:
     // A peer has answered a broadcast and its mount has been started. Wired to LocalNode::peerAdded.
     void onPeerAdded(const Connection &conn);

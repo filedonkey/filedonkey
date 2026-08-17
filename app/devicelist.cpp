@@ -603,6 +603,10 @@ void DeviceList::onPeerMounted(const QString &machineId, const QString &mountPoi
     row->setMounted(mountPoint);
 
     refreshSummary();
+
+    // Off the row rather than off the argument: setMounted() is where a bare drive letter is made
+    // into a path, and the notification should say the same thing the row does.
+    emit deviceMounted(row->name(), row->mount());
 }
 
 void DeviceList::onPeerUploaded(const QString &machineId, u64 uploaded)
@@ -626,11 +630,20 @@ void DeviceList::onPeerRemoved(const QString &machineId)
     DeviceRow *row = rows.take(machineId);
     if (!row) return;
 
+    // Copied out while the row still exists - the name is a reference into the row's own connection
+    // and the row is about to go. Whether it was mounted is read here for the same reason.
+    const QString name      = row->name();
+    const bool    wasMounted = row->isMounted();
+
     // Not deleteLater(): this arrives on the GUI thread from LocalNode, with nothing of the row's
     // own on the stack.
     delete row;
 
     refreshSummary();
+
+    // Only for a mount that was actually up. A peer whose mount never came up goes the same way as
+    // one that was unmounted, and announcing a drive that was never there would be a lie.
+    if (wasMounted) emit deviceUnmounted(name);
 }
 
 QList<DeviceList::Device> DeviceList::devices() const

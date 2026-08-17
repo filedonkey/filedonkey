@@ -60,6 +60,12 @@ private:
     // it the window simply vanishes and the app looks like it crashed.
     void announceStillRunning();
 
+    // The two events a user who is not looking at the window would otherwise miss: a device's mount
+    // coming up, and a mount that was up going away. Wired to DeviceList, which is where a machine
+    // id has a name to go with it - the node's own signals carry only the id.
+    void announceMounted(const QString &name, const QString &mountPoint);
+    void announceUnmounted(const QString &name);
+
     // Wired to LocalNode::manualConnectFailed. The dialog that took the address is closed by the
     // time an answer - or the lack of one - comes back, so this is where the news lands.
     void reportManualConnectFailed(const QString &address, const QString &reason);

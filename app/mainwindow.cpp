@@ -49,6 +49,12 @@
 #define TRAY_DOT_ICON 16
 #define TRAY_DOT_SIZE 8
 
+// How long a mount notification is asked to stay up. A hint only - Windows and the Linux
+// notification daemons each have a timeout of their own and are free to ignore this - and short
+// because there is nothing to read past the first line: two devices coming up together should not
+// leave the second waiting behind the first.
+#define TRAY_MESSAGE_MS 5000
+
 namespace {
 
 // Amber while the mount is coming up, green once it is up - the two colours in the #deviceDot
@@ -241,6 +247,12 @@ MainWindow::MainWindow(QWidget *parent)
     // that does answer needs no wiring of its own - it arrives as peerAdded above, like any other.
     connect(deviceList, &DeviceList::manualConnectRequested, node, &LocalNode::connectManually);
 
+    // The tray's running commentary on the mounts. Taken from the list rather than straight from the
+    // node's peerMounted/peerRemoved because those name a machine by id, and the rows are where the
+    // id has ever been paired with a name.
+    connect(deviceList, &DeviceList::deviceMounted,   this, &MainWindow::announceMounted);
+    connect(deviceList, &DeviceList::deviceUnmounted, this, &MainWindow::announceUnmounted);
+
     // Queued, unlike every other connection here. What it reaches opens a modal message box, and a
     // modal box runs an event loop of its own - delivered directly it would start that loop inside
     // the socket callback the failure was noticed in, with the socket the node had just handed to
@@ -429,6 +441,35 @@ void MainWindow::announceStillRunning()
                           6000);
 
     settings.setValue("tray/closeNoticeShown", true);
+}
+
+// A device has finished mounting. The mount point is in the body rather than the title because it is
+// the part a user can act on, and on the platforms that give a peer no path to show there is simply
+// nothing after the name - a body that reads "mounted" twice would be worse than a short one.
+void MainWindow::announceMounted(const QString &name, const QString &mountPoint)
+{
+    // Both checks. isSystemTrayAvailable() was answered once at startup and says whether there is a
+    // tray at all; supportsMessages() says whether this one can show a balloon - a tray that cannot
+    // takes showMessage() silently, and the notification would simply never appear.
+    if (!trayAvailable || !QSystemTrayIcon::supportsMessages()) return;
+
+    trayIcon->showMessage(tr("%1 mounted").arg(name),
+                          mountPoint.isEmpty() ? tr("Its files are ready.")
+                                               : tr("Its files are at %1").arg(mountPoint),
+                          QSystemTrayIcon::Information,
+                          TRAY_MESSAGE_MS);
+}
+
+// The other end of the same pair. Only mounts that were actually up reach here - see
+// DeviceList::onPeerRemoved(), which keeps a peer that never mounted quiet.
+void MainWindow::announceUnmounted(const QString &name)
+{
+    if (!trayAvailable || !QSystemTrayIcon::supportsMessages()) return;
+
+    trayIcon->showMessage(tr("%1 unmounted").arg(name),
+                          tr("The device is no longer connected."),
+                          QSystemTrayIcon::Information,
+                          TRAY_MESSAGE_MS);
 }
 
 void MainWindow::createTrayIcon()

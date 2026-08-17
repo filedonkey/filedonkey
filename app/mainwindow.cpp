@@ -362,14 +362,14 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
     switch (askWhatCloseMeans())
     {
-        case CloseChoice::Cancel:
+        case CloseChoiceDialog::Choice::Cancel:
             break;
 
-        case CloseChoice::Hide:
+        case CloseChoiceDialog::Choice::Hide:
             hideWindow();
             break;
 
-        case CloseChoice::Quit:
+        case CloseChoiceDialog::Choice::Quit:
             qApp->quit();
             break;
     }
@@ -395,37 +395,21 @@ void MainWindow::reportManualConnectFailed(const QString &address, const QString
     box.exec();
 }
 
-MainWindow::CloseChoice MainWindow::askWhatCloseMeans()
+// The question itself, its wording and the order of its buttons are the dialog's - see
+// closechoicedialog.h. All that is left here is asking it.
+//
+// It is a window of this application's own rather than a QMessageBox, which is what it used to be:
+// a message box wears the system's frame and the system's button layout, and beside a window that
+// draws its own it looked like a dialog from a different program.
+CloseChoiceDialog::Choice MainWindow::askWhatCloseMeans()
 {
-    QMessageBox box(this);
-    box.setIcon(QMessageBox::Warning);
-    box.setWindowTitle(tr("FileDonkey"));
-    box.setText(tr("Close the window, or quit FileDonkey?"));
-    box.setInformativeText(tr(
-        "There is no system tray on this desktop, so FileDonkey has nowhere to sit while it runs.\n\n"
-        "Quitting unmounts every connected device and drops all connections.\n\n"
-        "Hiding keeps them running. Start FileDonkey again to bring this window back."));
+    CloseChoiceDialog dialog(this);
+    dialog.exec();
 
-    // AcceptRole and DestructiveRole rather than fixed positions: each platform orders its
-    // buttons its own way, and the roles are what let it.
-    QPushButton *hideButton = box.addButton(tr("Hide"), QMessageBox::AcceptRole);
-    QPushButton *quitButton = box.addButton(tr("Quit"), QMessageBox::DestructiveRole);
-    QPushButton *cancelButton = box.addButton(QMessageBox::Cancel);
-
-    // Named so the stylesheet can pick it out and give it the error red - it is the one button
-    // here that loses work.
-    quitButton->setObjectName("dialogQuitBtn");
-
-    box.setDefaultButton(hideButton);
-    box.setEscapeButton(cancelButton);
-
-    box.exec();
-
-    if (box.clickedButton() == quitButton) return CloseChoice::Quit;
-    if (box.clickedButton() == hideButton) return CloseChoice::Hide;
-
-    // Covers Cancel, Escape, and the window being dismissed by the desktop.
-    return CloseChoice::Cancel;
+    // Read off the dialog rather than from exec()'s own result: two of the three answers accept it
+    // and only the dialog knows which of them was pressed. Cancel covers the rest - the Cancel
+    // button, Escape, and the close button in the title bar.
+    return dialog.choice();
 }
 
 void MainWindow::announceStillRunning()

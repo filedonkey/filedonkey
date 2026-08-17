@@ -2,8 +2,6 @@
 
 #include "localnode.h"
 #include "revertbutton.h"
-#include "titlebar.h"
-#include "windowshadow.h"
 
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -25,40 +23,17 @@
 #define IP_EDIT_PADDING 6
 #define IP_DOT_WIDTH 7
 
-// The dialog's own inset, and what separates its three parts: the paragraph that says why anyone
-// would be here, the two fields, and the buttons.
-#define DIALOG_MARGIN 18
+// What separates this dialog's three parts: the paragraph that says why anyone would be here, the
+// two fields, and the buttons. DIALOG_MARGIN, and everything else about the frame around them, is
+// AppDialog's - see appdialog.h.
 #define DIALOG_SECTION_GAP 16
 #define DIALOG_LABEL_GAP 14
 #define DIALOG_ROW_GAP 12
-
-// The bar the two buttons sit on, which is a surface of its own rather than part of the page above
-// it - see the rule on #dialogButtonBar. It is inset from the sides by the same margin the content
-// is, so the buttons line up with what they act on, and it keeps less room above and below them
-// than the page keeps around its rows: the bar is as tall as what is on it and no taller.
-#define DIALOG_BAR_PADDING 14
-
-// Between Cancel and Connect. Tight, because they are one pair - wider and they would read as two
-// unrelated buttons that happen to share an edge.
-#define DIALOG_BUTTON_GAP 8
 
 // Fixed, and narrow enough that the paragraph at the top breaks into a few short lines rather than
 // one long one. Nothing in here has a use for extra width - the address box is a fixed size and the
 // port is four digits.
 #define DIALOG_WIDTH 380
-
-// What is left of that for the paragraph at the top, which is the one thing here whose height
-// depends on the width it is given: the page's two margins, and the 1px border down each side of
-// #dialogContent. The border is subtracted by hand for the same reason the device list's badge
-// subtracts its own - see BADGE_SIZE in devicelist.cpp - a stylesheet border is outside the box the
-// layout hands out, and no number here can be told about it.
-//
-// The label is given this width outright rather than left to work it out. A wrapped label reports
-// its height for a width, the layout asks at the width it is about to hand over, and the two only
-// agree while every margin between them is known to the layout - which the border is not. They
-// disagreed by that border, the label was measured a line shorter than it draws, and the paragraph
-// came out clipped at both ends.
-#define DIALOG_TEXT_WIDTH (DIALOG_WIDTH - 2 * DIALOG_MARGIN - 2)
 
 // What the port field will accept. The same range LocalNode stores a port in, because a peer cannot
 // be listening outside it: a port it refused to store is a port it never bound.
@@ -443,36 +418,9 @@ bool IPv4Edit::eventFilter(QObject *watched, QEvent *event)
 }
 
 ManualConnectDialog::ManualConnectDialog(QWidget *parent)
-    : QDialog(parent)
+    : AppDialog(tr("Connect to a Device"), DIALOG_WIDTH, parent)
 {
     setObjectName("manualConnectDialog");
-    setWindowTitle(tr("Connect to a Device"));
-
-    // Off with the system's frame and on with ours, the way the main window does it - see the top
-    // of mainwindow.cpp, which this follows step for step. The bar at the top of the layout below
-    // is what replaces the caption, and it is the same TitleBar the window wears.
-    setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
-
-    // Rounded corners need somewhere for the corner to go. Without this the dialog is an opaque
-    // rectangle and a radius only rounds the colour inside it, leaving the square corner behind.
-    setAttribute(Qt::WA_TranslucentBackground);
-
-    shadowLayer = windowShadow(this);
-
-    // The strip the blur falls into. Everything the dialog draws is inside it, which is why the
-    // layout below keeps no margins of its own.
-    setContentsMargins(SHADOW_MARGIN, SHADOW_MARGIN, SHADOW_MARGIN, SHADOW_MARGIN);
-
-    // Wider than the page inside it by exactly what that margin takes, so the frame the user sees
-    // is still DIALOG_WIDTH across. Only the width is fixed - the height is whatever the rows come
-    // to, and resizeEvent() is what keeps the shadow in step with it.
-    setFixedWidth(DIALOG_WIDTH + 2 * SHADOW_MARGIN);
-
-    // The application icon, this dialog's name, and a close button. No tabs, no minimise, no
-    // maximise - see TitleBar::Kind. Its close does what Cancel does: window()->close() on a
-    // QDialog is a reject, so the two ways out cannot come to mean different things.
-    TitleBar *titleBar = new TitleBar(TitleBar::Kind::Dialog, this);
-    titleBar->setTitle(windowTitle());
 
     // Why anyone is reading this dialog at all. The last sentence is the useful half: the address
     // being asked for is the one the other machine shows in its own status bar, so there is
@@ -484,9 +432,9 @@ ManualConnectDialog::ManualConnectDialog(QWidget *parent)
     intro->setObjectName("dialogIntro");
     intro->setWordWrap(true);
 
-    // See DIALOG_TEXT_WIDTH: measured at the width it is actually handed, so the wrapping the
-    // layout budgets for is the wrapping the label draws.
-    intro->setFixedWidth(DIALOG_TEXT_WIDTH);
+    // Measured at the width it is actually handed, so the wrapping the layout budgets for is the
+    // wrapping the label draws - see AppDialog::textWidth() for what goes wrong otherwise.
+    intro->setFixedWidth(textWidth());
 
     ipEdit = new IPv4Edit(this);
 
@@ -601,100 +549,31 @@ ManualConnectDialog::ManualConnectDialog(QWidget *parent)
     form->addRow(ipLbl, ipLine);
     form->addRow(portLbl, portLine);
 
-    // The two buttons and the strip they sit on, which is a widget rather than a bare layout because
-    // it carries a fill and a border of its own - the same pair the window's status bar carries, and
-    // it closes this dialog the way that bar closes the window.
-    //
-    // It spans the whole width, edge to edge, which is why the dialog's own layout below keeps no
-    // margins: a bar inset from the sides would read as a panel floating in the dialog rather than
-    // as its floor. The inset the buttons need is the bar's own, and it is the margin the page above
-    // keeps, so they end under the fields they act on.
-    QWidget *buttons = new QWidget(this);
-    buttons->setObjectName("dialogButtonBar");
-    buttons->setAttribute(Qt::WA_StyledBackground, true);
-
-    QHBoxLayout *buttonsLayout = new QHBoxLayout(buttons);
-    buttonsLayout->setContentsMargins(DIALOG_MARGIN, DIALOG_BAR_PADDING,
-                                      DIALOG_MARGIN, DIALOG_BAR_PADDING);
-    buttonsLayout->setSpacing(DIALOG_BUTTON_GAP);
-    buttonsLayout->addStretch(1);
-    buttonsLayout->addWidget(cancelBtn);
-    buttonsLayout->addWidget(connectBtn);
+    // In the order they read, left to right. The stretch that pushes them to the right-hand end is
+    // already in this layout - see AppDialog::buttonLayout().
+    buttonLayout()->addWidget(cancelBtn);
+    buttonLayout()->addWidget(connectBtn);
 
     QWidget *separator = new QWidget(this);
     separator->setObjectName("settingsSeparator");
     separator->setAttribute(Qt::WA_StyledBackground, true);
     separator->setFixedHeight(1);
 
-    // Everything above the bar, on a widget of its own so that it and not the dialog carries the
-    // margins - the bar has to reach the dialog's three lower edges, and a margin on the dialog
-    // would hold it off all of them.
-    QWidget *content = new QWidget(this);
-    content->setObjectName("dialogContent");
-
-    QVBoxLayout *contentLayout = new QVBoxLayout(content);
-    contentLayout->setContentsMargins(DIALOG_MARGIN, DIALOG_MARGIN, DIALOG_MARGIN, 0);
-    contentLayout->setSpacing(0);
-    contentLayout->addWidget(intro);
-    contentLayout->addSpacing(DIALOG_SECTION_GAP);
-    contentLayout->addWidget(separator);
-    contentLayout->addSpacing(DIALOG_SECTION_GAP);
-    contentLayout->addLayout(form);
-    contentLayout->addSpacing(DIALOG_SECTION_GAP);
-
-    // The three widgets the frame is drawn by, top to bottom: the bar owns the upper two corners,
-    // the bar at the foot owns the lower two, and the page between them carries the straight run of
-    // border down each side. No margins here - the dialog's own are the shadow's gutter, and
-    // anything inset from them would leave the frame floating inside the window.
-    QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-    layout->addWidget(titleBar);
-    layout->addWidget(content);
-    layout->addWidget(buttons);
+    // No margin at the foot of the page: the gap under the form is the one added after it below,
+    // and taking both would set the form further off the bar than it is off the rows above it.
+    pageLayout()->setContentsMargins(DIALOG_MARGIN, DIALOG_MARGIN, DIALOG_MARGIN, 0);
+    pageLayout()->addWidget(intro);
+    pageLayout()->addSpacing(DIALOG_SECTION_GAP);
+    pageLayout()->addWidget(separator);
+    pageLayout()->addSpacing(DIALOG_SECTION_GAP);
+    pageLayout()->addLayout(form);
+    pageLayout()->addSpacing(DIALOG_SECTION_GAP);
 
     refreshControls();
 
     // Last, after every field has been filled: the cursor opens on the one number the dialog could
     // not fill in for the user, which is the fourth octet.
     ipEdit->focusFirstEmpty();
-}
-
-// The dialog is as tall as its rows come to and is sized by the first layout pass, so unlike the
-// main window - which is a fixed size and sets this once in its constructor - there is no height to
-// give the shadow until the dialog has one.
-void ManualConnectDialog::resizeEvent(QResizeEvent *event)
-{
-    QDialog::resizeEvent(event);
-
-    if (shadowLayer) shadowLayer->setGeometry(contentsRect());
-}
-
-// In the middle of the window that opened it.
-//
-// QDialog places itself on its parent already, and this is here because of how: adjustPosition()
-// centres the dialog and then lifts it by what it takes to be the height of a title bar and the
-// thickness of a frame, so that a framed dialog's contents rather than its caption end up on the
-// parent's centre line. This dialog has neither - its bar is a widget inside it like any other - so
-// that correction is applied to a window with nothing to correct for, and it opened 11px left and
-// 41px high of centre.
-//
-// Both windows carry the same SHADOW_MARGIN of empty gutter around their visible frames - the one
-// number in windowshadow.h, so they cannot differ - which is what lets this centre the windows and
-// have the frames inside them come out centred too.
-//
-// After QDialog::showEvent, which is where that adjustment is made, and before the window is put on
-// screen, which is the call that follows this event: the dialog is placed once and never seen
-// moving. Nothing is clamped to the screen. The dialog is smaller than the window it centres on in
-// both directions, so wherever that window can be seen, so can this.
-void ManualConnectDialog::showEvent(QShowEvent *event)
-{
-    QDialog::showEvent(event);
-
-    const QWidget *owner = parentWidget() ? parentWidget()->window() : nullptr;
-    if (!owner) return;
-
-    move(owner->geometry().center() - QPoint(width() / 2, height() / 2));
 }
 
 QString ManualConnectDialog::address() const

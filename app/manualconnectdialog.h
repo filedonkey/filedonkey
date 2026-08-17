@@ -1,7 +1,7 @@
 #ifndef MANUALCONNECTDIALOG_H
 #define MANUALCONNECTDIALOG_H
 
-#include <QDialog>
+#include "appdialog.h"
 
 QT_BEGIN_NAMESPACE
 class QLineEdit;
@@ -97,7 +97,10 @@ private:
 // It only collects the two numbers. Whether anything is there to answer them is the node's business
 // and is reported separately, because the answer takes a moment to arrive and a modal dialog held
 // open waiting for it is a dialog that looks stuck.
-class ManualConnectDialog : public QDialog
+//
+// The frame around it - the title bar, the border, the shadow, the bar the buttons sit on - is
+// AppDialog's. All that is here is what is written on it.
+class ManualConnectDialog : public AppDialog
 {
     Q_OBJECT
 
@@ -108,16 +111,6 @@ public:
     // until there is a whole address and a port in range.
     QString address() const;
     int port() const;
-
-protected:
-    // Keeps the shadow the size of the visible frame. Unlike the main window, which is a fixed size
-    // and sets its own once, this dialog is as tall as whatever is in it - so the size arrives with
-    // the first layout pass rather than being known in the constructor.
-    void resizeEvent(QResizeEvent *event) override;
-
-    // Puts the dialog in the middle of the window it belongs to, which is where QDialog would put
-    // it if this one wore a frame - see the note on the implementation for why it does not.
-    void showEvent(QShowEvent *event) override;
 
 private:
     // Everything about the dialog that follows from what is in its two fields: Connect is greyed out
@@ -131,10 +124,6 @@ private:
 
     QToolButton *ipRevert   = nullptr;
     QToolButton *portRevert = nullptr;
-
-    // The blur under the frame - see windowshadow.h. Held only so resizeEvent() can keep it the
-    // size of what it sits behind.
-    QWidget     *shadowLayer = nullptr;
 
     // The port the field was filled with, and so the one its revert button puts back. Kept because
     // the setting behind it is read once, when this dialog is built: were it read again on the way

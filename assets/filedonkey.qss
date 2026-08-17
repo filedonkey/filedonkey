@@ -582,7 +582,8 @@ QLabel#deviceFooterHint {
  * whole button and not a handful of corrections to that one. */
 
 QPushButton#manualConnectBtn,
-QPushButton#dialogCancelBtn {
+QPushButton#dialogCancelBtn,
+QPushButton#dialogQuitBtn {
     background: #26282C;
     border: 1px solid #3D4046;
     border-radius: 6px;
@@ -667,7 +668,8 @@ QMessageBox QLabel {
  * back. It has to say so past the QDialog rule above, which is what dresses an
  * ordinary dialog - the close question, and any QMessageBox. */
 
-QDialog#manualConnectDialog { background: transparent; }
+QDialog#manualConnectDialog,
+QDialog#closeChoiceDialog { background: transparent; }
 
 QWidget#dialogContent {
     background: #1E1F22;
@@ -688,6 +690,17 @@ QWidget#dialogButtonBar {
     border-bottom: 1px solid #34363B;
     border-bottom-left-radius: 8px;
     border-bottom-right-radius: 8px;
+}
+
+/* The one line of a dialog meant to be read first - the question the close
+ * dialog asks, so far. The near-white and the weight the device list titles its
+ * empty state in, because it is the same kind of line: the thing being said,
+ * with everything under it explaining it. */
+
+QLabel#dialogHeading {
+    color: #E8E9EC;
+    font-size: 15px;
+    font-weight: 600;
 }
 
 QLabel#dialogIntro {
@@ -773,7 +786,8 @@ QLabel#ipDot {
  * to mark it as the one Return presses, which this fill already says louder -
  * and an ID selector outranks that rule anyway, so there is nothing to undo. */
 
-QPushButton#dialogConnectBtn {
+QPushButton#dialogConnectBtn,
+QPushButton#dialogHideBtn {
     background: #C7CBD1;
     border: 1px solid #C7CBD1;
     border-radius: 6px;
@@ -782,12 +796,14 @@ QPushButton#dialogConnectBtn {
     padding: 4px 12px;
 }
 
-QPushButton#dialogConnectBtn:hover {
+QPushButton#dialogConnectBtn:hover,
+QPushButton#dialogHideBtn:hover {
     background: #E8E9EC;
     border-color: #E8E9EC;
 }
 
-QPushButton#dialogConnectBtn:pressed {
+QPushButton#dialogConnectBtn:pressed,
+QPushButton#dialogHideBtn:pressed {
     background: #A9AEB6;
     border-color: #A9AEB6;
 }
@@ -808,14 +824,15 @@ QPushButton#dialogConnectBtn:disabled {
     color: #5F646C;
 }
 
-/* The two of them are one pair and should be one size, which they are not left
- * to themselves: "Cancel" and "Connect" differ by a character, and at this type
- * that is six pixels of difference in a place the eye reads as a mistake. The
- * number is the plain QPushButton rule's own, which is what every other dialog
- * in the application sizes its buttons by. */
+/* A dialog's buttons are one group and should be one size, which they are not
+ * left to themselves: "Cancel" and "Connect" differ by a character, and "Quit"
+ * by three more, and at this type that is a difference the eye reads as a
+ * mistake rather than as a shorter word. */
 
 QPushButton#dialogCancelBtn,
-QPushButton#dialogConnectBtn { min-width: 60px; }
+QPushButton#dialogConnectBtn,
+QPushButton#dialogQuitBtn,
+QPushButton#dialogHideBtn { min-width: 60px; }
 
 QPushButton {
     background: #2F3238;

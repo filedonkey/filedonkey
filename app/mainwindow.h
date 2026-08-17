@@ -1,6 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "closechoicedialog.h"
 #include "core.h"
 #include "devicelist.h"
 #include "localnode.h"
@@ -63,12 +64,11 @@ private:
     // time an answer - or the lack of one - comes back, so this is where the news lands.
     void reportManualConnectFailed(const QString &address, const QString &reason);
 
-    enum class CloseChoice { Cancel, Hide, Quit };
-
     // Asked only where there is no tray, because there the window is the whole application and
-    // closing it could mean either thing. Deliberately has no "do not ask again": this dialog is
-    // the one place a tray-less desktop can quit from, and remembering Hide would seal it off.
-    CloseChoice askWhatCloseMeans();
+    // closing it could mean either thing. The choice is CloseChoiceDialog's own enum rather than
+    // one of ours: it is the dialog that offers the three answers, and a second copy of them here
+    // would be a second thing to keep in step.
+    CloseChoiceDialog::Choice askWhatCloseMeans();
 
     Ui::MainWindow  *ui = nullptr;
     QAction         *deviceListAction;

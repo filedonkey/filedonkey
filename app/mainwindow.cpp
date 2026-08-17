@@ -443,9 +443,14 @@ void MainWindow::announceStillRunning()
     settings.setValue("tray/closeNoticeShown", true);
 }
 
-// A device has finished mounting. The mount point is in the body rather than the title because it is
-// the part a user can act on, and on the platforms that give a peer no path to show there is simply
-// nothing after the name - a body that reads "mounted" twice would be worse than a short one.
+// A device has finished mounting.
+//
+// The mount point is only worth naming on Windows, where it is a drive letter the user can type
+// straight into a path. On macOS and Linux the mount lands in $HOME/.filedonkey/<machine> - see
+// VirtDisk::mount(), which keeps our mounts of other peers out of the home directory we ourselves
+// serve - and that is a hidden folder nobody navigates to by hand: a notification read in passing
+// would spend its one line on a path that leads nowhere useful. The row in the window is where
+// anyone who wants the path can still find it, and clicking it opens the folder anyway.
 void MainWindow::announceMounted(const QString &name, const QString &mountPoint)
 {
     // Both checks. isSystemTrayAvailable() was answered once at startup and says whether there is a
@@ -453,9 +458,19 @@ void MainWindow::announceMounted(const QString &name, const QString &mountPoint)
     // takes showMessage() silently, and the notification would simply never appear.
     if (!trayAvailable || !QSystemTrayIcon::supportsMessages()) return;
 
+#if defined(Q_OS_WIN)
+    // Empty should not happen on Windows - the drive letter is picked before the mount starts - but
+    // the notification is not the place to find that out.
+    const QString body = mountPoint.isEmpty() ? tr("Its files are ready to browse.")
+                                              : tr("Its files are at %1").arg(mountPoint);
+#else
+    Q_UNUSED(mountPoint);
+
+    const QString body = tr("Its files are ready to browse. Open it from the device list.");
+#endif
+
     trayIcon->showMessage(tr("%1 mounted").arg(name),
-                          mountPoint.isEmpty() ? tr("Its files are ready.")
-                                               : tr("Its files are at %1").arg(mountPoint),
+                          body,
                           QSystemTrayIcon::Information,
                           TRAY_MESSAGE_MS);
 }

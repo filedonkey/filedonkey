@@ -115,6 +115,10 @@ protected:
     // the first layout pass rather than being known in the constructor.
     void resizeEvent(QResizeEvent *event) override;
 
+    // Puts the dialog in the middle of the window it belongs to, which is where QDialog would put
+    // it if this one wore a frame - see the note on the implementation for why it does not.
+    void showEvent(QShowEvent *event) override;
+
 private:
     // Everything about the dialog that follows from what is in its two fields: Connect is greyed out
     // until both hold something that could be dialled, and each field's revert button is there only

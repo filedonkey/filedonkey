@@ -670,6 +670,33 @@ void ManualConnectDialog::resizeEvent(QResizeEvent *event)
     if (shadowLayer) shadowLayer->setGeometry(contentsRect());
 }
 
+// In the middle of the window that opened it.
+//
+// QDialog places itself on its parent already, and this is here because of how: adjustPosition()
+// centres the dialog and then lifts it by what it takes to be the height of a title bar and the
+// thickness of a frame, so that a framed dialog's contents rather than its caption end up on the
+// parent's centre line. This dialog has neither - its bar is a widget inside it like any other - so
+// that correction is applied to a window with nothing to correct for, and it opened 11px left and
+// 41px high of centre.
+//
+// Both windows carry the same SHADOW_MARGIN of empty gutter around their visible frames - the one
+// number in windowshadow.h, so they cannot differ - which is what lets this centre the windows and
+// have the frames inside them come out centred too.
+//
+// After QDialog::showEvent, which is where that adjustment is made, and before the window is put on
+// screen, which is the call that follows this event: the dialog is placed once and never seen
+// moving. Nothing is clamped to the screen. The dialog is smaller than the window it centres on in
+// both directions, so wherever that window can be seen, so can this.
+void ManualConnectDialog::showEvent(QShowEvent *event)
+{
+    QDialog::showEvent(event);
+
+    const QWidget *owner = parentWidget() ? parentWidget()->window() : nullptr;
+    if (!owner) return;
+
+    move(owner->geometry().center() - QPoint(width() / 2, height() / 2));
+}
+
 QString ManualConnectDialog::address() const
 {
     return ipEdit->address();

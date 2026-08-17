@@ -154,6 +154,7 @@ void Autostart::setEnabled(bool enabled)
         "[Desktop Entry]\n"
         "Type=Application\n"
         "Name=FileDonkey\n"
+        "Icon=filedonkey\n"
         "Exec=\"%1\" %2\n"
         "Terminal=false\n"
         "X-GNOME-Autostart-enabled=true\n").arg(programPath(), TRAY_ARGUMENT);

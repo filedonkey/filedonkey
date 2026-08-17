@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <QFont>
 #include <QFontDatabase>
+#include <QIcon>
 #include <QLocale>
 #include <QSystemTrayIcon>
 #include <QTranslator>
@@ -137,6 +138,23 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationName("FileDonkey");
     QCoreApplication::setOrganizationDomain("filedonkey.app");
     QCoreApplication::setApplicationName("FileDonkey");
+
+    // The icon the desktop draws for this application. Windows takes it from the resource qmake
+    // compiles into the .exe and macOS from the bundle - see the RC_ICONS and ICON lines in
+    // app.pro - and neither has a Linux counterpart, which is why the window came up there under
+    // whatever placeholder the shell keeps for programs it has no icon for. Set for every platform
+    // rather than guarded, because it is the same artwork the other two already carry.
+    //
+    // This is the X11 half: the pixmaps travel with the window in _NET_WM_ICON, which is where the
+    // task bar and the alt-tab list read them from. The .ico rather than a .png, so the icon
+    // arrives at both the sizes it holds and the shell picks.
+    QApplication::setWindowIcon(QIcon(":/assets/filedonkey_app_icon.ico"));
+
+    // And the Wayland half, where a window carries no icon at all: the shell matches the window's
+    // app_id against the installed desktop entries and draws the Icon= named by the one that
+    // answers. Qt puts this string in the app_id and nowhere else, so it has to be the base name of
+    // the entry app.pro installs, or nothing matches and the placeholder is back.
+    QGuiApplication::setDesktopFileName("filedonkey");
 
     // After the --mount branch above, deliberately: the mount helper is meant to run many at once,
     // one per peer, and is not the instance this guards.

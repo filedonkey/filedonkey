@@ -118,7 +118,28 @@ macx {
 }
 
 linux {
-    # ICON
+    # No qmake variable to hand an icon to here: RC_ICONS and ICON above are Windows and macOS
+    # only, and a Linux binary has nowhere to carry one. The window gets its icon at runtime
+    # instead - see main() - and these two files are what the rest of the desktop reads: the
+    # launcher, and Wayland, where the shell takes the icon from the entry rather than the window.
+    #
+    # The entry's Exec has to name the installed binary, so it follows target.path below. Move one
+    # and the other has to move with it.
+    desktopEntry.files = ../assets/filedonkey.desktop
+    desktopEntry.path  = /usr/share/applications
+
+    # Icon= in that entry names this file, without the extension and without a path: the shell
+    # looks it up in the icon theme, so what matters is the base name and which size directory it
+    # lands in. Both sizes the .ico holds are installed - see the macOS note above for why there is
+    # nothing above 64 to install; a 128 here would be that 64 enlarged, and the shell would
+    # rightly prefer it.
+    icon32.files = ../assets/icons/32x32/filedonkey.png
+    icon32.path  = /usr/share/icons/hicolor/32x32/apps
+
+    icon64.files = ../assets/icons/64x64/filedonkey.png
+    icon64.path  = /usr/share/icons/hicolor/64x64/apps
+
+    INSTALLS += desktopEntry icon32 icon64
 }
 
 # Default rules for deployment.

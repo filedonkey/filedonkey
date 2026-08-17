@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=FileDonkey
+Comment=A virtual disk mirroring the devices on your local network
+Exec=/opt/FileDonkey/bin/FileDonkey
+Icon=filedonkey
+Terminal=false
+Categories=Utility;Network;FileTransfer;
+Keywords=files;network;share;mount;
+
+# What the shell matches a running window against, to decide which entry - and so which icon - it
+# belongs to. Under X11 that is the window's WM_CLASS, which Qt fills from the application name set
+# in main(); under Wayland it is the app_id, which Qt fills from the desktop file name set beside
+# it. Both are spelled out rather than assumed, because a window the shell cannot place gets the
+# generic icon whatever this file says about the launcher.
+StartupWMClass=FileDonkey

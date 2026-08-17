@@ -34,8 +34,12 @@
 #include <QElapsedTimer>
 #include <QHostAddress>
 #include <QDir>
+#include <QFile>
 #include <QProcess>
+#include <QSaveFile>
 #include <QTcpSocket>
+#include <QTextStream>
+#include <QUrl>
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <sys/mount.h>
@@ -449,6 +453,72 @@ static void UnmountAt(const std::string &mountpoint)
 }
 #endif
 
+#if defined(__linux__)
+// The GTK bookmarks file, which is what fills the sidebar in Nautilus and in every GTK file chooser.
+// One line per entry: a URI, then a space, then the label to show it under.
+//
+// Only ever edited when it is already there. It belongs to the desktop, not to us, and a session
+// whose file manager has never written one is not asking us to start it off.
+static std::mutex gtkBookmarksMutex;
+
+// Percent-encoded past what a URI strictly needs, apostrophes and all, because the label is
+// separated from the URI by a space: a machine name carrying one - "Alcamaney's PC" - would
+// otherwise split there and the sidebar would show the tail of the path as the name.
+static QString GtkBookmarkUri(const std::string &mountpoint)
+{
+    return "file://" + QString::fromUtf8(
+        QUrl::toPercentEncoding(QString::fromStdString(mountpoint), "/"));
+}
+
+// Adds our line or takes it away; either way the file is rewritten without whatever line was
+// already pointing at this mount point. That is not only for the removal: mounting the same peer a
+// second time after a crash left the first entry behind would otherwise stack up duplicates.
+//
+// Guarded because two threads reach this. The add runs on the peer's own fuse thread, the removal
+// on the GUI thread, and every peer has a fuse thread of its own - at startup they all mount at
+// about the same moment, so several read-modify-writes of one file genuinely do overlap.
+static void SetGtkBookmark(const std::string &mountpoint, const QString &label, bool present)
+{
+    if (mountpoint.empty()) return;
+
+    std::lock_guard<std::mutex> lock(gtkBookmarksMutex);
+
+    const QString bookmarksPath = QDir::homePath() + "/.config/gtk-3.0/bookmarks";
+
+    QFile file(bookmarksPath);
+    if (!file.exists()) return;
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+
+    const QString uri = GtkBookmarkUri(mountpoint);
+
+    QStringList lines;
+    QTextStream in(&file);
+    while (!in.atEnd())
+    {
+        const QString line = in.readLine();
+
+        // Ours is any line whose URI is this mount point, whatever label was written after it.
+        if (line == uri || line.startsWith(uri + " ")) continue;
+
+        lines.append(line);
+    }
+    file.close();
+
+    if (present) lines.append(label.isEmpty() ? uri : uri + " " + label);
+
+    // Through a QSaveFile: this is the user's own bookmark list, and rewriting it in place would
+    // lose the rest of it if we died between the truncate and the write.
+    QSaveFile out(bookmarksPath);
+    if (!out.open(QIODevice::WriteOnly | QIODevice::Text)) return;
+
+    QTextStream stream(&out);
+    for (const QString &line : std::as_const(lines)) stream << line << "\n";
+    stream.flush();
+
+    out.commit();
+}
+#endif
+
 static void StartImpl(VirtDisk *self, Connection *conn)
 {
     self->socket = new QTcpSocket();
@@ -581,6 +651,13 @@ static void StartImpl(VirtDisk *self, Connection *conn)
     // Everything that could still have failed has been done, and the file system is about to start
     // answering. Queued to whoever owns this VirtDisk, like stopped() below.
     emit self->mounted(QString::fromStdString(self->mountpoint));
+
+#if defined(__linux__)
+    // Put the peer in the file manager's sidebar under its machine name. Without it the mount is
+    // effectively unreachable from the desktop: it lands in ~/.filedonkey, a hidden directory
+    // nobody navigates to by hand - see the mount point chosen above for why it has to be hidden.
+    SetGtkBookmark(self->mountpoint, conn->machineName, true);
+#endif
 
     int rc = fuse_loop(self->f);
     qDebug() << "[Start] fuse_loop returned" << rc;
@@ -790,6 +867,13 @@ void VirtDisk::unmountLinux()
     if (mountpoint.empty() || unmountedLinux) return;
 
     unmountedLinux = true;
+
+    // The sidebar entry goes with the mount that put it there. This is the one place to do it: it
+    // runs once, and it runs on every way down - the socket dropping, the window closing, and
+    // LocalNode's destructor, which cuts our signals before stopping us and so is not reachable
+    // from anything wired to mounted()/stopped().
+    SetGtkBookmark(mountpoint, QString(), false);
+
     UnmountAt(mountpoint);
 }
 #endif

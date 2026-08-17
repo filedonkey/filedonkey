@@ -1,6 +1,7 @@
 ﻿#include "devicelist.h"
 
 #include "elidedlabel.h"
+#include "manualconnectdialog.h"
 
 #include <QDesktopServices>
 #include <QFontMetrics>
@@ -12,6 +13,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScrollArea>
+#include <QPushButton>
 #include <QStyle>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -40,6 +42,22 @@
 // the type's own size it would stand taller than the digits beside it rather than level with them.
 #define ARROW_GLYPH 9
 #define ARROW_GAP   4
+
+// The strip under the list: the hairline that divides it from the rows, the line saying why anyone
+// would connect a device by hand, and the button that opens the dialog for it.
+//
+// Both numbers are the settings page's, where they are SETTINGS_MARGIN and SETTINGS_SECTION_GAP -
+// the inset that page's content keeps from the window's edges, and the room it leaves around the
+// rule between its two halves. Repeated here rather than shared because the two pages are laid out
+// by different files and neither owns the other's spacing, so a change to either there has to be
+// answered here: the two rules are meant to be read as the same line seen on two pages, and they
+// only are while they sit the same distance in from the same edges.
+#define FOOTER_MARGIN 18
+#define FOOTER_SECTION_GAP 12
+
+// Between the line and the button. Wide enough that the two read as separate things - the line is
+// a remark, not the button's label.
+#define FOOTER_GAP 12
 
 namespace {
 
@@ -483,12 +501,82 @@ DeviceList::DeviceList(QWidget *parent)
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
+    // Under the list, and outside the scroll area on purpose: it is not one of the devices and must
+    // not scroll away with them - a user who cannot find a device is exactly the user who has
+    // scrolled to the bottom looking for it.
+    //
+    // The line beside the button says why rather than what: the button already says what pressing it
+    // does, and the only thing it cannot say is that a silent list may be the network's doing rather
+    // than a device that is switched off. Elided rather than wrapped, so a longer translation takes
+    // the room it has and the footer stays one line tall - the window cannot grow to fit it.
+    ElidedLabel *footerHint = new ElidedLabel(tr("Some networks block automatic discovery."), this);
+    footerHint->setObjectName("deviceFooterHint");
+    footerHint->setToolTip(footerHint->text());
+
+    QPushButton *manualBtn = new QPushButton(tr("Connect by IP…"), this);
+    manualBtn->setObjectName("manualConnectBtn");
+    manualBtn->setCursor(Qt::PointingHandCursor);
+
+    // As the settings page's Choose button is: nothing in this window takes focus by tabbing, and a
+    // focus ring on the one button down here would be the only one in the window.
+    manualBtn->setFocusPolicy(Qt::NoFocus);
+
+    connect(manualBtn, &QPushButton::clicked, this, &DeviceList::openManualConnect);
+
+    // The hint and the button on one line, so the rule above them can be a row of its own and still
+    // span the width the two of them do.
+    QWidget *footerLine = new QWidget(this);
+
+    QHBoxLayout *footerLineLayout = new QHBoxLayout(footerLine);
+    footerLineLayout->setContentsMargins(0, 0, 0, 0);
+    footerLineLayout->setSpacing(FOOTER_GAP);
+
+    // The hint takes what the button leaves, which is what puts the button in the corner and lets
+    // the line elide instead of pushing it out of the window.
+    footerLineLayout->addWidget(footerHint, 1, Qt::AlignVCenter);
+    footerLineLayout->addWidget(manualBtn, 0, Qt::AlignVCenter);
+
+    // A widget in the layout rather than a border on the footer, which is what insets it: a border
+    // runs the full width of whatever carries it, edge to edge of the window, and that reads as a
+    // second window frame rather than as a rule between two parts of one page. Built the way the
+    // settings page builds its own - see separatorLine() there - down to sharing the stylesheet
+    // rule that colours them.
+    QWidget *footerSeparator = new QWidget(this);
+    footerSeparator->setObjectName("deviceFooterSeparator");
+    footerSeparator->setAttribute(Qt::WA_StyledBackground, true);
+    footerSeparator->setFixedHeight(1);
+
+    QWidget *footer = new QWidget(this);
+    footer->setObjectName("deviceFooter");
+    footer->setAttribute(Qt::WA_StyledBackground, true);
+
+    // The rule, then the line of controls, with the same room around the rule that the settings
+    // page leaves around its own and the same inset from the window's edges.
+    QVBoxLayout *footerLayout = new QVBoxLayout(footer);
+    footerLayout->setContentsMargins(FOOTER_MARGIN, FOOTER_SECTION_GAP,
+                                     FOOTER_MARGIN, FOOTER_SECTION_GAP);
+    footerLayout->setSpacing(FOOTER_SECTION_GAP);
+    footerLayout->addWidget(footerSeparator);
+    footerLayout->addWidget(footerLine);
+
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
     layout->addWidget(scroll);
+    layout->addWidget(footer);
 
     refreshSummary();
+}
+
+void DeviceList::openManualConnect()
+{
+    ManualConnectDialog dialog(this);
+    if (dialog.exec() != QDialog::Accepted) return;
+
+    // Straight out again. Whether anything is at that address takes a moment to find out, and this
+    // list is not where the finding out happens - see LocalNode::connectManually(), and the window
+    // for what it does with a failure.
+    emit manualConnectRequested(dialog.address(), dialog.port());
 }
 
 void DeviceList::onPeerAdded(const Connection &conn)

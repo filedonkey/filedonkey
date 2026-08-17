@@ -36,6 +36,14 @@ public:
     // asks us, every peer learns it from the datagrams we send.
     QString localEndpoint() const;
 
+    // The address half of it on its own, and empty on the same terms. Asked for by the manual
+    // connect dialog, which fills its first three octets with ours: the machine being reached by
+    // hand is almost always on this network, and three of the four numbers are then already right.
+    //
+    // Static because that dialog is built from the device list, which has no node to ask - and it
+    // needs nothing of ours to answer, unlike localEndpoint() which also reports the bound port.
+    static QString localAddress();
+
     // What this machine calls itself in every announcement it sends, and the settings page's way of
     // changing it. Stored in QSettings, with the machine's own host name as the answer while the
     // user has set nothing - which is what every announcement carried before there was a field to
@@ -93,7 +101,23 @@ public:
     // having set one.
     static void setTransferPort(int port);
 
+    // Takes on a peer that no broadcast found, by dialling the address the user typed and trading
+    // announcements over TCP - see OperationType::hello. This is the whole point of the manual
+    // route: a network that drops UDP leaves discovery with nothing to work with, while the TCP
+    // port every transfer already runs over is by definition open, or the app would be useless on
+    // that network anyway.
+    //
+    // Returns at once. The attempt runs on this thread's event loop and ends in one of three
+    // places: peerAdded, manualConnectFailed, or - when that address is already in the list -
+    // nothing at all, the device being on screen already.
+    void connectManually(const QString &address, int port);
+
 signals:
+    // Why an attempt at the above came to nothing, in a sentence fit to show. Only the failures:
+    // a peer that answers arrives through peerAdded like any other, and the row appearing is what
+    // says it worked.
+    void manualConnectFailed(const QString &address, const QString &reason);
+
     // Forwarded from the FUSEClient of whichever VirtDisk moved the bytes, named so the device list
     // can put them on the right row - the counters have always been per-peer, and until there was a
     // list to show them in there was nowhere for the name to go.
@@ -117,6 +141,22 @@ public slots:
 private:
     void broadcast();
     void invite(const QHostAddress &address);
+
+    // What this machine says about itself, as the JSON both routes carry: the two UDP paths above
+    // and the TCP handshake below all send this same object, so a field added for one of them
+    // cannot go missing on the others.
+    QByteArray machineDatagram() const;
+
+    // Everything that follows from learning about a peer, whichever way we learned: write it down,
+    // mount it, and say so. False when there was nothing to do - our own announcement come back to
+    // us, a machine already in the list, or a reply with no id in it - so a caller can tell a peer
+    // it has just taken on from one it already had.
+    bool addPeer(const Connection &conn);
+
+    // A peer has dialled in and introduced itself. Answers with our own announcement and then takes
+    // it on, which is what makes the handshake mutual: neither side has to be the one that started
+    // it for both to end up mounted.
+    void handleHello(QTcpSocket *socket, const DatagramHeader &header, const QByteArray &payload);
 
     void dispatchRequest(QTcpSocket *socket, const DatagramHeader &header, const QByteArray &payload);
 
@@ -168,6 +208,12 @@ private:
         QString    machineId;
         u64        uploaded   = 0;
         u64        downloaded = 0;
+
+        // Set when the only thing this socket ever carried was a hello. The machine that dialled in
+        // with one drops it as soon as it has our answer and comes back on a socket of its own, so
+        // its going away says nothing about the peer - see onSocketDisconnected(), which would
+        // otherwise read that FIN as the peer leaving and stop the mount we had just started.
+        bool       handshake  = false;
     };
 
     // Everything this machine has moved for one peer, over both of the sockets it involves: the one

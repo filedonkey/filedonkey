@@ -59,6 +59,10 @@ private:
     // it the window simply vanishes and the app looks like it crashed.
     void announceStillRunning();
 
+    // Wired to LocalNode::manualConnectFailed. The dialog that took the address is closed by the
+    // time an answer - or the lack of one - comes back, so this is where the news lands.
+    void reportManualConnectFailed(const QString &address, const QString &reason);
+
     enum class CloseChoice { Cancel, Hide, Quit };
 
     // Asked only where there is no tray, because there the window is the whole application and

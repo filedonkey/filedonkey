@@ -12,14 +12,16 @@ class QVBoxLayout;
 
 class DeviceRow;
 
-// The window's content: one row per peer, in the order they arrived, and an empty state in their
-// place while there are none.
+// The window's content: one row per peer, in the order they arrived, an empty state in their place
+// while there are none, and a footer offering the one way into this list that does not depend on a
+// peer having been found.
 //
 // It keeps no state of its own beyond those rows. Everything it shows arrives through the slots
 // below, one per LocalNode signal, and nothing here calls back into the node: a mounted row opens
-// itself in the desktop's file manager when clicked, which asks the node for nothing. The design's
-// per-device actions - Mount, Unmount, Retry - have nothing behind them yet, and a button that
-// looks live and does nothing is worse than no button.
+// itself in the desktop's file manager when clicked, which asks the node for nothing, and the
+// footer's button asks for an address and hands it out as the signal below rather than dialling it
+// itself. The design's per-device actions - Mount, Unmount, Retry - have nothing behind them yet,
+// and a button that looks live and does nothing is worse than no button.
 class DeviceList : public QWidget
 {
     Q_OBJECT
@@ -48,6 +50,12 @@ public:
     // peers arrived - not the order the map below holds them in.
     QList<Device> devices() const;
 
+signals:
+    // An address and a port the user typed into the manual connect dialog, on their way to
+    // LocalNode::connectManually(). The window is what carries them there - this list has never
+    // held a node and does not start now.
+    void manualConnectRequested(const QString &address, int port);
+
 public slots:
     // A peer has answered a broadcast and its mount has been started. Wired to LocalNode::peerAdded.
     void onPeerAdded(const Connection &conn);
@@ -67,6 +75,9 @@ public slots:
 
 private:
     void refreshSummary();
+
+    // The footer's button. Asks for an address and emits it; nothing here waits on the answer.
+    void openManualConnect();
 
     QWidget     *summary    = nullptr;
     QLabel      *summaryDot = nullptr;

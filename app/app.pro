@@ -32,6 +32,7 @@ SOURCES += \
     devicelist.cpp \
     main.cpp \
     mainwindow.cpp \
+    manualconnectdialog.cpp \
     settingspage.cpp \
     singleinstance.cpp \
     titlebar.cpp \
@@ -41,6 +42,8 @@ HEADERS += \
     devicelist.h \
     elidedlabel.h \
     mainwindow.h \
+    manualconnectdialog.h \
+    revertbutton.h \
     settingspage.h \
     singleinstance.h \
     titlebar.h \

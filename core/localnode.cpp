@@ -37,6 +37,19 @@
 
 #define BROADCAST_INTERVAL_MS 5000
 
+// How long a manual connect waits for the machine at the typed address to introduce itself before
+// giving up on it. It covers the whole attempt, the TCP connect included, because from the user's
+// side there is one question - is anything there - and a wrong digit in an address is answered by
+// silence rather than by a refusal: nothing replies, and the platform's own connect timeout is
+// measured in tens of seconds. Long enough for a machine that is there and slow, short enough that
+// a mistyped address does not look like the dialog has hung.
+#define MANUAL_CONNECT_TIMEOUT_MS 5000
+
+// The most a hello may be. It is one small JSON object naming a machine; anything beyond this is
+// not a FileDonkey on the other end, and the number is here so that a socket answering with a
+// length of several gigabytes is dropped rather than believed.
+#define MAX_HELLO_SIZE 4096
+
 using namespace std::placeholders;
 
 namespace {
@@ -87,6 +100,21 @@ int storedPort(const QString &key, int fallback)
     if (port < LOWEST_PORT || port > HIGHEST_PORT) return fallback;
 
     return port;
+}
+
+// A peer read off the "machine" object of an announcement, whichever way it reached us. The address
+// is not in that object and never has been: a machine cannot reliably say where it is - it may have
+// several addresses and only one of them is the one we can see it on - so it is taken from the
+// packet or the socket it arrived over instead.
+Connection connectionFrom(const QJsonObject &machine, const QHostAddress &address)
+{
+    return Connection {
+        .machineId      = machine["id"].toString(),
+        .machineName    = machine["name"].toString(),
+        .machineAddress = addressText(address),
+        .machinePort    = machine["port"].toInteger(),
+        .machineOs      = machine["os"].toString(),
+    };
 }
 
 void storePort(const QString &key, int port, int fallback)
@@ -204,13 +232,10 @@ LocalNode::~LocalNode()
 //
 // Read whenever it is asked for rather than kept: the answer changes when the machine changes
 // network, and there is no signal to hang a cached copy off.
-QString LocalNode::localEndpoint() const
+QString LocalNode::localAddress()
 {
     const QHostAddress routed = routedAddress();
-    if (!routed.isNull())
-    {
-        return QString("%1:%2").arg(routed.toString()).arg(server->serverPort());
-    }
+    if (!routed.isNull()) return routed.toString();
 
     for (const QNetworkInterface &networkInterface : QNetworkInterface::allInterfaces())
     {
@@ -223,11 +248,21 @@ QString LocalNode::localEndpoint() const
             const bool isIPv4 = addressEntry.ip().protocol() == QAbstractSocket::IPv4Protocol;
             if (!isIPv4 || addressEntry.broadcast().isNull()) continue;
 
-            return QString("%1:%2").arg(addressEntry.ip().toString()).arg(server->serverPort());
+            return addressEntry.ip().toString();
         }
     }
 
     return QString();
+}
+
+// The address above and the port this session actually bound. Split in two because the dialog that
+// fills itself with our address has no node to ask for a port and no use for one.
+QString LocalNode::localEndpoint() const
+{
+    const QString address = localAddress();
+    if (address.isEmpty()) return QString();
+
+    return QString("%1:%2").arg(address).arg(server->serverPort());
 }
 
 QString LocalNode::defaultMachineName()
@@ -309,9 +344,8 @@ void LocalNode::setTransferPort(int port)
     storePort(TRANSFER_PORT_KEY, port, TCP_PORT);
 }
 
-void LocalNode::broadcast()
+QByteArray LocalNode::machineDatagram() const
 {
-    QUdpSocket broadcaster;
     QJsonObject root;
     QJsonObject machine;
 
@@ -326,7 +360,13 @@ void LocalNode::broadcast()
 
     root["machine"] = machine;
 
-    QByteArray datagram = QJsonDocument(root).toJson(QJsonDocument::Compact);
+    return QJsonDocument(root).toJson(QJsonDocument::Compact);
+}
+
+void LocalNode::broadcast()
+{
+    QUdpSocket broadcaster;
+    QByteArray datagram = machineDatagram();
 
     for (auto networkInterface : QNetworkInterface::allInterfaces())
     {
@@ -346,18 +386,7 @@ void LocalNode::broadcast()
 void LocalNode::invite(const QHostAddress &address)
 {
     QUdpSocket broadcaster;
-    QJsonObject root;
-    QJsonObject machine;
-
-    machine["id"]   = machineId;
-    machine["name"] = machineName();
-    machine["port"] = server->serverPort();
-    machine["os"]   = QSysInfo::productType();
-
-    root["machine"] = machine;
-
-    QByteArray datagram = QJsonDocument(root).toJson(QJsonDocument::Compact);
-    broadcaster.writeDatagram(datagram, address, udpPort);
+    broadcaster.writeDatagram(machineDatagram(), address, udpPort);
 }
 
 void LocalNode::onBroadcasting()
@@ -369,25 +398,19 @@ void LocalNode::onBroadcasting()
         QHostAddress senderAddress = netDG.senderAddress();
 
         QJsonDocument doc = QJsonDocument::fromJson(datagram);
-        QJsonObject machine = doc["machine"].toObject();
-
-        Connection newConn = {
-            .machineId      = machine["id"].toString(),
-            .machineName    = machine["name"].toString(),
-            .machineAddress = addressText(senderAddress),
-            .machinePort    = machine["port"].toInteger(),
-            .machineOs      = machine["os"].toString(),
-        };
+        const Connection newConn = connectionFrom(doc["machine"].toObject(), senderAddress);
 
         // Our own announcements come straight back to us - we are bound to the port we broadcast
         // to, and ShareAddress lets them through - and without this we mount ourselves, handing
         // our own exported home directory back to us on a drive letter. Ordering the bind after
         // the first broadcast used to hide this; it stops working the moment we broadcast again.
+        //
+        // continue, not return, for both of these: a peer we already know is the common case now
+        // that we re-broadcast, and returning here would abandon every datagram still queued behind
+        // this one - including the invite of a peer we have never seen. addPeer() tests the same two
+        // things again for the sake of the callers that reach it another way; they are here as well
+        // because they decide whether this datagram is worth another word about.
         if (newConn.machineId == machineId) continue;
-
-        // continue, not return: a peer we already know is the common case now that we re-broadcast,
-        // and returning here would abandon every datagram still queued behind this one - including
-        // the invite of a peer we have never seen.
         if (connections.contains(newConn.machineId)) continue;
 
         qDebug() << "[LocalNode::onBroadcasting] machine id: "     << newConn.machineId;
@@ -396,42 +419,207 @@ void LocalNode::onBroadcasting()
         qDebug() << "[LocalNode::onBroadcasting] sender address: " << newConn.machineAddress;
         qDebug() << "[LocalNode::onBroadcasting] sender port: "    << netDG.senderPort();
 
-        connections.insert(newConn.machineId, newConn);
-
-        VirtDisk *virtDisk = new VirtDisk(newConn);
-        virtDisks.insert(newConn.machineId, virtDisk);
-        connect(virtDisk, &VirtDisk::stopped, this, &LocalNode::onVirtDiskStopped);
-
-        // VirtDisk reports the mount point and nothing else about who it belongs to - it serves one
-        // peer and has never needed to say which. Carry the id in the lambda rather than looking it
-        // up in virtDisks afterwards, so this still names the right peer if the map has moved on.
-        connect(virtDisk, &VirtDisk::mounted, this, [this, id = newConn.machineId](const QString &mountPoint) {
-            emit peerMounted(id, mountPoint);
-        });
-
-        // Half of what this peer's row shows - what our own mount of it has moved. The other half is
-        // counted by our server, on the socket this peer dialled in on, and the two are added
-        // together in reportTransfer().
-        //
-        // By value rather than by reading the client back: these are emitted from the fuse thread
-        // and delivered on this one, so the number has to travel with the signal. The function
-        // pointer form matters too - the string form named the argument "u64", which is no type Qt
-        // knows, and a queued delivery of it is dropped at the boundary with a warning.
-        connect(virtDisk->client, &FUSEClient::uploadedChanged, this, [this, id = newConn.machineId](u64 uploaded) {
-            transfers[id].clientUploaded = uploaded;
-            reportTransfer(id);
-        });
-
-        connect(virtDisk->client, &FUSEClient::downloadedChanged, this, [this, id = newConn.machineId](u64 downloaded) {
-            transfers[id].clientDownloaded = downloaded;
-            reportTransfer(id);
-        });
-        virtDisk->mount("M:\\");
-
-        emit peerAdded(newConn);
+        if (!addPeer(newConn)) continue;
 
         invite(senderAddress);
     }
+}
+
+// Shared by the two ways a peer can reach us: a UDP announcement, and a TCP hello from a machine
+// somebody typed the address of. Everything past knowing who the peer is and where it lives is the
+// same either way, and was this function's body inside onBroadcasting() before there was a second
+// caller for it.
+bool LocalNode::addPeer(const Connection &conn)
+{
+    // Nothing in the "machine" object we could work with - not a FileDonkey on the other end, or
+    // one that answered with something we cannot read.
+    if (conn.machineId.isEmpty()) return false;
+
+    // Ourselves. Over UDP that is our own broadcast coming back; over TCP it is a user typing this
+    // machine's own address into the manual connect dialog. Both would mount our exported folder
+    // onto our own drive letter.
+    if (conn.machineId == machineId) return false;
+
+    if (connections.contains(conn.machineId)) return false;
+
+    connections.insert(conn.machineId, conn);
+
+    VirtDisk *virtDisk = new VirtDisk(conn);
+    virtDisks.insert(conn.machineId, virtDisk);
+    connect(virtDisk, &VirtDisk::stopped, this, &LocalNode::onVirtDiskStopped);
+
+    // VirtDisk reports the mount point and nothing else about who it belongs to - it serves one
+    // peer and has never needed to say which. Carry the id in the lambda rather than looking it
+    // up in virtDisks afterwards, so this still names the right peer if the map has moved on.
+    connect(virtDisk, &VirtDisk::mounted, this, [this, id = conn.machineId](const QString &mountPoint) {
+        emit peerMounted(id, mountPoint);
+    });
+
+    // Half of what this peer's row shows - what our own mount of it has moved. The other half is
+    // counted by our server, on the socket this peer dialled in on, and the two are added
+    // together in reportTransfer().
+    //
+    // By value rather than by reading the client back: these are emitted from the fuse thread
+    // and delivered on this one, so the number has to travel with the signal. The function
+    // pointer form matters too - the string form named the argument "u64", which is no type Qt
+    // knows, and a queued delivery of it is dropped at the boundary with a warning.
+    connect(virtDisk->client, &FUSEClient::uploadedChanged, this, [this, id = conn.machineId](u64 uploaded) {
+        transfers[id].clientUploaded = uploaded;
+        reportTransfer(id);
+    });
+
+    connect(virtDisk->client, &FUSEClient::downloadedChanged, this, [this, id = conn.machineId](u64 downloaded) {
+        transfers[id].clientDownloaded = downloaded;
+        reportTransfer(id);
+    });
+
+    virtDisk->mount("M:\\");
+
+    emit peerAdded(conn);
+
+    return true;
+}
+
+void LocalNode::connectManually(const QString &address, int port)
+{
+    const QHostAddress host(address);
+    if (host.isNull())
+    {
+        emit manualConnectFailed(address, tr("%1 is not an address.").arg(address));
+        return;
+    }
+
+    QTcpSocket *socket = new QTcpSocket(this);
+
+    // Covers the whole attempt rather than the connect alone - see MANUAL_CONNECT_TIMEOUT_MS. A
+    // child of the socket, so it goes when the socket does and there is one thing to clean up.
+    QTimer *timer = new QTimer(socket);
+    timer->setSingleShot(true);
+
+    // The one way out, whichever of the four ends the attempt: an answer, a refusal, a timeout, or
+    // an address that turns out to be this machine. Cutting our own connections first is what stops
+    // the ones that have not fired yet from reporting a second thing about the same attempt - the
+    // timeout in particular is still armed when a refusal arrives.
+    auto finish = [this, socket, timer]() {
+        timer->stop();
+        disconnect(socket, nullptr, this, nullptr);
+        disconnect(timer,  nullptr, this, nullptr);
+
+        // Not abort(): this is also the path a finished handshake leaves by, and close() lets what
+        // is already written go out before the socket is taken down.
+        socket->close();
+        socket->deleteLater();
+    };
+
+    auto fail = [this, address, finish](const QString &reason) {
+        finish();
+        emit manualConnectFailed(address, reason);
+    };
+
+    connect(timer, &QTimer::timeout, this, [fail]() {
+        fail(tr("Nothing answered. Check the address, and that FileDonkey is running there."));
+    });
+
+    // Our own announcement, over TCP and addressed to one machine - the same object a broadcast
+    // carries, so the peer learns exactly what it would have learned from one. It answers with its
+    // own, which is what we are waiting for below, and takes us on from ours: neither side has to
+    // be the one that started this for both to end up mounted.
+    connect(socket, &QTcpSocket::connected, this, [this, socket]() {
+        const QByteArray body = machineDatagram();
+
+        DatagramHeader header(MessageType::Request, OperationType::hello);
+        header.datagramSize += body.size();
+
+        socket->write(QByteArray((const char *)&header, sizeof(DatagramHeader)));
+        socket->write(body);
+    });
+
+    connect(socket, &QTcpSocket::errorOccurred, this, [socket, fail](QAbstractSocket::SocketError) {
+        fail(socket->errorString());
+    });
+
+    // Peeked rather than buffered: a hello is answered with one small datagram and nothing follows
+    // it, so the socket's own read buffer is the only buffer this needs - we look at the header
+    // where it lies and take nothing out until the whole of it has arrived.
+    connect(socket, &QTcpSocket::readyRead, this, [this, socket, address, finish, fail]() {
+        if (socket->bytesAvailable() < (qint64)sizeof(DatagramHeader)) return;
+
+        DatagramHeader header;
+        socket->peek((char *)&header, sizeof(DatagramHeader));
+
+        if (header.datagramSize < sizeof(DatagramHeader) || header.datagramSize > MAX_HELLO_SIZE)
+        {
+            fail(tr("The machine at %1 is not answering as FileDonkey.").arg(address));
+            return;
+        }
+
+        if (socket->bytesAvailable() < (qint64)header.datagramSize) return;
+
+        const QByteArray datagram = socket->read(header.datagramSize);
+        const QByteArray payload  = datagram.sliced(sizeof(DatagramHeader));
+
+        const QJsonDocument doc = QJsonDocument::fromJson(payload);
+        const Connection conn = connectionFrom(doc["machine"].toObject(), socket->peerAddress());
+
+        // Before the mount, and before anything else can arrive on it: the handshake is over, and
+        // the peer knows to expect this socket to go - see ServedPeer::handshake. What we mount it
+        // over is the VirtDisk's own socket, dialled by addPeer() below.
+        finish();
+
+        if (conn.machineId == machineId)
+        {
+            emit manualConnectFailed(address, tr("%1 is this PC.").arg(address));
+            return;
+        }
+
+        if (conn.machineId.isEmpty())
+        {
+            emit manualConnectFailed(address, tr("The machine at %1 is not answering as FileDonkey.").arg(address));
+            return;
+        }
+
+        qDebug() << "[LocalNode::connectManually] machine id: "   << conn.machineId;
+        qDebug() << "[LocalNode::connectManually] machine name: " << conn.machineName;
+        qDebug() << "[LocalNode::connectManually] machine port: " << conn.machinePort;
+        qDebug() << "[LocalNode::connectManually] address: "      << conn.machineAddress;
+
+        // False here is a machine already in the list, which is not a failure and needs no word
+        // said about it: the row the user was after is on screen, put there by whichever route
+        // found it first.
+        addPeer(conn);
+    });
+
+    timer->start(MANUAL_CONNECT_TIMEOUT_MS);
+    socket->connectToHost(host, port);
+}
+
+void LocalNode::handleHello(QTcpSocket *socket, const DatagramHeader &header, const QByteArray &payload)
+{
+    // Answered before we do anything with what it said, so the machine waiting on the other end is
+    // not held up by a mount coming up on this one.
+    const QByteArray body = machineDatagram();
+
+    DatagramHeader reply(MessageType::Response, OperationType::hello, header.requestId);
+    reply.datagramSize += body.size();
+
+    socket->write(QByteArray((const char *)&reply, sizeof(DatagramHeader)));
+    socket->write(body);
+    socket->flush();
+
+    // Not counted through countServed(), unlike every other byte this server writes. These crossed
+    // before there was a peer to put them against, and the socket they crossed on is about to go -
+    // see below - taking the tally held on it with them. A few hundred bytes, once.
+    served[socket].handshake = true;
+
+    const QJsonDocument doc = QJsonDocument::fromJson(payload);
+    const Connection conn = connectionFrom(doc["machine"].toObject(), socket->peerAddress());
+
+    qDebug() << "[LocalNode::handleHello] machine id: "   << conn.machineId;
+    qDebug() << "[LocalNode::handleHello] machine name: " << conn.machineName;
+    qDebug() << "[LocalNode::handleHello] machine port: " << conn.machinePort;
+    qDebug() << "[LocalNode::handleHello] address: "      << conn.machineAddress;
+
+    addPeer(conn);
 }
 
 void LocalNode::onConnection()
@@ -494,7 +682,13 @@ void LocalNode::onSocketReadyRead()
         if ((u64)incoming.size() < header.datagramSize)
             return;
 
-        if (!fuseHandlers.contains(header.operationType))
+        // hello is the one operation with no entry in that map, and it is checked for first so the
+        // test below still means what it says. It is answered here, on this thread, rather than
+        // handed to the pool: it takes on a peer - see handleHello() - which touches the maps every
+        // slot in this file reads, and it needs the socket itself to know where the peer is.
+        const bool isHello = (header.operationType == OperationType::hello);
+
+        if (!isHello && !fuseHandlers.contains(header.operationType))
         {
             qDebug() << "[LocalNode::onSocketReadyRead] Error: invalid operation type:"
                      << ToString(header.operationType);
@@ -504,9 +698,13 @@ void LocalNode::onSocketReadyRead()
         const qsizetype payloadSize = header.datagramSize - sizeof(DatagramHeader);
         QByteArray payload = incoming.sliced(sizeof(DatagramHeader), payloadSize);
 
-        dispatchRequest(newConnection, header, payload);
-
+        // Taken out of the buffer before either is run, not after: handleHello() below reaches back
+        // into served[] for this same socket, and leaving the datagram in place while it does would
+        // have this loop's next pass read it a second time.
         incoming.remove(0, header.datagramSize);
+
+        if (isHello) handleHello(newConnection, header, payload);
+        else         dispatchRequest(newConnection, header, payload);
     }
 }
 
@@ -600,6 +798,21 @@ void LocalNode::onSocketDisconnected()
     }
 
     qDebug() << "[onSocketDisconnected] disconnect socket:" << (u64)socket;
+
+    // A socket that carried nothing but a hello is not this peer's client connection and says
+    // nothing about the peer by going: the machine that dialled in with one drops it the moment it
+    // has our answer, and its VirtDisk comes back on a socket of its own. Without this that FIN
+    // would be read below as the peer leaving, and would stop the mount handleHello() had just
+    // started - every manual connect would undo itself a moment after it worked.
+    const auto handshaking = served.constFind(socket);
+    if (handshaking != served.constEnd() && handshaking->handshake)
+    {
+        qDebug() << "[onSocketDisconnected] handshake socket closed, peer kept";
+
+        served.remove(socket);
+        socket->deleteLater();
+        return;
+    }
 
     // This socket is the peer's client talking to our server. Its drop is noticed straight away
     // because it lives on this thread's event loop. Our own VirtDisk talks to that peer over a

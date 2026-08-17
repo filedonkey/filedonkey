@@ -25,6 +25,18 @@ enum class OperationType : u32
     mkdir    = 9,
     rmdir    = 10,
     truncate = 11,
+
+    // The one operation that is not a file system call. Two machines introduce themselves with it
+    // over TCP, carrying in both directions exactly what a UDP announcement carries - see
+    // LocalNode::machineDatagram() - so a network that will not pass a broadcast can still be told
+    // by hand where the other machine is. Everything above it is answered under the shared root by
+    // FUSEBackend; this one is answered by LocalNode itself, on the thread it runs on, because what
+    // it does is take on a peer rather than read a file.
+    //
+    // Last in the list on purpose: the numbers go over the wire, so a build that predates this one
+    // keeps the meaning of every value it already knew and simply refuses this as an operation it
+    // has no handler for.
+    hello    = 20,
 };
 
 inline const char *ToString(MessageType messageType)
@@ -53,6 +65,7 @@ inline const char *ToString(OperationType operationType)
         case OperationType::mkdir:    return "mkdir";
         case OperationType::rmdir:    return "rmdir";
         case OperationType::truncate: return "truncate";
+        case OperationType::hello:    return "hello";
     }
     return "unknown";
 }

@@ -257,6 +257,19 @@ MainWindow::MainWindow(QWidget *parent)
     connect(node, &LocalNode::peerDownloaded, deviceList, &DeviceList::onPeerDownloaded);
     connect(node, &LocalNode::peerRemoved,    deviceList, &DeviceList::onPeerRemoved);
 
+    // The one thing that travels the other way. The list collects an address and knows nothing to
+    // do with it; the node dials it and, when nothing answers, says so back through here. A peer
+    // that does answer needs no wiring of its own - it arrives as peerAdded above, like any other.
+    connect(deviceList, &DeviceList::manualConnectRequested, node, &LocalNode::connectManually);
+
+    // Queued, unlike every other connection here. What it reaches opens a modal message box, and a
+    // modal box runs an event loop of its own - delivered directly it would start that loop inside
+    // the socket callback the failure was noticed in, with the socket the node had just handed to
+    // deleteLater() being freed under the very call still returning through it. Queued, the stack
+    // is back at the event loop before the box goes up.
+    connect(node, &LocalNode::manualConnectFailed, this, &MainWindow::reportManualConnectFailed,
+            Qt::QueuedConnection);
+
     // The left-hand end of the status bar. Neither half goes through tr(): a version number is the
     // same string in every language, and lupdate cannot see a stage that arrives as a macro anyway.
     QLabel *versionLbl = new QLabel(QString("v%1 (%2)").arg(APP_VERSION, APP_STAGE), this);
@@ -378,6 +391,26 @@ void MainWindow::closeEvent(QCloseEvent *event)
             qApp->quit();
             break;
     }
+}
+
+// Why a typed address came to nothing. Shown from here rather than from the dialog that collected
+// it, which is long closed: the attempt takes seconds - a TCP connect to an address with nothing on
+// it answers with silence, not a refusal - and a modal dialog held open for them is one that looks
+// stuck. Nothing is shown when it works; the row appearing in the list is what says so.
+void MainWindow::reportManualConnectFailed(const QString &address, const QString &reason)
+{
+    // Brought back first. The window may well have been put away while the attempt was running, and
+    // a message box on its own with no window behind it says nothing about who is asking.
+    restoreWindow();
+    titleBar->setCurrentTab(TitleBar::Tab::DeviceList);
+
+    QMessageBox box(this);
+    box.setIcon(QMessageBox::Warning);
+    box.setWindowTitle(tr("FileDonkey"));
+    box.setText(tr("Could not connect to %1.").arg(address));
+    box.setInformativeText(reason);
+    box.setStandardButtons(QMessageBox::Ok);
+    box.exec();
 }
 
 MainWindow::CloseChoice MainWindow::askWhatCloseMeans()

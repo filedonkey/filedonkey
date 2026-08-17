@@ -3,6 +3,7 @@
 #include "autostart.h"
 #include "elidedlabel.h"
 #include "localnode.h"
+#include "revertbutton.h"
 
 #include <QCheckBox>
 #include <QDir>
@@ -39,13 +40,9 @@
 // it would say a port could be. The note beside it takes the rest of the row.
 #define PORT_FIELD_WIDTH 64
 
-// The third column: the button that puts a field back to its default. Square, and a touch smaller
-// than the field it sits beside so it reads as something offered rather than as a second control of
-// the same weight. The glyph is drawn under the arrow's own ends at this size, which is why it is
-// not the full button.
-#define REVERT_BUTTON_SIZE 22
-#define REVERT_GLYPH       14
-
+// The third column is the button revertbutton.h builds - REVERT_BUTTON_SIZE comes from there, along
+// with the glyph size and everything else about how it is drawn.
+//
 // Between a field and the button at the end of its row, and only where nothing else separates them:
 // the port's row already has a note and the room left over between the two.
 #define REVERT_GAP 8
@@ -128,31 +125,6 @@ QLabel *rowLabel(QWidget *parent, const QString &text, const QWidget *field)
     label->setFixedHeight(field->sizeHint().height());
 
     return label;
-}
-
-// The button at the end of a row, which turns a changed field back into the one this app ships
-// with. Hidden until there is something to undo - bindRevert() is what shows and hides it.
-//
-// Its place in the row is kept while it is hidden. Without that the field beside it would grow and
-// shrink by the button's width as the button came and went, and a name being typed would jump about
-// under the cursor on the first character that differed from the host name.
-QToolButton *revertButton(QWidget *parent, const QString &tooltip)
-{
-    QToolButton *button = new QToolButton(parent);
-    button->setObjectName("settingsRevert");
-    button->setIcon(QIcon(":/assets/reverse.svg"));
-    button->setIconSize(QSize(REVERT_GLYPH, REVERT_GLYPH));
-    button->setFixedSize(REVERT_BUTTON_SIZE, REVERT_BUTTON_SIZE);
-    button->setFocusPolicy(Qt::NoFocus);
-    button->setCursor(Qt::PointingHandCursor);
-    button->setToolTip(tooltip);
-    button->hide();
-
-    QSizePolicy policy = button->sizePolicy();
-    policy.setRetainSizeWhenHidden(true);
-    button->setSizePolicy(policy);
-
-    return button;
 }
 
 } // namespace

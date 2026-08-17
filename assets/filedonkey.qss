@@ -8,7 +8,7 @@
  *   #26282C  rows, raised            #8D929A  text, muted
  *   #2A2C31  hover                   #7E838B  text, micro-labels
  *   #2F3238  controls                #5F646C  text, disabled
- *   #34363B  borders, raised
+ *   #34363B  borders, raised         #0C0D0F  text, on a light fill
  *   #3D4046  borders, fields
  *   #2B2D31  borders, hairline       #4EC97A  mounted
  *                                    #E0A33C  busy
@@ -358,31 +358,44 @@ QPushButton#settingsChooseBtn {
 QPushButton#settingsChooseBtn:hover   { background: #2F3238; }
 QPushButton#settingsChooseBtn:pressed { background: #212226; }
 
-/* The third column: the button that puts a field back to the value this app
- * ships with, shown only while a field holds something else. Nothing but the
- * glyph until the pointer is on it - the row belongs to the field, and a button
- * with a frame of its own beside every one of them would read as the busier
- * half of the page.
+/* The third column of the settings page's rows, and of the manual connect
+ * dialog's: the button that puts a field back to the value it started with,
+ * shown only while that field holds something else. One rule for both, because
+ * both are built by revertButton() in revertbutton.h and are meant to be the
+ * same button - see the note there.
+ *
+ * Nothing but the glyph until the pointer is on it - the row belongs to the
+ * field, and a button with a frame of its own beside every one of them would
+ * read as the busier half of the page.
  *
  * The arrow is artwork and takes no colour from `color:`, the way the badges
  * and the caption glyphs do not. Its #A9AEB6 is in reverse.svg, the same grey
  * the labels on the left are set in - so a change here has to be made there. */
 
-QToolButton#settingsRevert {
+QToolButton#revertBtn {
     background: transparent;
     border: none;
     border-radius: 5px;
     padding: 0px;
 }
 
-QToolButton#settingsRevert:hover   { background: #2A2C31; }
-QToolButton#settingsRevert:pressed { background: #26282C; }
+QToolButton#revertBtn:hover   { background: #2A2C31; }
+QToolButton#revertBtn:pressed { background: #26282C; }
 
-/* The rule between the fields and the switches. The hairline grey, not the
- * raised one: it divides two halves of one page rather than standing where a
- * window border would. Its height is set in settingspage.cpp, like the dots. */
+/* The rule between the fields and the switches, and the one over the device
+ * list's footer. The hairline grey, not the raised one: each divides two halves
+ * of one page rather than standing where a window border would. Their height is
+ * set in settingspage.cpp and devicelist.cpp, like the dots.
+ *
+ * One rule for both because they are meant to be the same line seen on two
+ * pages - a change of colour here has to reach both or the window has two
+ * kinds of divider. Each is a widget in a layout rather than a border on the
+ * thing below it, which is what insets it from the window's edges: a border
+ * runs the full width of what carries it, and that reads as a second window
+ * frame rather than as a rule. */
 
-QWidget#settingsSeparator { background: #2B2D31; }
+QWidget#settingsSeparator,
+QWidget#deviceFooterSeparator { background: #2B2D31; }
 
 /* A switch. It is a QCheckBox - the thing it does is the thing a check box
  * does - wearing the pill the design draws, which arrives as artwork because
@@ -532,6 +545,59 @@ QLabel#deviceEmptyText {
     font-size: 12px;
 }
 
+/* ---------------------------------------------------- the device list's footer
+ * The strip under the rows: a line saying why a device might not have been found
+ * on its own, and the button that connects one by address. Outside the scroll
+ * area, so it stays put while the rows move under it.
+ *
+ * Nothing is drawn here. The line over it is #deviceFooterSeparator, a widget of
+ * its own in the footer's layout - see the rule it shares with the settings
+ * page's - and a fill would make the footer a second surface in a window that
+ * has only ever had one. */
+
+QWidget#deviceFooter {
+    background: transparent;
+}
+
+/* The same muted grey a note under a settings field is set in. It is the same
+ * kind of thing - a remark about the control beside it - and reads as one by
+ * being the same colour. */
+QLabel#deviceFooterHint {
+    color: #8D929A;
+    font-size: 12px;
+}
+
+/* The design's secondary button, and the same one the settings page's Choose is:
+ * a raised fill inside a border a shade lighter than the fields'. Secondary
+ * deliberately - the list finding devices by itself is the ordinary way in, and
+ * this is the way round it.
+ *
+ * The dialog that button opens ends in a pair of them, and its Cancel is named
+ * here rather than dressed separately: it is the same button doing the same kind
+ * of job - the way out of a choice rather than the choice itself. Its Connect is
+ * the one that differs, and it is further down under the dialog's own rules.
+ *
+ * Both have to name themselves past the plain QPushButton rule further down,
+ * which is what dresses an ordinary dialog's buttons - so what is set here is a
+ * whole button and not a handful of corrections to that one. */
+
+QPushButton#manualConnectBtn,
+QPushButton#dialogCancelBtn {
+    background: #26282C;
+    border: 1px solid #3D4046;
+    border-radius: 6px;
+    color: #C7CBD1;
+    font-size: 12px;
+    padding: 4px 12px;
+    min-width: 0px;
+}
+
+QPushButton#manualConnectBtn:hover,
+QPushButton#dialogCancelBtn:hover { background: #2F3238; }
+
+QPushButton#manualConnectBtn:pressed,
+QPushButton#dialogCancelBtn:pressed { background: #212226; }
+
 /* The list is the only thing that scrolls, so this is the whole scrollbar. No
  * buttons at the ends - the arrows are a Windows 7 idea that nothing in this
  * window's design has room for. */
@@ -557,13 +623,15 @@ QScrollBar::add-page:vertical,
 QScrollBar::sub-page:vertical { background: transparent; }
 
 /* --------------------------------------------------------------- dialogs
- * The no-tray close dialog is the only one so far. It needs styling rather
- * than being left native: the QWidget rule at the top of this file already
- * gives every label in it near-white text, so without a dark background here
- * it would be pale text on the system's pale dialog.
+ * Two of them: the no-tray close question, and the manual connect dialog the
+ * device list's footer opens. Both need styling rather than being left native:
+ * the QWidget rule at the top of this file already gives every label in them
+ * near-white text, so without a dark background here it would be pale text on
+ * the system's pale dialog.
  *
- * The frame stays native - a modal dialog with the system's own title bar is
- * the right thing, and it is the only window in the app that has one. */
+ * The frame stays native on both - a modal dialog with the system's own title
+ * bar is the right thing, and they are the only windows in the app that have
+ * one. */
 
 QDialog, QMessageBox {
     background: #1E1F22;
@@ -573,6 +641,158 @@ QMessageBox QLabel {
     color: #E8E9EC;
     background: transparent;
 }
+
+/* ------------------------------------------------- the manual connect dialog
+ * An address and a port, asked for the same way the settings page asks for its
+ * own values: a muted label on the left, the value on the right in the
+ * near-white the fields are set in. The three rules below are the settings
+ * page's #settingsLabel, #settingsInput and #settingsHint under names of their
+ * own - a dialog is not the settings page, and the day one of the two wants a
+ * different size is the day sharing the names would be in the way. */
+
+/* The dialog in two parts: the page that is read and filled in, and the bar the
+ * two buttons sit on. The page paints nothing and lets the QDialog fill above
+ * show through; the bar is the deeper surface, closed off with the hairline -
+ * exactly the pair QStatusBar carries at the foot of the main window, so the two
+ * windows end the same way.
+ *
+ * The bar reaches all three of the dialog's lower edges. Nothing is rounded off
+ * there, unlike the status bar: this dialog wears the system's own frame and has
+ * no corners of its own to follow. */
+
+QWidget#dialogContent { background: transparent; }
+
+QWidget#dialogButtonBar {
+    background: #191A1D;
+    border-top: 1px solid #2B2D31;
+}
+
+QLabel#dialogIntro {
+    color: #A9AEB6;
+    font-size: 12px;
+}
+
+QLabel#dialogLabel {
+    color: #A9AEB6;
+    font-size: 12px;
+}
+
+QLabel#dialogNote {
+    color: #8D929A;
+    font-size: 12px;
+}
+
+QLineEdit#dialogInput {
+    background: #191A1D;
+    border: 1px solid #3D4046;
+    border-radius: 6px;
+    color: #E8E9EC;
+    font-size: 12px;
+    padding: 4px 8px;
+    selection-background-color: #2F3238;
+    selection-color: #E8E9EC;
+}
+
+QLineEdit#dialogInput:focus { border-color: #5F646C; }
+
+/* The address box. Four fields and the dots between them wearing one border, so
+ * that what is really four QLineEdits reads as the single field an address is -
+ * see IPv4Edit in manualconnectdialog.cpp for why it is four.
+ *
+ * Everything a field carries is on the box: the fill, the border, the radius.
+ * The octets inside it carry none of it, or there would be four sunken boxes
+ * inside a fifth. */
+
+QWidget#ipEdit {
+    background: #191A1D;
+    border: 1px solid #3D4046;
+    border-radius: 6px;
+}
+
+/* What :focus would say if a stylesheet could ask it of a container. It cannot -
+ * the focus is on one of the children - so the box carries the answer as a
+ * property instead, set from IPv4Edit::refreshFocused(). Same lift as the port
+ * field above, so the two fields answer the cursor alike. */
+QWidget#ipEdit[focused="true"] { border-color: #5F646C; }
+
+QLineEdit#ipOctet {
+    background: transparent;
+    border: none;
+    color: #E8E9EC;
+    font-size: 12px;
+    padding: 5px 0px;
+    selection-background-color: #2F3238;
+    selection-color: #E8E9EC;
+}
+
+/* The separators, drawn rather than typed - which is the point of the control.
+ * Muted, so the four numbers are what is read and the dots only divide them. */
+QLabel#ipDot {
+    background: transparent;
+    color: #8D929A;
+    font-size: 12px;
+}
+
+/* Connect is the button that does the thing, and the only primary button in the
+ * application: the one light fill in a window that is otherwise all dark
+ * surfaces, which is what makes it the first thing found in the dialog. The tabs
+ * in the title bar are the only other place a light fill appears, and for the
+ * same reason - and like them, what is drawn on it has to be dark to read.
+ *
+ * It shares its shape with the Cancel beside it - the radius, the type, the
+ * padding, the 1px border - so the two are one pair of buttons in two weights
+ * rather than two different buttons. Only the colours differ, and the border is
+ * the fill's own colour rather than a line around it: a dark outline on a light
+ * button reads as a hole cut in it, but a border of some width has to be there
+ * or this button would stand a pixel shorter than Cancel.
+ *
+ * No :default rule. The generic one further down lifts a default button's border
+ * to mark it as the one Return presses, which this fill already says louder -
+ * and an ID selector outranks that rule anyway, so there is nothing to undo. */
+
+QPushButton#dialogConnectBtn {
+    background: #C7CBD1;
+    border: 1px solid #C7CBD1;
+    border-radius: 6px;
+    color: #0C0D0F;
+    font-size: 12px;
+    padding: 4px 12px;
+}
+
+QPushButton#dialogConnectBtn:hover {
+    background: #E8E9EC;
+    border-color: #E8E9EC;
+}
+
+QPushButton#dialogConnectBtn:pressed {
+    background: #A9AEB6;
+    border-color: #A9AEB6;
+}
+
+/* Disabled until there is a whole address and a port to send - see
+ * refreshControls() - and it has to look it, or a button that ignores clicks
+ * reads as broken rather than as waiting. Back to the dark surfaces the rest of
+ * the window is in, which is as far from the primary fill as this palette goes.
+ *
+ * Last of the four deliberately. It is exactly as specific as the two states
+ * above it, and Qt sets :hover from the pointer's position whether or not the
+ * widget is enabled - so a disabled button under the pointer matches both, and
+ * only the later rule keeps it from lighting up as though it could be pressed. */
+
+QPushButton#dialogConnectBtn:disabled {
+    background: #26282C;
+    border-color: #2B2D31;
+    color: #5F646C;
+}
+
+/* The two of them are one pair and should be one size, which they are not left
+ * to themselves: "Cancel" and "Connect" differ by a character, and at this type
+ * that is six pixels of difference in a place the eye reads as a mistake. The
+ * number is the plain QPushButton rule's own, which is what every other dialog
+ * in the application sizes its buttons by. */
+
+QPushButton#dialogCancelBtn,
+QPushButton#dialogConnectBtn { min-width: 60px; }
 
 QPushButton {
     background: #2F3238;

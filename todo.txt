@@ -1,5 +1,5 @@
 Bugs:
-  [linux] Visual corruption of application close message box
++ [linux] Visual corruption of application close message box
   [macos] Even if window is closed, app is still present in the dock
 
 Features:

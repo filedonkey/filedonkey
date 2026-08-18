@@ -102,6 +102,10 @@ struct fuse
     // asks more than once - see the comment on VirtDisk::stop.
     std::mutex mutex;
     bool exiting = false;
+
+    // Held for the whole of every callback below, so the file system above still sees one request
+    // at a time - see Frame, and the note on dokanOptions.SingleThread in fuse_mount.
+    std::mutex opsMutex;
 };
 
 // DokanInit and DokanShutdown are per process, not per mount, and every mount here is one of
@@ -251,15 +255,26 @@ static NTSTATUS ToNtStatus(int err)
 // gives every callback the mount it belongs to, through GlobalContext, so each one opens with a
 // Frame that puts it there and takes it away again on the way out. Nested frames are possible -
 // FindFiles calls getattr - so the previous one is restored rather than cleared.
+//
+// The Frame is also where the mount's opsMutex is taken, which is what keeps the file system above
+// single threaded now that Dokan dispatches on a pool rather than on one thread - see the note on
+// SingleThread in fuse_mount. Taking it here rather than in each callback is not only shorter: the
+// Frame is already the one thing every callback that reaches f->ops opens with, so the lock cannot
+// be forgotten when a callback is added. A plain mutex is enough because no callback below calls
+// another - the nesting the paragraph above describes is f->ops.readdir reaching f->ops.getattr,
+// which is inside one Frame and never opens a second.
 static thread_local struct fuse_context *tls_context = nullptr;
 
 struct Frame
 {
     struct fuse_context ctx;
     struct fuse_context *previous;
+    std::unique_lock<std::mutex> lock;
 
     Frame(struct fuse *f, PDOKAN_FILE_INFO info)
     {
+        if (f) lock = std::unique_lock<std::mutex>(f->opsMutex);
+
         ctx.fuse         = f;
         ctx.uid          = f ? f->uid : 0;
         ctx.gid          = f ? f->gid : 0;
@@ -1024,10 +1039,24 @@ extern "C" int fuse_mount(struct fuse *f, const char *mountpoint)
     f->dokanOptions.MountPoint    = f->mountpointW.c_str();
     f->dokanOptions.GlobalContext = reinterpret_cast<ULONG64>(f);
 
-    // The single request in flight the file system above is written for. FUSE's own fuse_loop is
-    // single threaded too - fuse_loop_mt is the one that is not - so this is what the FUSE 3 call
-    // it comes from already promises, and FUSEClient's blocking socket depends on it.
-    f->dokanOptions.SingleThread = TRUE;
+    // Dokan dispatches on a thread pool, and it has to: Windows raises file system requests from
+    // inside the completion of other file system requests, and the thread completing one is by
+    // definition not free to answer the next.
+    //
+    // Deleting a file is where this showed up. Cleanup does the unlink and returns in a couple of
+    // milliseconds; completing that IRP then runs on the dispatch thread, and while it is still on
+    // the stack a QUERY_INFORMATION for the same file arrives - raised in this process's own name,
+    // which is how the driver log records it. With SingleThread there was no second thread to take
+    // it, so it sat in the driver's pending list until DOKAN_IRP_PENDING_TIMEOUT - fifteen seconds
+    // - expired and cancelled it. The delete had already succeeded on the peer; DeleteFile() just
+    // did not return. rmdir stalled the same way, and nothing else did.
+    //
+    // The single request in flight the file system above is written for is still honoured, just
+    // one level up: every callback holds f->opsMutex for its whole length - see Frame - so the
+    // pool's threads take their turn rather than arriving together, and FUSEClient's blocking
+    // socket still has one caller at a time. What the pool buys is a thread that is free when
+    // Dokan needs one, which is the whole of the problem above.
+    f->dokanOptions.SingleThread = FALSE;
 
     if (f->readOnly) f->dokanOptions.Options |= DOKAN_OPTION_WRITE_PROTECT;
 

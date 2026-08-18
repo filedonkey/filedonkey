@@ -71,6 +71,11 @@ extern char **environ;
 #define st_ctimespec st_ctim
 #endif
 
+// The most the goodbye at the end of Start() is waited on. It is one header, so it either goes
+// into the first segment or the peer is not reading anyway - and every moment spent here is a
+// moment the mount thread has not finished, with the GUI thread waiting to join it.
+#define BYE_WRITE_TIMEOUT_MS 1000
+
 VirtDisk::VirtDisk(const Connection& conn) : conn(conn)
 {
     client = new FUSEClient(&this->conn);
@@ -730,6 +735,24 @@ static void Start(VirtDisk *self, Connection *conn)
     // so this is the right place to destroy it.
     if (self->socket)
     {
+        // A mount that never came up is not this machine going away, and nothing about a socket
+        // closing says which of the two it was - see OperationType::bye for what the peer does
+        // with the difference. Sent before the close, never after: TCP delivers it ahead of the
+        // FIN, which is what has the peer read the two in the order they were meant.
+        if (!reason.isEmpty() && self->socket->state() == QAbstractSocket::ConnectedState)
+        {
+            const DatagramHeader bye(MessageType::Request, OperationType::bye);
+
+            self->socket->write(QByteArray((const char *)&bye, sizeof(DatagramHeader)));
+            self->socket->flush();
+
+            // This thread has no event loop, so nothing else would ever push those bytes out - and
+            // the socket is destroyed a few lines below, which would take them with it. Worth no
+            // more than a moment either way: the peer keeping its mount is a courtesy, and a
+            // machine that has stopped listening simply gets the old behaviour.
+            self->socket->waitForBytesWritten(BYE_WRITE_TIMEOUT_MS);
+        }
+
         self->client->setSocket(nullptr);
         self->socket->close();
         delete self->socket;

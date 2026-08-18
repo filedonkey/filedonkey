@@ -194,6 +194,11 @@ private:
     // it for both to end up mounted.
     void handleHello(QTcpSocket *socket, const DatagramHeader &header, const QByteArray &payload);
 
+    // The opposite, and much less: a peer saying it is closing this socket without going anywhere.
+    // Takes no header and no payload because the operation carries neither - the fact of it is the
+    // whole message.
+    void handleBye(QTcpSocket *socket);
+
     void dispatchRequest(QTcpSocket *socket, const DatagramHeader &header, const QByteArray &payload);
 
     // The peer behind a socket that dialled in to our server, once its announcement has reached us.
@@ -250,6 +255,11 @@ private:
         // its going away says nothing about the peer - see onSocketDisconnected(), which would
         // otherwise read that FIN as the peer leaving and stop the mount we had just started.
         bool       handshake  = false;
+
+        // Set when the peer said it was closing this socket and staying - see OperationType::bye.
+        // Read by onSocketDisconnected(), which would otherwise take the drop for the peer leaving
+        // and stop a mount that is working.
+        bool       graceful   = false;
     };
 
     // Everything this machine has moved for one peer, over both of the sockets it involves: the one

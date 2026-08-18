@@ -783,7 +783,11 @@ void LocalNode::onSocketReadyRead()
         // slot in this file reads, and it needs the socket itself to know where the peer is.
         const bool isHello = (header.operationType == OperationType::hello);
 
-        if (!isHello && !fuseHandlers.contains(header.operationType))
+        // And bye, which is answered here for the same reason and is even less work: it changes
+        // one flag on this socket and says nothing back. See handleBye().
+        const bool isBye = (header.operationType == OperationType::bye);
+
+        if (!isHello && !isBye && !fuseHandlers.contains(header.operationType))
         {
             qDebug() << "[LocalNode::onSocketReadyRead] Error: invalid operation type:"
                      << ToString(header.operationType);
@@ -798,9 +802,24 @@ void LocalNode::onSocketReadyRead()
         // have this loop's next pass read it a second time.
         incoming.remove(0, header.datagramSize);
 
-        if (isHello) handleHello(newConnection, header, payload);
-        else         dispatchRequest(newConnection, header, payload);
+        if      (isHello) handleHello(newConnection, header, payload);
+        else if (isBye)   handleBye(newConnection);
+        else              dispatchRequest(newConnection, header, payload);
     }
+}
+
+// The peer is closing this socket and staying where it is - its mount of us failed, or it is about
+// to try again. Nothing to answer: it is not waiting on us, and by the time this is read it has
+// written everything it means to write.
+//
+// All it leaves behind is the flag, which onSocketDisconnected() reads a moment later. Our mount of
+// this peer has nothing to do with the socket it dialled us on, and that is exactly what this says.
+void LocalNode::handleBye(QTcpSocket *socket)
+{
+    qDebug() << "[LocalNode::handleBye] peer is closing its socket and staying:"
+             << socket->peerAddress().toString();
+
+    served[socket].graceful = true;
 }
 
 void LocalNode::dispatchRequest(QTcpSocket *socket, const DatagramHeader &header, const QByteArray &payload)
@@ -899,10 +918,14 @@ void LocalNode::onSocketDisconnected()
     // has our answer, and its VirtDisk comes back on a socket of its own. Without this that FIN
     // would be read below as the peer leaving, and would stop the mount handleHello() had just
     // started - every manual connect would undo itself a moment after it worked.
-    const auto handshaking = served.constFind(socket);
-    if (handshaking != served.constEnd() && handshaking->handshake)
+    //
+    // Neither does one the peer told us it was closing. That is a peer whose own mount of us could
+    // not be brought up, and it is still running and still serving: our mount of it is fine and
+    // must be left alone - see OperationType::bye.
+    const auto closing = served.constFind(socket);
+    if (closing != served.constEnd() && (closing->handshake || closing->graceful))
     {
-        qDebug() << "[onSocketDisconnected] handshake socket closed, peer kept";
+        qDebug() << "[onSocketDisconnected] socket closed on purpose, peer kept";
 
         served.remove(socket);
         socket->deleteLater();

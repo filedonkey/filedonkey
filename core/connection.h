@@ -37,6 +37,23 @@ enum class OperationType : u32
     // keeps the meaning of every value it already knew and simply refuses this as an operation it
     // has no handler for.
     hello    = 20,
+
+    // The other operation that is not a file system call, and the only one that expects no answer.
+    // A machine sends it on its client socket, just before closing it, to say that the socket is
+    // going but the machine is not.
+    //
+    // Which is a thing the socket closing cannot say by itself, and the difference matters: both
+    // machines mount each other, and each reads the other's client socket dropping as the other
+    // going away - it is the one sign that arrives promptly, since our own mount's socket lives on
+    // a thread with no event loop and notices nothing until a request times out. But that same
+    // drop is also what a mount failing on the far side looks like, and treating it as a departure
+    // took down a mount that was working perfectly, once for every failed attempt over there and
+    // once more for every press of its Retry button.
+    //
+    // After hello, and last for the same reason: the numbers go over the wire, and a build that
+    // predates this one refuses it as an operation it has no handler for, which leaves it behaving
+    // exactly as it did before this existed.
+    bye      = 21,
 };
 
 inline const char *ToString(MessageType messageType)
@@ -66,6 +83,7 @@ inline const char *ToString(OperationType operationType)
         case OperationType::rmdir:    return "rmdir";
         case OperationType::truncate: return "truncate";
         case OperationType::hello:    return "hello";
+        case OperationType::bye:      return "bye";
     }
     return "unknown";
 }

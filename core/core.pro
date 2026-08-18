@@ -20,6 +20,15 @@ SOURCES += \
     tcpkeepalive.cpp \
     virtdisk.cpp
 
+# The FUSE 3 API on Windows, which has no libfuse of its own. Elsewhere <fuse.h> is the real thing.
+win32 {
+    SOURCES += fuse3/fuse3_dokan.cpp
+
+    HEADERS += \
+        fuse3/fuse.h \
+        fuse3/fuse_win32.h
+}
+
 HEADERS += \
     connection.h \
     core.h \

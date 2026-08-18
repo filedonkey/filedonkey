@@ -56,7 +56,7 @@ extern char **environ;
 
 #if defined (_WIN32)
 #include <fileapi.h>
-#include <winfsp_fuse.h>
+#include <fuse_win32.h>
 
 #define mkdir(path, mode) _mkdir(path)
 

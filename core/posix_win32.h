@@ -24,7 +24,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <winfsp_fuse.h>
+#include <fuse_win32.h>
 
 // O_RDONLY and the rest come from <fcntl.h> above; open() below reads them as POSIX defines them.
 

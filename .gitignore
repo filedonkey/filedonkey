@@ -30,6 +30,9 @@ ui_*.h
 Makefile*
 *build-*
 /build
+
+# Where packaging/package-win.ps1 leaves the finished installer.
+/dist
 *.qm
 *.prl
 

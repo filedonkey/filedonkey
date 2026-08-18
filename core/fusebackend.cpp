@@ -54,6 +54,13 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
 
     std::vector<FindData> findDataList;
 
+    // Built once, for the per entry lstat below. normalizePath leaves the separator off unless the
+    // shared directory came with one, so the state of the last character decides whether one is
+    // needed here.
+    std::string entryPrefix = absolutePath;
+    if (!entryPrefix.empty() && entryPrefix.back() != '/' && entryPrefix.back() != '\\')
+        entryPrefix += '/';
+
     struct dirent *de;
     while ((de = readdir(dp)) != NULL)
     {
@@ -77,6 +84,27 @@ Ref<ReaddirResult> FUSEBackend::FD_readdir(const char *path)
         findData.st_mode = (de->d_type << 12) | 0777;
 
         memcpy(findData.name, de->d_name, nameLength);
+
+        // The size and times, which readdir does not carry on any platform - see FindData for why
+        // they have to travel with the entry rather than be fetched per name afterwards. lstat and
+        // not stat, to match the file type d_type just reported: following a symlink here would
+        // describe its target while st_mode above still says it is a link.
+        //
+        // A failure is left as zeros rather than dropping the entry. A name readdir just returned
+        // can still fail to stat - a dangling symlink, or something deleted between the two calls -
+        // and a file the peer can see but not size is better than one it cannot see at all.
+        fd_stat stbuf;
+        if (lstat((entryPrefix + de->d_name).c_str(), &stbuf) == 0)
+        {
+            findData.st_size = stbuf.st_size;
+
+            findData.st_atim.tv_sec  = stbuf.st_atimespec.tv_sec;
+            findData.st_atim.tv_nsec = stbuf.st_atimespec.tv_nsec;
+            findData.st_mtim.tv_sec  = stbuf.st_mtimespec.tv_sec;
+            findData.st_mtim.tv_nsec = stbuf.st_mtimespec.tv_nsec;
+            findData.st_ctim.tv_sec  = stbuf.st_ctimespec.tv_sec;
+            findData.st_ctim.tv_nsec = stbuf.st_ctimespec.tv_nsec;
+        }
     }
 
     closedir(dp);

@@ -6,11 +6,30 @@
 #include <string.h>
 
 
+struct fd_timespec {
+  i64 tv_sec;
+  i64 tv_nsec;
+};
+
 struct FindData
 {
     char name[1024];
     u64 st_ino;
     u16 st_mode;
+
+    // Everything below is here for Windows. On Linux and macOS a directory entry only has to
+    // carry its type: the kernel takes that and the inode, and asks getattr separately the moment
+    // anything wants a size. Windows has no such second step - FindFirstFileW is the attribute
+    // call, so whatever comes back from one enumeration is what Explorer shows, and a listing
+    // built from type alone shows every file as zero bytes dated 1601.
+    //
+    // Sending them costs the serving side one lstat per entry, which is what ls -l pays anyway,
+    // and saves the client a round trip per name over the network - which is the entire point of
+    // answering readdir with attributes attached.
+    i64 st_size;
+    fd_timespec st_atim;
+    fd_timespec st_mtim;
+    fd_timespec st_ctim;
 };
 
 struct StatusResult
@@ -142,11 +161,6 @@ struct StatfsResult : public StatusResult
     {
         memcpy(this, data, sizeof(StatfsResult));
     }
-};
-
-struct fd_timespec {
-  i64 tv_sec;
-  i64 tv_nsec;
 };
 
 struct GetattrResult : public StatusResult

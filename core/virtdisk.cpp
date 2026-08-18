@@ -187,18 +187,25 @@ static int fd_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
         st.st_ino = fd->st_ino;
         st.st_mode = fd->st_mode;
-#if defined (_WIN32)
-        st.st_size = 146;
-        st.st_blksize = 4096;
-        st.st_blocks = 2;
-        st.st_atim.tv_sec = 1763752599;
-        st.st_atim.tv_nsec = 302761200;
-        st.st_mtim.tv_sec = 1747514473;
-        st.st_mtim.tv_nsec = 21076073;
-        st.st_ctim.tv_sec = 1747514473;
-        st.st_ctim.tv_nsec = 21076073;
-#endif
 
+        // One, not zero, on every platform. FUSE_FILL_DIR_PLUS below says these attributes are the
+        // file's real ones and they are cached as such, and a link count of zero is how a stat
+        // describes something that has already been unlinked.
+        st.st_nlink = 1;
+
+        st.st_size = fd->st_size;
+
+        st.st_atimespec.tv_sec  = fd->st_atim.tv_sec;
+        st.st_atimespec.tv_nsec = fd->st_atim.tv_nsec;
+        st.st_mtimespec.tv_sec  = fd->st_mtim.tv_sec;
+        st.st_mtimespec.tv_nsec = fd->st_mtim.tv_nsec;
+        st.st_ctimespec.tv_sec  = fd->st_ctim.tv_sec;
+        st.st_ctimespec.tv_nsec = fd->st_ctim.tv_nsec;
+
+        // Now true on all three platforms, where it used to be a promise only Windows tried to
+        // keep and kept with invented numbers. Linux and macOS pass the size and times straight
+        // through to a readdirplus reply; Windows has to have them, because FindFiles is the only
+        // chance it gets to describe an entry.
         filler(buf, fd->name, &st, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_PLUS);
     }
     qDebug() << "after for";

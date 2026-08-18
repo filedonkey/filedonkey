@@ -51,7 +51,7 @@ QWidget {
 
 /* The window frame is drawn by the three widgets stacked inside it, not by the
  * window: #titleBar owns the top two corners, QStatusBar the bottom two, and
- * #centralwidget the straight run between them. Each carries the same 1px
+ * #contentStack the straight run between them. Each carries the same 1px
  * #34363B outline down its own outer edges so the three read as one border.
  *
  * QMainWindow itself must paint nothing - it is translucent (see
@@ -73,16 +73,19 @@ QWidget#windowShadow {
     border-radius: 8px;
 }
 
+/* The central widget is only what the frame's pieces are stacked in - the title
+ * bar and the content, with the status bar below it - so it draws nothing of
+ * its own. The fill and the two side borders that used to be here are on
+ * #contentStack now, which is the piece of the frame they belong to. */
+
 QMainWindow > QWidget#centralwidget {
-    background: #1E1F22;
-    border-left: 1px solid #34363B;
-    border-right: 1px solid #34363B;
+    background: transparent;
 }
 
 /* ----------------------------------------------------------------- title bar
  * Same two tokens as the status bar, so the window is bookended by them. The
  * native title bar is off - see Qt::FramelessWindowHint in MainWindow - and
- * this sits in the slot the (empty) menu bar used to have. */
+ * this sits at the top of the central widget, above the content. */
 
 QWidget#titleBar {
     background: #191A1D;
@@ -275,11 +278,21 @@ QLabel#deviceCountLbl {
  * and each border would have to be subtracted from the number by hand. What is
  * left here is colour, type and roundness. */
 
-/* The stack the title bar's tabs switch, and the second of its two pages. Both
- * transparent so that what shows behind them is #centralwidget's own fill and
- * not a second one. */
+/* The stack the title bar's tabs switch, and the middle of the window's three
+ * frame pieces: the surface both pages are drawn on, and the straight run of
+ * border down each side between the bar's rounded top and the status bar's
+ * rounded bottom. */
 
-QStackedWidget#contentStack,
+QStackedWidget#contentStack {
+    background: #1E1F22;
+    border-left: 1px solid #34363B;
+    border-right: 1px solid #34363B;
+}
+
+/* The second of its two pages, and the parts of it that would each bring a fill
+ * of their own. Transparent, so what shows behind them is the stack's one
+ * surface above and not a second one on top of it. */
+
 QWidget#settingsPage,
 QWidget#settingsContent,
 QScrollArea#settingsScroll {

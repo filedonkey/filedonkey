@@ -112,16 +112,15 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->setupUi(this);
 
-    // Off with the native title bar, on with ours. setMenuWidget() puts the bar in the slot the
-    // menu bar had, spanning the full width above the central widget, and deletes the empty
-    // QMenuBar the .ui file brings with it.
+    // Off with the native title bar. Ours goes at the top of the central widget's own layout -
+    // see where contentLayout is built, which is also where the reason it goes there is.
     setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
 
     // Rounded corners need somewhere for the corner to go. Without this the window is an opaque
     // rectangle and a radius only rounds the colour inside it, leaving the square corner behind;
     // with it, the pixels the radius cuts away are genuinely absent and the desktop shows through.
     // What the window looks like is then entirely up to the three widgets stacked inside it - see
-    // the border and radius rules on #titleBar, #centralwidget and QStatusBar in the stylesheet.
+    // the border and radius rules on #titleBar, #contentStack and QStatusBar in the stylesheet.
     setAttribute(Qt::WA_TranslucentBackground);
 
     // The blur that falls into the margin below. Built after setupUi(), which has already made the
@@ -141,9 +140,8 @@ MainWindow::MainWindow(QWidget *parent)
     // and it can no longer change size.
     shadowLayer->setGeometry(contentsRect());
 
-    titleBar = new TitleBar(TitleBar::Kind::Window, this);
+    titleBar = new TitleBar(TitleBar::Kind::Window, ui->centralwidget);
     titleBar->setTitle(windowTitle());
-    setMenuWidget(titleBar);
 
     // Asked once, before anything decides what closing the window should mean.
     trayAvailable = QSystemTrayIcon::isSystemTrayAvailable();
@@ -228,9 +226,21 @@ MainWindow::MainWindow(QWidget *parent)
         titleBar->setTitle(windowTitle());
     });
 
+    // The window's frame, top to bottom, in the two pieces the central widget holds: the title bar,
+    // which owns the upper two corners, and the stack below it, which carries the straight run of
+    // border down each side until the status bar closes the window off with the lower two. The same
+    // three pieces a dialog is built from - see AppDialog, which stacks them the same way.
+    //
+    // The bar goes here rather than in the slot QMainWindow keeps for a menu bar, which is where
+    // setMenuWidget() used to put it. That slot is not ours to hold: QMainWindow::menuBar() finds
+    // whatever is in it is not a QMenuBar, builds one, and installs it - which deletes what was
+    // there. Nothing in this application asks a window for its menu bar, but a style may, and KDE's
+    // Breeze does, from polish() as the window is first shown: the bar was destroyed on the way up
+    // and the window arrived with no caption at all, on that desktop only.
     QVBoxLayout *contentLayout = new QVBoxLayout(ui->centralwidget);
     contentLayout->setContentsMargins(0, 0, 0, 0);
     contentLayout->setSpacing(0);
+    contentLayout->addWidget(titleBar);
     contentLayout->addWidget(contentStack);
 
     node = new LocalNode(this);

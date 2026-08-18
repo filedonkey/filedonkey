@@ -267,8 +267,10 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
     uploadedBox->hide();
     downloadedBox->hide();
 
-    // Only ever seen on a row whose mount failed. On the first line rather than the second, where
-    // the reason for the failure is and needs the whole width it can get.
+    // Only ever seen on a row whose mount failed. A column of the row in its own right - see the
+    // layout at the end - rather than something sharing a line with the text: it belongs to the
+    // whole row, not to either of the two lines, and both of those need every pixel of width they
+    // can get for a machine name and a sentence saying what went wrong.
     retryBtn = new QPushButton(DeviceList::tr("Retry"), this);
     retryBtn->setObjectName("deviceRetryBtn");
     retryBtn->setCursor(Qt::PointingHandCursor);
@@ -305,10 +307,6 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
 
     titleLine->addStretch(1);
 
-    // After the stretch, so it sits at the right-hand end of the row and the name keeps its place
-    // whether the button is there or not.
-    titleLine->addWidget(retryBtn, 0, Qt::AlignVCenter);
-
     QHBoxLayout *detailLine = new QHBoxLayout;
     detailLine->setContentsMargins(0, 0, 0, 0);
     detailLine->setSpacing(DETAIL_GAP);
@@ -342,6 +340,11 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
     layout->setSpacing(11);
     layout->addWidget(badgeLbl, 0, Qt::AlignVCenter);
     layout->addLayout(textColumn, 1);
+
+    // The third column, opposite the badge and centred against the pair of lines between them the
+    // same way it is. Taking no width at all while it is hidden, so every other row is laid out
+    // exactly as it was before there was a button to make room for.
+    layout->addWidget(retryBtn, 0, Qt::AlignVCenter);
 
     // Where every row starts: LocalNode emits peerAdded with the mount already under way, so there
     // is no moment at which a peer is known but nothing is being done about it.

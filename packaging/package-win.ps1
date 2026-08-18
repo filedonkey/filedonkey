@@ -17,6 +17,15 @@
     Only needed when the guess in core/dependencies.pri is wrong; it is handed
     to qmake as DOKAN_DIR and nothing here interprets it.
 
+.PARAMETER DokanMsi
+    Path to the Dokany runtime MSI to bundle. Normally left alone: the pinned
+    version is fetched and checksummed into build\redist on first use.
+
+.PARAMETER NoDokanBundle
+    Leave the Dokany MSI out. The installer then only detects Dokany and points
+    the user at the download page, which is roughly 9 MB smaller and needs the
+    user to install the driver themselves.
+
 .PARAMETER StageOnly
     Build and stage, but do not run Inno Setup. Useful for inspecting exactly
     what would ship, and for running the machine without Inno Setup installed.
@@ -38,6 +47,8 @@ param(
     [string] $IsccPath = '',
     [string] $OutDir   = '',
     [string] $DokanDir = '',
+    [string] $DokanMsi = '',
+    [switch] $NoDokanBundle,
     [switch] $StageOnly
 )
 
@@ -128,6 +139,57 @@ function Find-Iscc {
     return $null
 }
 
+# The Dokany runtime that gets bundled. Pinned rather than tracking "latest" on
+# purpose: core/dependencies.pri links dokan2.lib out of the installed SDK, and
+# shipping a runtime that agrees with that import library is most of the reason
+# to carry it at all. Bump this together with the SDK, never on its own.
+#
+# The checksum is not ceremony either. This is a third party's kernel driver
+# installer being fetched over the network and handed to every tester, so what
+# ships has to be the exact bytes that were vetted, not whatever the URL serves
+# on the day.
+$DokanVersion   = '2.3.1.1000'
+$DokanMsiName   = 'Dokan_x64.msi'
+$DokanMsiSha256 = '69FF8CB37BFEC3A75921C85FFD1C6370B50A9EC4ECEF2CF3A009D488DCBF5465'
+$DokanMsiUrl    = "https://github.com/dokan-dev/dokany/releases/download/v$DokanVersion/$DokanMsiName"
+
+function Resolve-DokanMsi {
+    param([Parameter(Mandatory)] [string] $CacheDir)
+
+    $target = Join-Path $CacheDir $DokanMsiName
+
+    if (Test-Path $target) {
+        if ((Get-FileHash -Path $target -Algorithm SHA256).Hash -eq $DokanMsiSha256) {
+            return $target
+        }
+        Write-Host "    cached $DokanMsiName failed its checksum - fetching again" -ForegroundColor Yellow
+        Remove-Item -Path $target -Force
+    }
+
+    New-Item -ItemType Directory -Path $CacheDir -Force | Out-Null
+    Write-Host "    fetching $DokanMsiUrl"
+
+    # Windows PowerShell 5.1 still negotiates TLS 1.0 by default, which GitHub
+    # closes the connection on; and leaving the progress bar on makes
+    # Invoke-WebRequest roughly an order of magnitude slower on a file this size.
+    $previousProgress = $ProgressPreference
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $ProgressPreference = 'SilentlyContinue'
+    try {
+        Invoke-WebRequest -Uri $DokanMsiUrl -OutFile $target -UseBasicParsing
+    } finally {
+        $ProgressPreference = $previousProgress
+    }
+
+    $actual = (Get-FileHash -Path $target -Algorithm SHA256).Hash
+    if ($actual -ne $DokanMsiSha256) {
+        Remove-Item -Path $target -Force
+        throw "$DokanMsiName does not match its pinned checksum.`n  expected $DokanMsiSha256`n  got      $actual"
+    }
+
+    return $target
+}
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -178,9 +240,23 @@ producing an installer at all, re-run with -StageOnly.
 # nothing and add a second place that has to know the directory carries its
 # version in the name. -DokanDir is passed straight through to qmake for the
 # case where the guess is wrong.
+# Resolved here rather than just before ISCC needs it, so that a network
+# failure costs nothing: finding out the download is unreachable after a
+# two-minute release build would be a poor trade.
+$DokanMsiPath = ''
+if (-not $StageOnly -and -not $NoDokanBundle) {
+    if ($DokanMsi) {
+        Assert-Tool $DokanMsi 'Pass -DokanMsi <path-to-Dokan_x64.msi>'
+        $DokanMsiPath = $DokanMsi
+    } else {
+        $DokanMsiPath = Resolve-DokanMsi (Join-Path $RepoRoot 'build\redist')
+    }
+}
+
 Write-Host "    Qt        $QtDir"
 Write-Host "    MinGW     $MinGwDir"
 if ($DokanDir)       { Write-Host "    Dokany    $DokanDir" }
+if ($DokanMsiPath)   { Write-Host "    Runtime   $DokanMsiPath ($DokanVersion)" }
 if (-not $StageOnly) { Write-Host "    Inno      $IsccPath" }
 
 # ---------------------------------------------------------------------------
@@ -318,14 +394,24 @@ Write-Stage 'Building the installer'
 
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 
-Invoke-Native $IsccPath @(
+$isccArgs = @(
     "/DMyAppVersion=$Version",
     "/DMyAppStage=$Stage",
     "/DMyStageDir=$StageDir",
-    "/DMyRepoRoot=$RepoRoot",
-    "/O$OutDir",
-    $IssPath
-) 'Inno Setup'
+    "/DMyRepoRoot=$RepoRoot"
+)
+
+# Defining MyDokanMsi is what switches the .iss between carrying the runtime and
+# merely pointing at it; leaving it undefined is the whole of -NoDokanBundle.
+if ($DokanMsiPath) {
+    $isccArgs += "/DMyDokanMsi=$DokanMsiPath"
+    $isccArgs += "/DMyDokanVersion=$DokanVersion"
+}
+
+$isccArgs += "/O$OutDir"
+$isccArgs += $IssPath
+
+Invoke-Native $IsccPath $isccArgs 'Inno Setup'
 
 Write-Stage 'Done'
 Get-ChildItem -Path $OutDir -Filter '*.exe' | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | ForEach-Object {

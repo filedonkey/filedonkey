@@ -12,6 +12,11 @@
     source of truth is the reason the .exe's VERSIONINFO block and the status
     bar cannot drift apart, and the installer joins the same arrangement.
 
+.PARAMETER DokanDir
+    Path to the Dokany SDK, e.g. "C:\Program Files\Dokan\DokanLibrary-2.3.1".
+    Only needed when the guess in core/dependencies.pri is wrong; it is handed
+    to qmake as DOKAN_DIR and nothing here interprets it.
+
 .PARAMETER StageOnly
     Build and stage, but do not run Inno Setup. Useful for inspecting exactly
     what would ship, and for running the machine without Inno Setup installed.
@@ -32,6 +37,7 @@ param(
     [string] $MinGwDir = 'D:\Projects\Qt\Tools\mingw1310_64',
     [string] $IsccPath = '',
     [string] $OutDir   = '',
+    [string] $DokanDir = '',
     [switch] $StageOnly
 )
 
@@ -166,30 +172,15 @@ producing an installer at all, re-run with -StageOnly.
     Assert-Tool $IsccPath 'Pass -IsccPath <path-to-ISCC.exe>'
 }
 
-# WinFsp is resolved through the registry rather than a hardcoded Program Files
-# path, because that is where WinFsp itself looks: FspLoad() in winfsp.h falls
-# back to HKLM\...\WinFsp\InstallDir when the DLL is not already on the search
-# path. Its bin directory is a symlink into a versioned side-by-side directory,
-# so reading InstallDir is also what keeps us pointed at the current version.
-$WinFspDir = $null
-foreach ($key in @('HKLM:\SOFTWARE\WOW6432Node\WinFsp', 'HKLM:\SOFTWARE\WinFsp')) {
-    try {
-        $WinFspDir = (Get-ItemProperty -Path $key -ErrorAction Stop).InstallDir
-        if ($WinFspDir) { break }
-    } catch {
-        # Key absent under this view; try the next.
-    }
-}
-if (-not $WinFspDir) {
-    throw 'WinFsp is not installed on this machine, so there is no winfsp-x64.dll to ship. Install it from https://winfsp.dev and run this script again.'
-}
-
-$WinFspDll = Join-Path $WinFspDir 'bin\winfsp-x64.dll'
-Assert-Tool $WinFspDll 'WinFsp is registered but its DLL is missing; try repairing the WinFsp installation.'
-
+# Nothing here hunts for the Dokany SDK. core/dependencies.pri already globs
+# %ProgramFiles%\Dokan\DokanLibrary-* for it and aborts with an exact message
+# naming the path it tried, so repeating that search in PowerShell would buy
+# nothing and add a second place that has to know the directory carries its
+# version in the name. -DokanDir is passed straight through to qmake for the
+# case where the guess is wrong.
 Write-Host "    Qt        $QtDir"
 Write-Host "    MinGW     $MinGwDir"
-Write-Host "    WinFsp    $WinFspDir"
+if ($DokanDir)       { Write-Host "    Dokany    $DokanDir" }
 if (-not $StageOnly) { Write-Host "    Inno      $IsccPath" }
 
 # ---------------------------------------------------------------------------
@@ -238,10 +229,13 @@ try {
     # debug/ subdirectories, and app.pro's win32 branch names
     # ../core/release/libcore.a outright. Remove it and libcore.a lands in
     # core/ instead, where the linker will not look for it.
-    Invoke-Native (Join-Path $QtBin 'qmake.exe') @(
+    $qmakeArgs = @(
         (Join-Path $RepoRoot 'FileDonkey.pro'),
         'CONFIG+=release'
-    ) 'qmake'
+    )
+    if ($DokanDir) { $qmakeArgs += "DOKAN_DIR=$DokanDir" }
+
+    Invoke-Native (Join-Path $QtBin 'qmake.exe') $qmakeArgs 'qmake'
 
     $jobs = $env:NUMBER_OF_PROCESSORS
     if (-not $jobs) { $jobs = 4 }
@@ -299,12 +293,12 @@ Invoke-Native (Join-Path $QtBin 'windeployqt.exe') @(
     (Join-Path $StageDir 'FileDonkey.exe')
 ) 'windeployqt'
 
-# winfsp-x64.dll is a load-time import of the .exe (confirmed with objdump -p),
-# so the loader resolves it before main() runs and it has to be beside the
-# binary. WinFsp does not put its bin directory on PATH, and the delay-load
-# route that FspLoad() exists to serve is an MSVC linker feature we do not have
-# under MinGW. So: ship it.
-Copy-Item -Path $WinFspDll -Destination $StageDir
+# No Dokany file is staged, which is the one real packaging difference the
+# migration makes. dokan2.dll is a load-time import of the .exe just as
+# winfsp-x64.dll was, but Dokany's installer puts it in System32 next to the
+# dokan2.sys driver it has to agree with, so the loader finds it there. Copying
+# our own beside the binary would let one SDK's DLL sit in front of a different
+# driver, which is exactly the mismatch the system copy exists to prevent.
 
 $payloadBytes = (Get-ChildItem -Path $StageDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
 $payloadFiles = (Get-ChildItem -Path $StageDir -Recurse -File | Measure-Object).Count

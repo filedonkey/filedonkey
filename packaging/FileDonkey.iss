@@ -51,7 +51,7 @@ SolidCompression=yes
 WizardStyle=modern
 
 ; Admin, because {autopf} resolves to Program Files. FileDonkey itself runs as
-; a normal user afterwards - WinFsp does not require an elevated process to
+; a normal user afterwards - Dokany does not require an elevated process to
 ; mount, so nothing here asks the user to run the app as administrator.
 PrivilegesRequired=admin
 
@@ -67,8 +67,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; The whole staged payload: FileDonkey.exe, the Qt runtime and plugin
-; directories that windeployqt collected, the MinGW runtime DLLs, and
-; winfsp-x64.dll.
+; directories that windeployqt collected, and the MinGW runtime DLLs. No
+; Dokany file appears here: its own installer owns dokan2.dll, in System32.
 Source: "{#MyStageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Renamed to .txt only so that double-clicking them on a test machine opens an
@@ -90,19 +90,28 @@ Filename: "{app}\FileDonkey.exe"; Description: "{cm:LaunchProgram,FileDonkey}"; 
 
 [Code]
 const
-  WinFspDownloadUrl = 'https://winfsp.dev/rel/';
+  DokanDownloadUrl = 'https://github.com/dokan-dev/dokany/releases/latest';
 
-{ WinFsp is a kernel driver installed by its own MSI; the winfsp-x64.dll we ship
-  beside the .exe is only the user-mode half and is useless on its own. Both
-  registry views are checked because WinFsp registers itself under the 32-bit
-  node, and this setup runs 64-bit where HKLM is the 64-bit view. }
-function WinFspInstalled(): Boolean;
-var
-  InstallDir: String;
+// Dokany is a kernel filesystem driver plus a user-mode DLL, both installed by
+// its own MSI, and nothing in this payload substitutes for either.
+//
+// dokan2.dll is what gets checked, rather than the dokan2.sys driver or an
+// uninstall entry, because it is a load-time import of FileDonkey.exe - so this
+// asks precisely the question the Windows loader will ask a moment after setup
+// finishes. A registry probe was the obvious thing to reach for, WinFsp having
+// been found that way, but Dokany registers no key under SOFTWARE to read.
+//
+// ExpandConstant turns {sys} into the real System32 rather than the SysWOW64
+// redirect, because ArchitecturesInstallIn64BitMode above puts this setup in
+// 64-bit mode.
+//
+// These are line comments rather than the usual { } for a reason worth knowing
+// before editing them: a brace comment ends at the FIRST closing brace, so
+// naming an Inno constant inside one silently cuts the comment short and feeds
+// the remainder of the sentence to the compiler as code.
+function DokanInstalled(): Boolean;
 begin
-  Result :=
-    RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\WinFsp', 'InstallDir', InstallDir) or
-    RegQueryStringValue(HKLM, 'SOFTWARE\WinFsp', 'InstallDir', InstallDir);
+  Result := FileExists(ExpandConstant('{sys}\dokan2.dll'));
 end;
 
 function InitializeSetup(): Boolean;
@@ -111,19 +120,20 @@ var
 begin
   Result := True;
 
-  if WinFspInstalled() then
+  if DokanInstalled() then
     Exit;
 
   if MsgBox(
-      'FileDonkey needs WinFsp, which is not installed on this computer.' + #13#10 + #13#10 +
-      'WinFsp provides the virtual disk that FileDonkey mounts. Without it, ' +
-      'FileDonkey will install and start, but will not be able to mount anything.' + #13#10 + #13#10 +
-      'Open the WinFsp download page now and install FileDonkey afterwards?' + #13#10 + #13#10 +
-      'Choose No to continue installing FileDonkey now - you can install WinFsp ' +
-      'later and FileDonkey will find it without being reinstalled.',
+      'FileDonkey needs Dokany, which is not installed on this computer.' + #13#10 + #13#10 +
+      'Dokany provides the virtual disk that FileDonkey mounts. FileDonkey ' +
+      'cannot start without it: it will not open a window and report a ' +
+      'problem, it will fail to launch at all.' + #13#10 + #13#10 +
+      'Open the Dokany download page now and install FileDonkey afterwards?' + #13#10 + #13#10 +
+      'Choose No to continue installing FileDonkey now - you can install ' +
+      'Dokany later and FileDonkey will run without being reinstalled.',
       mbConfirmation, MB_YESNO) = IDYES then
   begin
-    ShellExec('open', WinFspDownloadUrl, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
+    ShellExec('open', DokanDownloadUrl, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
     Result := False;
   end;
 end;

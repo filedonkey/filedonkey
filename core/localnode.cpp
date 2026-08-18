@@ -393,13 +393,17 @@ void LocalNode::broadcast()
 
 // Takes down the rows of failed peers that are no longer there. A peer whose mount failed is kept
 // so that its row can say why and offer another go, and nothing else would ever remove it: it has
-// no VirtDisk left to stop and no socket of ours to drop.
+// no VirtDisk left to stop.
 //
-// Silence is what it is judged on, and on two counts, because either alone is wrong. A peer that
-// is still announcing itself is plainly still running, whatever went wrong with our mount of it.
-// So is one whose own mount of us is up: it dialled our server and that socket is still open, and
-// on a network that drops broadcasts - the one the manual connect exists for - that socket is the
-// only sign of it there will ever be.
+// The backstop, not the usual way. A peer whose own mount of us was up announces its going by that
+// socket dropping, and onSocketDisconnected() takes the row down there and then. This is for the
+// peers that never had one - the ones that could not mount us either, or never got as far as
+// dialling - where nothing arrives to be noticed and all there is to go on is silence.
+//
+// Which is judged on two counts, because either alone is wrong. A peer that is still announcing
+// itself is plainly still running, whatever went wrong with our mount of it. So is one whose own
+// mount of us is up: on a network that drops broadcasts - the one the manual connect exists for -
+// that socket is the only sign of it there will ever be.
 void LocalNode::sweepFailedPeers()
 {
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
@@ -947,15 +951,28 @@ void LocalNode::onSocketDisconnected()
         {
             qDebug() << "[onSocketDisconnected] stopping virtdisk for:" << it->machineName;
             virtDisk->stop();   // returns at once; onVirtDiskStopped() does the cleanup
+            break;
         }
 
-        // No VirtDisk means a peer whose mount failed, which we keep on purpose - see
-        // onVirtDiskStopped(). Nothing to do for it here, and in particular not to forget it: this
-        // socket dropping is what a peer's own mount failing looks like from this side, exactly as
-        // much as it is what a peer going away looks like, and acting on it would have two
-        // machines that both failed to mount forgetting and rediscovering each other forever -
-        // which is the loop all of this is here to end. What actually says a peer has gone is that
-        // it has stopped announcing itself; see sweepFailedPeers().
+        // No VirtDisk means a peer we kept because our mount of it failed - see
+        // onVirtDiskStopped(). Its row is still up offering another go, and this socket, the one
+        // its own mount of us ran over, was the last sign it was there.
+        //
+        // Reaching here at all is what says it has gone. A peer that is merely closing this socket
+        // and staying - which is what its mount failing looks like, and what every press of its
+        // Retry does - says so first, and that is answered above and never gets this far. So the
+        // row goes now rather than waiting for the silence to be noticed: a Retry against a
+        // machine that is not listening could only fail, and one that comes back is found again by
+        // the next broadcast.
+        const QString peerId = it.key();
+
+        qDebug() << "[onSocketDisconnected] failed peer has gone:" << it->machineName;
+
+        connections.remove(peerId);
+        failedPeers.remove(peerId);
+        transfers.remove(peerId);
+
+        emit peerRemoved(peerId);
         break;
     }
 

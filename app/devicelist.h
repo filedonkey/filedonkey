@@ -19,9 +19,9 @@ class DeviceRow;
 // It keeps no state of its own beyond those rows. Everything it shows arrives through the slots
 // below, one per LocalNode signal, and nothing here calls back into the node: a mounted row opens
 // itself in the desktop's file manager when clicked, which asks the node for nothing, and the
-// footer's button asks for an address and hands it out as the signal below rather than dialling it
-// itself. The design's per-device actions - Mount, Unmount, Retry - have nothing behind them yet,
-// and a button that looks live and does nothing is worse than no button.
+// footer's button and a row's Retry both hand their request out as a signal rather than acting on
+// it. Of the design's per-device actions only Retry is built - Mount and Unmount have nothing
+// behind them yet, and a button that looks live and does nothing is worse than no button.
 class DeviceList : public QWidget
 {
     Q_OBJECT
@@ -43,6 +43,11 @@ public:
         // Empty while the mount is still coming up, which is what tells the two states apart -
         // the menu picks its dot by it, the way a row picks the colour of its own.
         QString mountPoint;
+
+        // And the third state, which an empty mount point on its own cannot tell from the second:
+        // the mount was tried and could not be brought up. Nothing is coming for this one until
+        // the user asks for it on the row.
+        bool failed = false;
     };
 
     // Read off the rows rather than kept alongside them, so there is no second copy of who is
@@ -65,6 +70,15 @@ signals:
     void deviceMounted(const QString &name, const QString &mountPoint);
     void deviceUnmounted(const QString &name);
 
+    // A device's mount could not be brought up, with the reason as LocalNode phrased it. Carried
+    // by name for the same reason the two above are: it is a tray notification's to say.
+    void deviceMountFailed(const QString &name, const QString &reason);
+
+    // A row's Retry has been pressed, on its way to LocalNode::retryMount(). Out as a signal
+    // rather than acted on here - this list has never held a node, the way openManualConnect()
+    // does not dial the address it collects.
+    void retryRequested(const QString &machineId);
+
 public slots:
     // A peer has answered a broadcast and its mount has been started. Wired to LocalNode::peerAdded.
     void onPeerAdded(const Connection &conn);
@@ -78,8 +92,12 @@ public slots:
     void onPeerUploaded(const QString &machineId, u64 uploaded);
     void onPeerDownloaded(const QString &machineId, u64 downloaded);
 
-    // The peer's VirtDisk has stopped - it went away, or the mount never came up. Either way the
-    // row goes: LocalNode has forgotten the peer too, so the next broadcast starts it over.
+    // The mount could not be brought up. The row stays, showing the reason and offering another
+    // go - LocalNode is not going to try again on its own, so this is where it rests.
+    void onPeerMountFailed(const QString &machineId, const QString &reason);
+
+    // The peer has gone. The row goes with it: LocalNode has forgotten the peer too, so the next
+    // broadcast starts it over.
     void onPeerRemoved(const QString &machineId);
 
 private:

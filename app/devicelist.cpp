@@ -150,10 +150,21 @@ public:
     explicit DeviceRow(const Connection &conn, QWidget *parent = nullptr);
 
     void setMounted(const QString &mountPoint);
+    void setFailed(const QString &reason);
+
+    // Back to the state the row is built in. Pressing Retry is what asks for it: the mount starts
+    // again at once and the row should say so rather than sitting on the failure it is leaving.
+    void setMounting();
+
     void setUploaded(u64 uploaded);
     void setDownloaded(u64 downloaded);
 
     bool isMounted() const { return mounted; }
+    bool hasFailed() const { return failed; }
+
+    // The list wires this itself - see onPeerAdded, which is where a row is paired with the
+    // machine id a retry has to name. Nothing else about the button is anyone's business.
+    QPushButton *retryButton() const { return retryBtn; }
 
     const QString &name() const { return conn.machineName; }
 
@@ -181,8 +192,19 @@ private:
     QWidget     *uploadedBox   = nullptr;
     QWidget     *downloadedBox = nullptr;
 
+    // Shown only in the failed state, and the one control a row has ever carried.
+    QPushButton *retryBtn = nullptr;
+
     QString mountPoint;
     bool    mounted    = false;
+
+    // The mount was tried and did not come up. Never true at the same time as mounted: nothing
+    // reports a failure once the mount is up, and setMounted is the only thing that says it is.
+    bool    failed     = false;
+
+    // What to put on the second line while that is so, exactly as LocalNode phrased it.
+    QString failureReason;
+
     u64     uploaded   = 0;
     u64     downloaded = 0;
 };
@@ -245,6 +267,18 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
     uploadedBox->hide();
     downloadedBox->hide();
 
+    // Only ever seen on a row whose mount failed. On the first line rather than the second, where
+    // the reason for the failure is and needs the whole width it can get.
+    retryBtn = new QPushButton(DeviceList::tr("Retry"), this);
+    retryBtn->setObjectName("deviceRetryBtn");
+    retryBtn->setCursor(Qt::PointingHandCursor);
+
+    // As the footer's own button is: nothing in this window takes focus by tabbing, and a focus
+    // ring on one row's button would be the only one in the window.
+    retryBtn->setFocusPolicy(Qt::NoFocus);
+
+    retryBtn->hide();
+
     QHBoxLayout *titleLine = new QHBoxLayout;
     titleLine->setContentsMargins(0, 0, 0, 0);
     titleLine->setSpacing(7);
@@ -270,6 +304,10 @@ DeviceRow::DeviceRow(const Connection &conn, QWidget *parent)
     }
 
     titleLine->addStretch(1);
+
+    // After the stretch, so it sits at the right-hand end of the row and the name keeps its place
+    // whether the button is there or not.
+    titleLine->addWidget(retryBtn, 0, Qt::AlignVCenter);
 
     QHBoxLayout *detailLine = new QHBoxLayout;
     detailLine->setContentsMargins(0, 0, 0, 0);
@@ -343,6 +381,51 @@ void DeviceRow::setMounted(const QString &mountPoint)
     refreshToolTip();
 }
 
+// The mount could not be brought up, and nothing is going to try again until the button below is
+// pressed. The second line spends itself on why, which is the only thing worth saying here - and
+// the counters go, having nothing to count.
+void DeviceRow::setFailed(const QString &reason)
+{
+    failed        = true;
+    mounted       = false;
+    failureReason = reason;
+
+    restyle(dotLbl,    "state", "failed");
+    restyle(detailLbl, "state", "failed");
+
+    // There is nothing behind the row now, so the hand a mounted row shows would be a promise it
+    // cannot keep. The button is the only thing on it left to press.
+    setCursor(Qt::ArrowCursor);
+
+    if (mountLbl) mountLbl->hide();
+
+    uploadedBox->hide();
+    downloadedBox->hide();
+
+    detailLbl->show();
+    retryBtn->show();
+
+    refreshDetail();
+    refreshToolTip();
+}
+
+void DeviceRow::setMounting()
+{
+    failed = false;
+    failureReason.clear();
+
+    restyle(dotLbl, "state", "mounting");
+
+    // Cleared rather than set to anything: an invalid QVariant takes the property off, which is
+    // what puts the label back under the plain rule it is styled by the rest of the time.
+    restyle(detailLbl, "state", QVariant());
+
+    retryBtn->hide();
+
+    refreshDetail();
+    refreshToolTip();
+}
+
 void DeviceRow::mousePressEvent(QMouseEvent *event)
 {
     // Taken here or the release never arrives: whoever accepts the press is who Qt sends the rest
@@ -405,6 +488,12 @@ void DeviceRow::setDownloaded(u64 downloaded)
 // the two states apart on the platforms with no mount point to show.
 void DeviceRow::refreshDetail()
 {
+    if (failed)
+    {
+        detailLbl->setText(failureReason);
+        return;
+    }
+
     if (!mounted)
     {
         detailLbl->setText(DeviceList::tr("mounting · %1").arg(conn.machineAddress));
@@ -427,6 +516,10 @@ void DeviceRow::refreshToolTip()
     if (!conn.machineOs.isEmpty()) text += QString(" · %1").arg(osName(conn.machineOs));
 
     text += QString("\n\n%1 : %2").arg(conn.machineAddress).arg(conn.machinePort);
+
+    // The second line elides, and a reason is the one thing a row shows that is a sentence rather
+    // than a label - so this is where it can be read in full.
+    if (failed) text += QString("\n\n%1").arg(failureReason);
 
     setToolTip(text);
 }
@@ -588,6 +681,18 @@ void DeviceList::onPeerAdded(const Connection &conn)
     DeviceRow *row = new DeviceRow(conn);
     rows.insert(conn.machineId, row);
 
+    // The row knows nothing of machine ids past the one it was built from, and the node knows
+    // nothing else, so the pairing is made here where both are in hand. The row goes back to
+    // mounting on the spot rather than waiting to be told: the mount really has started again,
+    // and leaving the failure up until something else says otherwise reads as a button that did
+    // nothing.
+    connect(row->retryButton(), &QPushButton::clicked, this, [this, row, id = conn.machineId]() {
+        row->setMounting();
+        refreshSummary();
+
+        emit retryRequested(id);
+    });
+
     // Before the stretch that holds the rows at the top, and after the empty state, which is
     // hidden from here on.
     rowsLayout->insertWidget(rowsLayout->count() - 1, row);
@@ -607,6 +712,20 @@ void DeviceList::onPeerMounted(const QString &machineId, const QString &mountPoi
     // Off the row rather than off the argument: setMounted() is where a bare drive letter is made
     // into a path, and the notification should say the same thing the row does.
     emit deviceMounted(row->name(), row->mount());
+}
+
+void DeviceList::onPeerMountFailed(const QString &machineId, const QString &reason)
+{
+    DeviceRow *row = rows.value(machineId, nullptr);
+    if (!row) return;
+
+    row->setFailed(reason);
+
+    refreshSummary();
+
+    // Off the row rather than off the id, as the pair above are: a notification has to name the
+    // machine the way the window does.
+    emit deviceMountFailed(row->name(), reason);
 }
 
 void DeviceList::onPeerUploaded(const QString &machineId, u64 uploaded)
@@ -659,7 +778,7 @@ QList<DeviceList::Device> DeviceList::devices() const
         if (!widget || widget == emptyState) continue;
 
         const DeviceRow *row = static_cast<const DeviceRow *>(widget);
-        found.append(Device{ row->name(), row->mount() });
+        found.append(Device{ row->name(), row->mount(), row->hasFailed() });
     }
 
     return found;
@@ -675,18 +794,25 @@ void DeviceList::refreshSummary()
     else if (rows.size() == 1) summaryLbl->setText(tr("1 device"));
     else                       summaryLbl->setText(tr("%1 devices").arg(rows.size()));
 
-    // Green as soon as one mount is up, amber while they are all still coming up, and the default
-    // grey of the stylesheet's dot rule when there is nothing to report.
-    QString state;
+    // Green as soon as one mount is up, amber while any of them is still coming up, red when all
+    // that is left is failures, and the default grey of the stylesheet's dot rule when there is
+    // nothing to report. In that order because it is the best news that is worth reporting: one
+    // device failing while another is mounted is the row's business, not the whole list's.
+    bool anyMounted  = false;
+    bool anyMounting = false;
+    bool anyFailed   = false;
+
     for (const DeviceRow *row : std::as_const(rows))
     {
-        state = "mounting";
-        if (row->isMounted())
-        {
-            state = "mounted";
-            break;
-        }
+        if (row->isMounted())      anyMounted  = true;
+        else if (row->hasFailed()) anyFailed   = true;
+        else                       anyMounting = true;
     }
+
+    QString state;
+    if (anyMounted)       state = "mounted";
+    else if (anyMounting) state = "mounting";
+    else if (anyFailed)   state = "failed";
 
     restyle(summaryDot, "state", state);
 }

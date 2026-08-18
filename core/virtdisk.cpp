@@ -526,7 +526,12 @@ static void SetGtkBookmark(const std::string &mountpoint, const QString &label, 
 }
 #endif
 
-static void StartImpl(VirtDisk *self, Connection *conn)
+// Brings one peer's mount up and stays inside fuse_loop until it comes down again. Returns empty
+// once that has run its course, and a sentence naming what went wrong for every way it can end
+// before the mount exists - the peer unreachable, no drive letter free, the file system refusing
+// to mount. Those sentences are shown to the user and are the only account they get, so they name
+// the thing that failed rather than the call that reported it.
+static QString StartImpl(VirtDisk *self, Connection *conn)
 {
     self->socket = new QTcpSocket();
 
@@ -543,7 +548,14 @@ static void StartImpl(VirtDisk *self, Connection *conn)
     if (!self->socket->waitForConnected())
     {
         qDebug() << "[Start] socket connection error:" << self->socket->errorString();
-        return;
+
+        // The peer announced itself moments ago, so it is up; what this usually means is a
+        // firewall on the transfer port, or a peer whose port setting has moved and whose
+        // announcements have not caught up.
+        return VirtDisk::tr("Could not reach %1 on port %2. %3")
+                   .arg(conn->machineAddress)
+                   .arg(conn->machinePort)
+                   .arg(self->socket->errorString());
     }
     qDebug() << "[Start] socket connected";
 
@@ -590,7 +602,7 @@ static void StartImpl(VirtDisk *self, Connection *conn)
     {
         qDebug() << "[Start] fuse_new failed";
         fuse_opt_free_args(&args);
-        return;
+        return VirtDisk::tr("Could not create the file system for this device.");
     }
 
     struct fuse_session *se = fuse_get_session(self->f);
@@ -607,7 +619,7 @@ static void StartImpl(VirtDisk *self, Connection *conn)
         fuse_destroy(self->f);
         self->f = nullptr;
         fuse_opt_free_args(&args);
-        return;
+        return VirtDisk::tr("There is no free drive letter left to mount this device on.");
     }
     self->mountpoint = QString("%1:").arg(driveLetter).toStdString();
     qDebug() << "[Start] mounting" << conn->machineName << "on" << self->mountpoint.c_str()
@@ -634,15 +646,41 @@ static void StartImpl(VirtDisk *self, Connection *conn)
         mkdir(self->mountpoint.c_str(), 0755);
     }
     qDebug() << "[Start] mntdir_rc rc:" << mntdir_rc << "errno:" << errno;
-#endif // _WIN32
 
-    if (fuse_mount(self->f, self->mountpoint.c_str()) != 0)
+    // The recovery above can get nowhere: it only ever unmounts and remakes the leaf, and if the
+    // directory holding it does not exist - a base that is not there, or one this user cannot
+    // write to - neither mkdir did anything. Say so here rather than leaving it to fuse_mount,
+    // which reports the same failure without naming the path that caused it.
+    struct stat mntdir_st;
+    if (::stat(self->mountpoint.c_str(), &mntdir_st) != 0 || !S_ISDIR(mntdir_st.st_mode))
     {
-        qDebug() << "[Start] fuse_mount failed";
+        qDebug() << "[Start] mountpoint directory is not there";
         fuse_destroy(self->f);
         self->f = nullptr;
         fuse_opt_free_args(&args);
-        return;
+        return VirtDisk::tr("Could not create the mount directory %1.")
+                   .arg(QString::fromStdString(self->mountpoint));
+    }
+#endif // _WIN32
+
+    const int mount_rc = fuse_mount(self->f, self->mountpoint.c_str());
+    if (mount_rc != 0)
+    {
+        qDebug() << "[Start] fuse_mount failed:" << mount_rc;
+        fuse_destroy(self->f);
+        self->f = nullptr;
+        fuse_opt_free_args(&args);
+
+#if defined (_WIN32)
+        // Dokan's own verdict, which is specific enough to act on - a missing driver and a drive
+        // letter something else has taken want different things done about them.
+        return VirtDisk::tr("Could not mount %1. %2")
+                   .arg(QString::fromStdString(self->mountpoint))
+                   .arg(QString::fromUtf8(fuse_mount_error(mount_rc)));
+#else
+        return VirtDisk::tr("Could not mount %1.")
+                   .arg(QString::fromStdString(self->mountpoint));
+#endif
     }
 
     if (fuse_set_signal_handlers(se) != 0)
@@ -652,7 +690,7 @@ static void StartImpl(VirtDisk *self, Connection *conn)
         fuse_destroy(self->f);
         self->f = nullptr;
         fuse_opt_free_args(&args);
-        return;
+        return VirtDisk::tr("Could not set up the file system's signal handlers.");
     }
 
     // Everything that could still have failed has been done, and the file system is about to start
@@ -675,11 +713,15 @@ static void StartImpl(VirtDisk *self, Connection *conn)
     fuse_opt_free_args(&args);
 
     self->f = nullptr;
+
+    // The mount ran and has come down. Whatever ended it - the peer's socket dropping, the user
+    // closing the window - is an ordinary teardown, not something to put in front of anyone.
+    return QString();
 }
 
 static void Start(VirtDisk *self, Connection *conn)
 {
-    StartImpl(self, conn);
+    const QString reason = StartImpl(self, conn);
 
     // Closing our end is what makes the teardown symmetric: the peer's server notices the drop on
     // its event loop and stops the VirtDisk facing us. Leaving it open would keep the connection
@@ -697,8 +739,9 @@ static void Start(VirtDisk *self, Connection *conn)
     // Queued to whoever owns this VirtDisk, so they can join and delete it now that the mount is
     // gone. This thread is about to return, so that join costs nothing. Emitting from the wrapper
     // rather than inside StartImpl covers its failure returns too - a VirtDisk that never got as
-    // far as mounting must still be cleaned up, or its peer can never be rediscovered.
-    emit self->stopped();
+    // far as mounting must still be cleaned up, or its peer can never be rediscovered - and the
+    // reason is what says which of the two happened.
+    emit self->stopped(reason);
 }
 
 void VirtDisk::onSocketDisconnected()
@@ -735,7 +778,12 @@ void VirtDisk::mount(const QString &mountPoint)
 
     connect(worker, &QProcess::finished, this, [this]() {
         qDebug() << "[VirtDisk::mount] mount helper exited for:" << conn.machineName;
-        emit stopped();
+
+        // Drained first. finished() and the last readyReadStandardOutput() are not ordered, and
+        // what may still be sitting in that pipe is the line saying why the mount never came up.
+        onWorkerOutput();
+
+        emit stopped(workerFailure);
     });
 
     // finished() never comes if the helper could not be launched at all, and without a stopped()
@@ -744,7 +792,7 @@ void VirtDisk::mount(const QString &mountPoint)
     connect(worker, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (error != QProcess::FailedToStart) return;
         qDebug() << "[VirtDisk::mount] mount helper failed to start:" << worker->errorString();
-        emit stopped();
+        emit stopped(tr("The mount helper could not be started. %1").arg(worker->errorString()));
     });
 
     worker->start();
@@ -777,6 +825,16 @@ int VirtDisk::runMountWorker()
     // list in the window is waiting on it.
     connect(this, &VirtDisk::mounted, this, [](const QString &mountPoint) {
         printf("@mounted %s\n", mountPoint.toUtf8().constData());
+        fflush(stdout);
+    });
+
+    // The other verdict, on the same channel. Without it a mount that failed in here reaches the
+    // parent as nothing but an exit code, and the row in the window is left saying the device is
+    // still coming up - this process is the only one that knows what went wrong.
+    connect(this, &VirtDisk::stopped, this, [](const QString &reason) {
+        if (reason.isEmpty()) return;
+
+        printf("@failed %s\n", reason.toUtf8().constData());
         fflush(stdout);
     });
 
@@ -813,6 +871,14 @@ void VirtDisk::onWorkerOutput()
         if (line.startsWith("@mounted "))
         {
             emit mounted(QString::fromUtf8(line.mid(sizeof("@mounted ") - 1)));
+            continue;
+        }
+
+        // Held rather than emitted. The helper is still on its way out, and stopped() - which is
+        // what our owner acts on - belongs to the moment it has actually gone.
+        if (line.startsWith("@failed "))
+        {
+            workerFailure = QString::fromUtf8(line.mid(sizeof("@failed ") - 1));
             continue;
         }
     }

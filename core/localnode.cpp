@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <QByteArray>
+#include <QDateTime>
 #include <QHostAddress>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -36,6 +37,11 @@
 #define SHARED_ROOT_KEY     "sharing/root"
 
 #define BROADCAST_INTERVAL_MS 5000
+
+// How long a peer whose mount failed may go unheard of before its row is taken down. Three
+// announcements' worth: one missed datagram is ordinary on a busy wireless network, and a row
+// that vanished on one would be worse than one that lingers for ten seconds longer.
+#define FAILED_PEER_TIMEOUT_MS (BROADCAST_INTERVAL_MS * 3)
 
 // How long a manual connect waits for the machine at the typed address to introduce itself before
 // giving up on it. It covers the whole attempt, the TCP connect included, because from the user's
@@ -365,6 +371,8 @@ QByteArray LocalNode::machineDatagram() const
 
 void LocalNode::broadcast()
 {
+    sweepFailedPeers();
+
     QUdpSocket broadcaster;
     QByteArray datagram = machineDatagram();
 
@@ -381,6 +389,60 @@ void LocalNode::broadcast()
             }
         }
     }
+}
+
+// Takes down the rows of failed peers that are no longer there. A peer whose mount failed is kept
+// so that its row can say why and offer another go, and nothing else would ever remove it: it has
+// no VirtDisk left to stop and no socket of ours to drop.
+//
+// Silence is what it is judged on, and on two counts, because either alone is wrong. A peer that
+// is still announcing itself is plainly still running, whatever went wrong with our mount of it.
+// So is one whose own mount of us is up: it dialled our server and that socket is still open, and
+// on a network that drops broadcasts - the one the manual connect exists for - that socket is the
+// only sign of it there will ever be.
+void LocalNode::sweepFailedPeers()
+{
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+
+    for (auto it = failedPeers.begin(); it != failedPeers.end(); )
+    {
+        const QString peerId = it.key();
+
+        if (now - it.value() < FAILED_PEER_TIMEOUT_MS || isPeerServed(peerId))
+        {
+            ++it;
+            continue;
+        }
+
+        qDebug() << "[sweepFailedPeers] failed peer has gone quiet, dropping:" << peerId;
+
+        it = failedPeers.erase(it);
+
+        connections.remove(peerId);
+        transfers.remove(peerId);
+
+        emit peerRemoved(peerId);
+    }
+}
+
+// Whether this peer's own mount of us is still up, which is to say whether the socket it dialled
+// our server on is still connected. Matched on address, the way servedPeerId() and
+// onSocketDisconnected() do it - a peer dials in on a socket of its own and the address is all
+// that connection has in common with the one it announced itself on.
+bool LocalNode::isPeerServed(const QString &machineId) const
+{
+    const auto conn = connections.constFind(machineId);
+    if (conn == connections.constEnd()) return false;
+
+    const QHostAddress peerAddress(conn->machineAddress);
+
+    for (auto it = served.constBegin(); it != served.constEnd(); ++it)
+    {
+        if (it.key()->state() != QAbstractSocket::ConnectedState) continue;
+        if (QHostAddress(it.key()->peerAddress()).isEqual(peerAddress)) return true;
+    }
+
+    return false;
 }
 
 void LocalNode::invite(const QHostAddress &address)
@@ -411,6 +473,12 @@ void LocalNode::onBroadcasting()
         // things again for the sake of the callers that reach it another way; they are here as well
         // because they decide whether this datagram is worth another word about.
         if (newConn.machineId == machineId) continue;
+
+        // Still there, whatever went wrong with our mount of it. Noted before the check below
+        // sends this datagram away, since a peer we already have is exactly what a failed one is.
+        const auto failed = failedPeers.find(newConn.machineId);
+        if (failed != failedPeers.end()) *failed = QDateTime::currentMSecsSinceEpoch();
+
         if (connections.contains(newConn.machineId)) continue;
 
         qDebug() << "[LocalNode::onBroadcasting] machine id: "     << newConn.machineId;
@@ -444,6 +512,15 @@ bool LocalNode::addPeer(const Connection &conn)
 
     connections.insert(conn.machineId, conn);
 
+    startMount(conn);
+
+    emit peerAdded(conn);
+
+    return true;
+}
+
+void LocalNode::startMount(const Connection &conn)
+{
     VirtDisk *virtDisk = new VirtDisk(conn);
     virtDisks.insert(conn.machineId, virtDisk);
     connect(virtDisk, &VirtDisk::stopped, this, &LocalNode::onVirtDiskStopped);
@@ -474,10 +551,28 @@ bool LocalNode::addPeer(const Connection &conn)
     });
 
     virtDisk->mount("M:\\");
+}
 
-    emit peerAdded(conn);
+// Another go at a peer whose mount failed. Everything needed for it is still here: onVirtDiskStopped
+// keeps such a peer in connections rather than forgetting it, which is both what stops the next
+// broadcast retrying by itself and what leaves this with an address to dial.
+void LocalNode::retryMount(const QString &machineId)
+{
+    // Mounted, or still coming up. Only a peer with no VirtDisk of its own is in the state this is
+    // for - see the note on peerMountFailed.
+    if (virtDisks.contains(machineId)) return;
 
-    return true;
+    const auto conn = connections.constFind(machineId);
+    if (conn == connections.constEnd()) return;
+
+    qDebug() << "[LocalNode::retryMount] mounting again:" << conn->machineName;
+
+    // Out of the failed set before the mount starts, or a sweep landing between here and the next
+    // announcement would take down the row of a peer that is busy mounting. It goes back in if
+    // this attempt fails too.
+    failedPeers.remove(machineId);
+
+    startMount(*conn);
 }
 
 void LocalNode::connectManually(const QString &address, int port)
@@ -830,6 +925,14 @@ void LocalNode::onSocketDisconnected()
             qDebug() << "[onSocketDisconnected] stopping virtdisk for:" << it->machineName;
             virtDisk->stop();   // returns at once; onVirtDiskStopped() does the cleanup
         }
+
+        // No VirtDisk means a peer whose mount failed, which we keep on purpose - see
+        // onVirtDiskStopped(). Nothing to do for it here, and in particular not to forget it: this
+        // socket dropping is what a peer's own mount failing looks like from this side, exactly as
+        // much as it is what a peer going away looks like, and acting on it would have two
+        // machines that both failed to mount forgetting and rediscovering each other forever -
+        // which is the loop all of this is here to end. What actually says a peer has gone is that
+        // it has stopped announcing itself; see sweepFailedPeers().
         break;
     }
 
@@ -837,26 +940,51 @@ void LocalNode::onSocketDisconnected()
     socket->deleteLater();
 }
 
-void LocalNode::onVirtDiskStopped()
+void LocalNode::onVirtDiskStopped(const QString &reason)
 {
     VirtDisk *virtDisk = qobject_cast<VirtDisk *>(QObject::sender());
     if (!virtDisk) return;
 
     QString peerId = virtDisks.key(virtDisk);
 
-    qDebug() << "[onVirtDiskStopped] virtdisk stopped for machine:" << peerId;
+    qDebug() << "[onVirtDiskStopped] virtdisk stopped for machine:" << peerId
+             << "reason:" << (reason.isEmpty() ? QString("teardown") : reason);
 
     virtDisks.remove(peerId);
 
+    // The mount never came up. Keep the peer exactly where it is: what is left in connections is
+    // what has onBroadcasting() ignore its next announcement, which is the whole of the fix for
+    // two machines unmounting each other every five seconds forever, and it is what retryMount()
+    // reads when the user asks for another go. The transfers stay too - this peer's own mount of
+    // us may well be up and moving bytes across the socket it dialled our server on.
+    //
+    // Nothing here decides the row is now unreachable. It stays in the list saying why, until the
+    // user retries or the socket above tells us the machine has gone.
+    if (!reason.isEmpty())
+    {
+        // Stamped now rather than when it was last heard from, so a peer gets the full grace
+        // period from the moment its mount failed rather than from whenever the last broadcast
+        // happened to land.
+        failedPeers.insert(peerId, QDateTime::currentMSecsSinceEpoch());
+
+        emit peerMountFailed(peerId, reason);
+
+        virtDisk->deleteLater();
+        return;
+    }
+
     // Forget the peer too, otherwise onBroadcasting's contains() check would refuse to mount it
-    // again when it comes back.
+    // again when it comes back. The failed set is keyed on the same peers connections holds and
+    // has to go the same way, or a sweep would find a machine that has already been let go of.
     connections.remove(peerId);
+    failedPeers.remove(peerId);
 
     transfers.remove(peerId);
 
     // The socket this peer dialled in on is usually gone by now - its drop is what brought us here -
-    // but it need not be: a mount can fail on its own. Unbind it so its bytes do not land on the
-    // fresh total the next mount of this machine starts from.
+    // but it need not be: the window closing brings a mount down while that socket is still up.
+    // Unbind it so its bytes do not land on the fresh total the next mount of this machine starts
+    // from.
     for (auto it = served.begin(); it != served.end(); ++it)
     {
         if (it->machineId != peerId) continue;

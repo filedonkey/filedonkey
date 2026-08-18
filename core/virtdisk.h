@@ -44,8 +44,15 @@ signals:
     // A mount that never comes up emits stopped() and nothing else.
     void mounted(const QString &mountPoint);
 
-    // Emitted from the fuse thread once fuse_loop has returned and the mount is torn down.
-    void stopped();
+    // Emitted from the fuse thread once fuse_loop has returned and the mount is torn down, and
+    // from the GUI thread for the ways a mount can end before there is a thread to report it.
+    //
+    // The reason is empty for an ordinary teardown - the peer went away, or we are shutting down -
+    // and a sentence fit to show when the mount could not be brought up at all. Whoever owns this
+    // VirtDisk has to tell the two apart: a peer that merely went is forgotten and found again on
+    // the next broadcast, while one whose mount failed will fail again the same way in five
+    // seconds, and did, for as long as this signal carried nothing.
+    void stopped(const QString &reason);
 
 public slots:
     void onSocketDisconnected();
@@ -63,7 +70,8 @@ private:
 
 #if defined(__APPLE__)
     // Reads the transfer totals the helper reports on its stdout, so the UI counters keep
-    // working now that the socket doing the transferring lives in another process.
+    // working now that the socket doing the transferring lives in another process. The helper's
+    // verdict on the mount comes back the same way - see workerFailure below.
     void onWorkerOutput();
 
     // Asks the mount helper to come down. Runs at most once.
@@ -71,6 +79,11 @@ private:
 
     QProcess *worker = nullptr;
     bool terminatedWorker = false;
+
+    // Why the helper's mount never came up, as it reported it on stdout, held until the process
+    // exits and stopped() can carry it out. Empty for a mount that ran and was stopped, which is
+    // the same thing empty means on that signal.
+    QString workerFailure;
 #endif
 
     QString mountPoint;

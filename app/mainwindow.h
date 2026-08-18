@@ -66,6 +66,11 @@ private:
     void announceMounted(const QString &name, const QString &mountPoint);
     void announceUnmounted(const QString &name);
 
+    // And the third: a mount that could not be brought up at all. Worth a notification of its own
+    // because nothing will try it again - the device sits in the list offering a Retry, and a user
+    // who is not looking at the window would never know to go and press it.
+    void announceMountFailed(const QString &name, const QString &reason);
+
     // Wired to LocalNode::manualConnectFailed. The dialog that took the address is closed by the
     // time an answer - or the lack of one - comes back, so this is where the news lands.
     void reportManualConnectFailed(const QString &address, const QString &reason);

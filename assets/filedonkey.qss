@@ -533,6 +533,14 @@ QLabel#deviceDot {
 
 QLabel#deviceDot[state="mounting"] { background: #E0A33C; }
 QLabel#deviceDot[state="mounted"]  { background: #4EC97A; }
+QLabel#deviceDot[state="failed"]   { background: #E0574C; }
+
+/* The second line of a failed row carries the reason, and takes the dot's own
+ * colour to say so - it is the one thing on a row that is a fault rather than a
+ * fact about the device. Same red, and the same red the tray's dot is drawn in
+ * from mainwindow.cpp, which has to be changed with it. */
+
+QLabel#deviceDetail[state="failed"] { color: #E0574C; }
 
 QLabel#deviceEmptyTitle {
     color: #E8E9EC;
@@ -581,6 +589,7 @@ QLabel#deviceFooterHint {
  * which is what dresses an ordinary dialog's buttons - so what is set here is a
  * whole button and not a handful of corrections to that one. */
 
+QPushButton#deviceRetryBtn,
 QPushButton#manualConnectBtn,
 QPushButton#dialogCancelBtn,
 QPushButton#dialogQuitBtn {
@@ -593,11 +602,23 @@ QPushButton#dialogQuitBtn {
     min-width: 0px;
 }
 
+QPushButton#deviceRetryBtn:hover,
 QPushButton#manualConnectBtn:hover,
 QPushButton#dialogCancelBtn:hover { background: #2F3238; }
 
+QPushButton#deviceRetryBtn:pressed,
 QPushButton#manualConnectBtn:pressed,
 QPushButton#dialogCancelBtn:pressed { background: #212226; }
+
+/* The same button as the footer's, drawn in less: it sits inside a row rather
+ * than on a strip of its own, and a row is 11px of type and 9px of padding tall.
+ * Only the two numbers that decide its height are set - everything else is the
+ * rule above, so the two go on reading as one button in two places. */
+
+QPushButton#deviceRetryBtn {
+    font-size: 11px;
+    padding: 2px 10px;
+}
 
 /* The list is the only thing that scrolls, so this is the whole scrollbar. No
  * buttons at the ends - the arrows are a Windows 7 idea that nothing in this

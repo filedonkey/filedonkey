@@ -63,6 +63,7 @@ namespace {
 // and changing a colour means changing it in both places.
 #define TRAY_DOT_MOUNTING QColor(0xE0, 0xA3, 0x3C)
 #define TRAY_DOT_MOUNTED  QColor(0x4E, 0xC9, 0x7A)
+#define TRAY_DOT_FAILED   QColor(0xE0, 0x57, 0x4C)
 
 // Drawn at the display's scale factor rather than at 16 square and left to be blown up, so the
 // circle keeps its edge on a HiDPI screen. The painter works in the icon's own coordinates either
@@ -241,6 +242,11 @@ MainWindow::MainWindow(QWidget *parent)
     connect(node, &LocalNode::peerUploaded,   deviceList, &DeviceList::onPeerUploaded);
     connect(node, &LocalNode::peerDownloaded, deviceList, &DeviceList::onPeerDownloaded);
     connect(node, &LocalNode::peerRemoved,    deviceList, &DeviceList::onPeerRemoved);
+    connect(node, &LocalNode::peerMountFailed, deviceList, &DeviceList::onPeerMountFailed);
+
+    // The one thing the list asks of the node. Straight through: retryMount() decides for itself
+    // whether the machine named is in a state to be mounted again.
+    connect(deviceList, &DeviceList::retryRequested, node, &LocalNode::retryMount);
 
     // The one thing that travels the other way. The list collects an address and knows nothing to
     // do with it; the node dials it and, when nothing answers, says so back through here. A peer
@@ -252,6 +258,7 @@ MainWindow::MainWindow(QWidget *parent)
     // id has ever been paired with a name.
     connect(deviceList, &DeviceList::deviceMounted,   this, &MainWindow::announceMounted);
     connect(deviceList, &DeviceList::deviceUnmounted, this, &MainWindow::announceUnmounted);
+    connect(deviceList, &DeviceList::deviceMountFailed, this, &MainWindow::announceMountFailed);
 
     // Queued, unlike every other connection here. What it reaches opens a modal message box, and a
     // modal box runs an event loop of its own - delivered directly it would start that loop inside
@@ -487,6 +494,19 @@ void MainWindow::announceUnmounted(const QString &name)
                           TRAY_MESSAGE_MS);
 }
 
+// The third of them, and the only one the user has anything to do about. It says the reason
+// rather than pointing at the window for it: a notification that only says something went wrong
+// is a notification that has to be followed up, and the reasons here are one line each.
+void MainWindow::announceMountFailed(const QString &name, const QString &reason)
+{
+    if (!trayAvailable || !QSystemTrayIcon::supportsMessages()) return;
+
+    trayIcon->showMessage(tr("%1 could not be mounted").arg(name),
+                          reason,
+                          QSystemTrayIcon::Warning,
+                          TRAY_MESSAGE_MS);
+}
+
 void MainWindow::createTrayIcon()
 {
     trayIconMenu = new QMenu(this);
@@ -546,13 +566,18 @@ void MainWindow::refreshTrayDevices()
     {
         const bool mounted = !device.mountPoint.isEmpty();
 
+        // The three the rows show, in the same colours. A device whose mount failed is not on its
+        // way anywhere, and an amber dot beside it would say it was.
+        const QColor dot = mounted        ? TRAY_DOT_MOUNTED
+                         : device.failed  ? TRAY_DOT_FAILED
+                                          : TRAY_DOT_MOUNTING;
+
         // An ampersand in a machine name would be eaten as a mnemonic and underline the letter
         // after it. Doubling it is how a QAction is told the name means it literally.
         QString name = device.name;
         name.replace('&', "&&");
 
-        QAction *action = new QAction(trayDot(mounted ? TRAY_DOT_MOUNTED : TRAY_DOT_MOUNTING),
-                                      name, this);
+        QAction *action = new QAction(trayDot(dot), name, this);
 
         // What clicking a row does, where there is something to click through to: a mounted device
         // opens in the desktop's file manager. One still coming up has nowhere to go yet, so it

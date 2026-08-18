@@ -1028,6 +1028,32 @@ extern "C" struct fuse_session *fuse_get_session(struct fuse *f)
     return reinterpret_cast<struct fuse_session *>(f);
 }
 
+// The mount point only ever has to be taken away once, and asking twice is not free: the second
+// time Dokan no longer knows the device, so it falls back to its network provider, which pulls
+// dokannp2.dll into this process to trace an enumeration that then fails. Everyone tears a mount
+// down more than once - VirtDisk::stop and VirtDisk::unmount both ask - so latch it here.
+//
+// On success, not on the attempt: a removal that failed has not ended the loop, and the caller
+// behind it still has to try. Two callers arriving together can both get through, since the check
+// cannot hold the lock across the removal itself - but that is the race, not the ordinary case
+// this is here for.
+static void RemoveMountPointOnce(struct fuse *f)
+{
+    {
+        std::lock_guard<std::mutex> lock(f->mutex);
+        if (f->removed) return;
+    }
+
+    // Never with the lock held. How long DokanRemoveMountPoint takes to come back is the driver's
+    // business, and fuse_loop wants the same lock the moment its wait ends - holding it across a
+    // call that is trying to make exactly that happen is how the two would sit on each other.
+    // mountpointW has not changed since fuse_mount, so reading it here needs no lock of its own.
+    if (!DokanRemoveMountPoint(f->mountpointW.c_str())) return;
+
+    std::lock_guard<std::mutex> lock(f->mutex);
+    f->removed = true;
+}
+
 extern "C" int fuse_mount(struct fuse *f, const char *mountpoint)
 {
     if (!f || !mountpoint || !*mountpoint) return -1;
@@ -1101,53 +1127,19 @@ extern "C" int fuse_mount(struct fuse *f, const char *mountpoint)
     f->dokanOps.Mounted         = nullptr;
     f->dokanOps.Unmounted       = nullptr;
 
-    // Nothing is mounted yet. Dokan takes the drive letter in fuse_loop, where the filesystem is
-    // created - which is the same order libfuse's own fuse_mount and fuse_loop end up in.
-    return 0;
-}
-
-// The mount point only ever has to be taken away once, and asking twice is not free: the second
-// time Dokan no longer knows the device, so it falls back to its network provider, which pulls
-// dokannp2.dll into this process to trace an enumeration that then fails. Everyone tears a mount
-// down more than once - VirtDisk::stop and VirtDisk::unmount both ask - so latch it here.
-//
-// On success, not on the attempt: a removal that failed has not ended the loop, and the caller
-// behind it still has to try. Two callers arriving together can both get through, since the check
-// cannot hold the lock across the removal itself - but that is the race, not the ordinary case
-// this is here for.
-static void RemoveMountPointOnce(struct fuse *f)
-{
-    {
-        std::lock_guard<std::mutex> lock(f->mutex);
-        if (f->removed) return;
-    }
-
-    // Never with the lock held. How long DokanRemoveMountPoint takes to come back is the driver's
-    // business, and fuse_loop wants the same lock the moment its wait ends - holding it across a
-    // call that is trying to make exactly that happen is how the two would sit on each other.
-    // mountpointW has not changed since fuse_mount, so reading it here needs no lock of its own.
-    if (!DokanRemoveMountPoint(f->mountpointW.c_str())) return;
-
-    std::lock_guard<std::mutex> lock(f->mutex);
-    f->removed = true;
-}
-
-extern "C" int fuse_loop(struct fuse *f)
-{
-    if (!f || f->mountpointW.empty()) return -1;
-
-    {
-        std::lock_guard<std::mutex> lock(f->mutex);
-        if (f->exiting) return 0;
-    }
-
-    // Not DokanMain, which does the create and the wait in one blocking call and hands back no
-    // handle in between. Split, there is a moment where the filesystem exists and is known here,
-    // which is what lets fuse_exit below be reliable rather than a race: before this returns there
-    // is nothing to unmount, and after it there always is.
+    // The filesystem itself, created here rather than in fuse_loop, which is what libfuse does:
+    // it brings the mount up in fuse_mount and only waits on it in fuse_loop. Everything that can
+    // stop a mount coming up is decided by this one call - no driver, a drive letter taken since
+    // VirtDisk reserved it, a version this build cannot talk to - so a caller written against
+    // libfuse hears about all of it from the return value here, the way it would anywhere else.
+    //
+    // Creating it in fuse_loop, as this used to, made a mount that never came up impossible to
+    // tell from one that had run and been stopped: fuse_mount succeeded either way, VirtDisk
+    // announced a drive that did not exist, and the failure arrived as fuse_loop's return value
+    // long after anyone was still listening for one.
     DOKAN_HANDLE instance = nullptr;
 
-    int rc = DokanCreateFileSystem(&f->dokanOptions, &f->dokanOps, &instance);
+    const int rc = DokanCreateFileSystem(&f->dokanOptions, &f->dokanOps, &instance);
     if (rc != DOKAN_SUCCESS) return rc;
 
     bool stopNow = false;
@@ -1156,11 +1148,53 @@ extern "C" int fuse_loop(struct fuse *f)
         f->instance = instance;
 
         // Asked to stop while the filesystem was coming up. It exists now, so it can be taken
-        // straight back down; the wait below then returns at once.
+        // straight back down; the wait in fuse_loop then returns at once.
         stopNow = f->exiting;
     }
 
     if (stopNow) RemoveMountPointOnce(f);
+
+    return 0;
+}
+
+// What fuse_mount's return value means, in words worth showing a user. Dokan's own codes, since
+// those are what it now hands back. No such thing in libfuse - the one caller is inside a _WIN32
+// guard already - but a mount that fails on Windows fails for reasons the user is the only one who
+// can do anything about, and "mount failed" on its own tells them none of them.
+extern "C" const char *fuse_mount_error(int rc)
+{
+    switch (rc)
+    {
+        case DOKAN_SUCCESS:              return "";
+        case DOKAN_DRIVE_LETTER_ERROR:   return "That drive letter cannot be used.";
+        case DOKAN_DRIVER_INSTALL_ERROR: return "The Dokany driver could not be installed.";
+        case DOKAN_START_ERROR:          return "The Dokany driver would not start.";
+        case DOKAN_MOUNT_ERROR:          return "That drive letter is already taken by another volume.";
+        case DOKAN_MOUNT_POINT_ERROR:    return "The mount point is not a valid one.";
+        case DOKAN_VERSION_ERROR:        return "The installed Dokany driver is a version this build cannot use.";
+    }
+
+    // DOKAN_ERROR among them, which is all Dokan says when it has nothing more specific. By far
+    // its most common cause is a driver that is not installed at all.
+    return "Dokany could not mount the drive. Check that Dokany is installed.";
+}
+
+// Waits for the mount fuse_mount brought up, and returns once it is gone. Nothing is created here
+// any more - see the note in fuse_mount for why that moved, and what it was costing where it was.
+extern "C" int fuse_loop(struct fuse *f)
+{
+    if (!f) return -1;
+
+    DOKAN_HANDLE instance = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(f->mutex);
+        instance = f->instance;
+    }
+
+    // Never mounted, or stopped in the moment between fuse_mount and this call. Either way there
+    // is nothing to wait on, and it is an ordinary end rather than a failure: a mount that could
+    // not come up was fuse_mount's to report, and it did.
+    if (!instance) return 0;
 
     DokanWaitForFileSystemClosed(instance, INFINITE);
 

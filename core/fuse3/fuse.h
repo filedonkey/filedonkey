@@ -139,6 +139,12 @@ struct fuse *fuse_new(struct fuse_args *args, const struct fuse_operations *op, 
                     void *private_data);
 struct fuse_session *fuse_get_session(struct fuse *f);
 int   fuse_mount(struct fuse *f, const char *mountpoint);
+
+// Not libfuse's. What fuse_mount handed back, said in a sentence: on this platform a mount
+// fails for reasons only the user can put right - a driver that is not installed, a drive
+// letter something else is holding - and the return value alone names none of them. Callers
+// elsewhere have no equivalent and are inside a _WIN32 guard for it.
+const char *fuse_mount_error(int rc);
 void  fuse_unmount(struct fuse *f);
 int   fuse_loop(struct fuse *f);
 void  fuse_exit(struct fuse *f);

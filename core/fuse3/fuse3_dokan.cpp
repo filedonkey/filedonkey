@@ -103,6 +103,10 @@ struct fuse
     std::mutex mutex;
     bool exiting = false;
 
+    // Set once the mount point has actually been taken away, so the callers that follow do not
+    // ask again - see RemoveMountPointOnce.
+    bool removed = false;
+
     // Held for the whole of every callback below, so the file system above still sees one request
     // at a time - see Frame, and the note on dokanOptions.SingleThread in fuse_mount.
     std::mutex opsMutex;
@@ -1102,6 +1106,32 @@ extern "C" int fuse_mount(struct fuse *f, const char *mountpoint)
     return 0;
 }
 
+// The mount point only ever has to be taken away once, and asking twice is not free: the second
+// time Dokan no longer knows the device, so it falls back to its network provider, which pulls
+// dokannp2.dll into this process to trace an enumeration that then fails. Everyone tears a mount
+// down more than once - VirtDisk::stop and VirtDisk::unmount both ask - so latch it here.
+//
+// On success, not on the attempt: a removal that failed has not ended the loop, and the caller
+// behind it still has to try. Two callers arriving together can both get through, since the check
+// cannot hold the lock across the removal itself - but that is the race, not the ordinary case
+// this is here for.
+static void RemoveMountPointOnce(struct fuse *f)
+{
+    {
+        std::lock_guard<std::mutex> lock(f->mutex);
+        if (f->removed) return;
+    }
+
+    // Never with the lock held. How long DokanRemoveMountPoint takes to come back is the driver's
+    // business, and fuse_loop wants the same lock the moment its wait ends - holding it across a
+    // call that is trying to make exactly that happen is how the two would sit on each other.
+    // mountpointW has not changed since fuse_mount, so reading it here needs no lock of its own.
+    if (!DokanRemoveMountPoint(f->mountpointW.c_str())) return;
+
+    std::lock_guard<std::mutex> lock(f->mutex);
+    f->removed = true;
+}
+
 extern "C" int fuse_loop(struct fuse *f)
 {
     if (!f || f->mountpointW.empty()) return -1;
@@ -1130,8 +1160,7 @@ extern "C" int fuse_loop(struct fuse *f)
         stopNow = f->exiting;
     }
 
-    // Outside the lock, for the reason given on fuse_exit.
-    if (stopNow) DokanRemoveMountPoint(f->mountpointW.c_str());
+    if (stopNow) RemoveMountPointOnce(f);
 
     DokanWaitForFileSystemClosed(instance, INFINITE);
 
@@ -1160,11 +1189,7 @@ extern "C" void fuse_exit(struct fuse *f)
         mounted    = f->instance != nullptr;
     }
 
-    // Never with the lock held. How long DokanRemoveMountPoint takes to come back is the driver's
-    // business, and fuse_loop wants the same lock the moment its wait ends - holding it across a
-    // call that is trying to make exactly that happen is how the two would sit on each other.
-    // mountpointW has not changed since fuse_mount, so reading it here needs no lock of its own.
-    if (mounted) DokanRemoveMountPoint(f->mountpointW.c_str());
+    if (mounted) RemoveMountPointOnce(f);
 }
 
 extern "C" void fuse_unmount(struct fuse *f)
